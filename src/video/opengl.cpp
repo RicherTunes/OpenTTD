@@ -618,7 +618,13 @@ OpenGLBackend::~OpenGLBackend()
 		if (this->pp_grain_program != 0) _glDeleteProgram(this->pp_grain_program);
 		if (this->pp_bicubic_program != 0) _glDeleteProgram(this->pp_bicubic_program);
 		if (this->pp_crt_program != 0) _glDeleteProgram(this->pp_crt_program);
+		if (this->pp_lighting_program != 0) _glDeleteProgram(this->pp_lighting_program);
+		if (this->pp_bloom_threshold_program != 0) _glDeleteProgram(this->pp_bloom_threshold_program);
+		if (this->pp_bloom_blur_h_program != 0) _glDeleteProgram(this->pp_bloom_blur_h_program);
+		if (this->pp_bloom_blur_v_program != 0) _glDeleteProgram(this->pp_bloom_blur_v_program);
+		if (this->pp_weather_program != 0) _glDeleteProgram(this->pp_weather_program);
 		if (this->pp_temporal_program != 0) _glDeleteProgram(this->pp_temporal_program);
+		if (this->pp_downsample_program != 0) _glDeleteProgram(this->pp_downsample_program);
 	}
 	if (_glDeleteVertexArrays != nullptr) _glDeleteVertexArrays(1, &this->vao_quad);
 	if (_glDeleteBuffers != nullptr) {
@@ -1435,6 +1441,7 @@ bool OpenGLBackend::InitPostProcessShaders()
 	this->pp_bloom_blur_v_program = CompileAndLog("bloom-blur-v", _frag_shader_pp_bloom_blur_v, lengthof(_frag_shader_pp_bloom_blur_v));
 	this->pp_weather_program = CompileAndLog("weather", _frag_shader_pp_weather, lengthof(_frag_shader_pp_weather));
 	this->pp_temporal_program = CompileAndLog("temporal-accum", _frag_shader_pp_temporal_accum, lengthof(_frag_shader_pp_temporal_accum));
+	this->pp_downsample_program = CompileAndLog("downsample", _frag_shader_pp_downsample, lengthof(_frag_shader_pp_downsample));
 
 	_glDeleteShader(pp_vert);
 
@@ -1464,6 +1471,7 @@ bool OpenGLBackend::InitPostProcessShaders()
 	BindSourceTex(this->pp_bloom_blur_v_program);
 	BindSourceTex(this->pp_weather_program);
 	BindSourceTex(this->pp_temporal_program);
+	BindSourceTex(this->pp_downsample_program);
 	/* Temporal shader uses additional texture units for history and MV. */
 	if (this->pp_temporal_program != 0) {
 		_glUseProgram(this->pp_temporal_program);
@@ -1534,6 +1542,22 @@ bool OpenGLBackend::InitPostProcessShaders()
 	this->pp_crt_scanline_loc = CacheLoc(this->pp_crt_program, "scanline_strength");
 	this->pp_crt_curve_loc = CacheLoc(this->pp_crt_program, "curvature");
 	this->pp_crt_aberr_loc = CacheLoc(this->pp_crt_program, "chromatic_aberr");
+
+	/* Dynamic lighting uniforms. */
+	this->pp_lighting_tod_loc = CacheLoc(this->pp_lighting_program, "time_of_day");
+
+	/* Bloom uniforms. */
+	this->pp_bloom_thresh_loc = CacheLoc(this->pp_bloom_threshold_program, "bloom_threshold");
+	this->pp_bloom_blur_h_texel_loc = CacheLoc(this->pp_bloom_blur_h_program, "texel_size");
+	this->pp_bloom_blur_v_texel_loc = CacheLoc(this->pp_bloom_blur_v_program, "texel_size");
+
+	/* Weather uniforms. */
+	this->pp_weather_time_loc = CacheLoc(this->pp_weather_program, "time");
+	this->pp_weather_int_loc = CacheLoc(this->pp_weather_program, "weather_intensity");
+	this->pp_weather_type_loc = CacheLoc(this->pp_weather_program, "weather_type");
+
+	/* Downsample uniforms. */
+	this->pp_downsample_texel_loc = CacheLoc(this->pp_downsample_program, "texel_size");
 
 	/* Temporal accumulation uniforms. */
 	this->pp_temporal_texel_loc = CacheLoc(this->pp_temporal_program, "texel_size");
@@ -1671,7 +1695,15 @@ void OpenGLBackend::RenderPostProcess()
 	if (WillRun(this->pp_config.night_mode, this->pp_night_program)) total++;
 	if (WillRun(this->pp_config.vignette, this->pp_vignette_program)) total++;
 	if (WillRun(this->pp_config.film_grain, this->pp_grain_program)) total++;
+	if (WillRun(this->pp_config.dynamic_lighting, this->pp_lighting_program)) total++;
+	if (this->pp_config.bloom && this->pp_bloom_threshold_program != 0) {
+		total++; /* threshold */
+		if (this->pp_bloom_blur_h_program != 0) total++; /* blur H */
+		if (this->pp_bloom_blur_v_program != 0) total++; /* blur V */
+	}
 	if (WillRun(this->pp_config.crt_filter, this->pp_crt_program)) total++;
+	if (this->pp_config.weather_type > 0 && this->pp_weather_program != 0) total++;
+	if (this->pp_config.render_scale > 100 && this->pp_downsample_program != 0) total++;
 
 	/* RunPass: program must already be bound via _glUseProgram before calling. */
 	auto RunPass = [&]() {
@@ -1852,6 +1884,38 @@ void OpenGLBackend::RenderPostProcess()
 		RunPass();
 	}
 
+	/* Dynamic lighting (time-of-day). Runs before night mode for proper layering. */
+	if (this->pp_config.dynamic_lighting && this->pp_lighting_program != 0) {
+		_glUseProgram(this->pp_lighting_program);
+		_glUniform1f(this->pp_lighting_tod_loc, this->pp_config.time_of_day);
+		RunPass();
+	}
+
+	/* Bloom (3 passes: threshold -> blur H -> blur V).
+	 * Note: this is a simplified bloom that operates in-place on the ping-pong chain.
+	 * A production bloom would use a separate half-res FBO for the blur, but this
+	 * approach avoids extra texture allocations and works well for pixel-art. */
+	if (this->pp_config.bloom && this->pp_bloom_threshold_program != 0) {
+		/* Pass 1: Extract bright pixels above threshold. */
+		_glUseProgram(this->pp_bloom_threshold_program);
+		_glUniform1f(this->pp_bloom_thresh_loc, this->pp_config.bloom_threshold / 100.0f);
+		RunPass();
+
+		/* Pass 2: Horizontal blur. */
+		if (this->pp_bloom_blur_h_program != 0) {
+			_glUseProgram(this->pp_bloom_blur_h_program);
+			_glUniform2f(this->pp_bloom_blur_h_texel_loc, texel_w, texel_h);
+			RunPass();
+		}
+
+		/* Pass 3: Vertical blur. */
+		if (this->pp_bloom_blur_v_program != 0) {
+			_glUseProgram(this->pp_bloom_blur_v_program);
+			_glUniform2f(this->pp_bloom_blur_v_texel_loc, texel_w, texel_h);
+			RunPass();
+		}
+	}
+
 	/* CRT scanline filter. */
 	if (this->pp_config.crt_filter && this->pp_crt_program != 0) {
 		_glUseProgram(this->pp_crt_program);
@@ -1860,6 +1924,27 @@ void OpenGLBackend::RenderPostProcess()
 		_glUniform1f(this->pp_crt_scanline_loc, this->pp_config.crt_scanlines / 100.0f);
 		_glUniform1f(this->pp_crt_curve_loc, this->pp_config.crt_curvature / 100.0f);
 		_glUniform1f(this->pp_crt_aberr_loc, this->pp_config.crt_aberration / 10.0f);
+		RunPass();
+	}
+
+	/* Weather overlay (rain/snow particles). Applied last — composites on top of everything. */
+	if (this->pp_config.weather_type > 0 && this->pp_weather_program != 0) {
+		auto now = std::chrono::steady_clock::now();
+		if (this->pp_grain_start_time == std::chrono::steady_clock::time_point{}) this->pp_grain_start_time = now;
+		float weather_time = std::fmod(std::chrono::duration<float>(now - this->pp_grain_start_time).count(), 1000.0f);
+		_glUseProgram(this->pp_weather_program);
+		_glUniform1f(this->pp_weather_time_loc, weather_time);
+		_glUniform1f(this->pp_weather_int_loc, this->pp_config.weather_intensity / 100.0f);
+		_glUniform1f(this->pp_weather_type_loc, static_cast<float>(this->pp_config.weather_type));
+		RunPass();
+	}
+
+	/* Supersampling downsample. */
+	if (this->pp_config.render_scale > 100 && this->pp_downsample_program != 0) {
+		_glUseProgram(this->pp_downsample_program);
+		float ss_texel_w = 1.0f / std::max(1u, this->pp_render_size.width);
+		float ss_texel_h = 1.0f / std::max(1u, this->pp_render_size.height);
+		_glUniform2f(this->pp_downsample_texel_loc, ss_texel_w, ss_texel_h);
 		RunPass();
 	}
 

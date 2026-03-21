@@ -569,6 +569,25 @@ static const char *_frag_shader_pp_crt[] = {
 	"}",
 };
 
+/* ---- Downsample (box filter for supersampling) ---- */
+
+/** Fragment shader for downsampling a supersampled render buffer. */
+static const char *_frag_shader_pp_downsample[] = {
+	"#version 150\n",
+	"uniform sampler2D source_tex;",
+	"uniform vec2 texel_size;",
+	"in vec2 tex_coord;",
+	"out vec4 frag_colour;",
+	"void main() {",
+	"  /* 4-tap box filter for clean 2x downsample. */",
+	"  vec4 a = texture(source_tex, tex_coord + vec2(-0.25, -0.25) * texel_size);",
+	"  vec4 b = texture(source_tex, tex_coord + vec2( 0.25, -0.25) * texel_size);",
+	"  vec4 c = texture(source_tex, tex_coord + vec2(-0.25,  0.25) * texel_size);",
+	"  vec4 d = texture(source_tex, tex_coord + vec2( 0.25,  0.25) * texel_size);",
+	"  frag_colour = (a + b + c + d) * 0.25;",
+	"}",
+};
+
 /* ---- Motion vector rasterization compute shader (GL 4.3+) ---- */
 
 /** Compute shader: rasterize per-pixel MV + depth from draw command list.
