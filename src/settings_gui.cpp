@@ -1788,7 +1788,7 @@ struct GameOptionsWindow : Window {
 			}
 
 			case WID_GO_VIDEO_UPSCALE_DROPDOWN:
-				_video_upscale_mode = Clamp(index, 0, 2);
+				_video_upscale_mode = Clamp(index, 0, 3); /* 0=None, 1=Bilinear, 2=FSR1, 3=Temporal */
 				this->SetDirty();
 				break;
 

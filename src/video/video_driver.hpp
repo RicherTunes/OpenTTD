@@ -52,6 +52,7 @@ extern uint8_t _video_crt_curvature;
 extern uint8_t _video_crt_aberration;
 extern uint8_t _video_vignette_intensity;
 extern uint8_t _video_vignette_radius;
+extern uint8_t _video_vignette_softness;
 extern uint8_t _video_tiltshift_focus_y;
 extern uint8_t _video_tiltshift_focus_width;
 extern uint8_t _video_tiltshift_blur;

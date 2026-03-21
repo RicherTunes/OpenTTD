@@ -18,6 +18,8 @@ add_test_files(
     test_motion_vector.cpp
     test_network_crypto.cpp
     test_postprocess.cpp
+    test_terrain_gen.cpp
+    test_town_placement.cpp
     test_temporal_upscale.cpp
     test_script_admin.cpp
     test_window_desc.cpp

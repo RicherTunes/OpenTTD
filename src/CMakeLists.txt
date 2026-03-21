@@ -509,6 +509,7 @@ add_files(
     textfile_type.h
     tgp.cpp
     tgp.h
+    tgp_func.h
     thread.h
     tile_cmd.h
     tile_map.cpp

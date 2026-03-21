@@ -91,6 +91,7 @@ enum class BorderFlagPresets : uint8_t {
 	Manual,
 	InfiniteWater,
 };
+/** Continent shape options for terrain generation. */enum class ContinentShape : uint8_t {	None,         ///< No continent shaping (classic random landmass).	Island,       ///< Single central landmass surrounded by water.	Archipelago,  ///< Multiple island clusters.	Fjords,       ///< Deep water inlets cutting into a landmass.	Scattered,    ///< Many small scattered islands.	Peninsula,    ///< Landmass with protruding peninsulas.};/** Terrain generation algorithm variant. */enum class TerrainAlgorithm : uint8_t {	Classic,         ///< Original TGP Perlin noise algorithm.	ImprovedPerlin,  ///< Improved Perlin with smoother gradients.};/** Biome model for climate zone distribution. */enum class BiomeModel : uint8_t {	Classic,          ///< Original climate-based zone distribution.	TemperatureBased, ///< Temperature gradient based on altitude and noise.};/** Town distribution algorithm. */enum class TownDistribution : uint8_t {	Random, ///< Random placement (classic behavior).	Even,   ///< Voronoi-based even distribution.};
 
 /** Possible values for the "timekeeping_units" setting. */
 enum class TimekeepingUnits : uint8_t {

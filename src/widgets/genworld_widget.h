@@ -64,6 +64,7 @@ enum GenerateLandscapeWidgets : WidgetID {
 	WID_GL_AI_BUTTON,                   ///< 'AI Settings' button.
 	WID_GL_GS_BUTTON,                   ///< 'Game Script Settings' button.
 	WID_GL_NEWGRF_BUTTON,               ///< 'NewGRF Settings' button.
+	WID_GL_TERRAIN_BUTTON,              ///< 'Terrain Options' button.
 
 	WID_GL_CLIMATE_SEL_LABEL,           ///< NWID_SELECTION for snow or desert coverage label
 	WID_GL_CLIMATE_SEL_SELECTOR,        ///< NWID_SELECTION for snow or desert coverage selector

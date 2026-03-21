@@ -49,6 +49,7 @@ uint8_t _video_crt_curvature = 0; ///< CRT screen curvature (0-50).
 uint8_t _video_crt_aberration = 5; ///< CRT chromatic aberration (0-30).
 uint8_t _video_vignette_intensity = 30; ///< Vignette darkness (0-100).
 uint8_t _video_vignette_radius = 85; ///< Vignette inner radius (50-150).
+uint8_t _video_vignette_softness = 45; ///< Vignette feather softness (10-80).
 uint8_t _video_tiltshift_focus_y = 45; ///< Tilt-shift focus center (0-100).
 uint8_t _video_tiltshift_focus_width = 25; ///< Tilt-shift focus band width (5-80).
 uint8_t _video_tiltshift_blur = 30; ///< Tilt-shift blur strength (10-60).

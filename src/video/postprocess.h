@@ -46,6 +46,7 @@ struct PostProcessConfig {
 	/* Vignette parameters. */
 	uint8_t vignette_intensity = 30;   ///< Vignette darkness (0-100).
 	uint8_t vignette_radius = 85;      ///< Vignette inner radius (50-150).
+	uint8_t vignette_softness = 45;    ///< Vignette feather softness (10-80, mapped to 0.1..0.8).
 
 	/* Tilt-shift parameters. */
 	uint8_t tiltshift_focus_y = 45;    ///< Focus band center (0-100, % from top).
