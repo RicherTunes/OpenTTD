@@ -93,6 +93,51 @@ void MotionVectorState::UpdateScrollDelta(int32_t virtual_left, int32_t virtual_
 }
 
 /**
+ * Allocate tile bins for the given screen size.
+ */
+void TileBin::Resize(int screen_w, int screen_h)
+{
+	this->tiles_x = std::max(1, (screen_w + TILE_SIZE - 1) / TILE_SIZE);
+	this->tiles_y = std::max(1, (screen_h + TILE_SIZE - 1) / TILE_SIZE);
+	this->data.resize(this->BufferSize(), 0);
+}
+
+/**
+ * Bin draw commands into tiles.
+ */
+void TileBin::Build(const std::vector<DrawCommand> &commands)
+{
+	int stride = MAX_CMDS_PER_TILE + 1;
+	int total_tiles = this->tiles_x * this->tiles_y;
+
+	/* Clear all tile counts. */
+	for (int t = 0; t < total_tiles; t++) {
+		this->data[t * stride] = 0;
+	}
+
+	for (size_t i = 0; i < commands.size(); i++) {
+		const DrawCommand &cmd = commands[i];
+		if (cmd.width == 0 || cmd.height == 0) continue;
+
+		int tx0 = Clamp<int>(cmd.screen_x / TILE_SIZE, 0, this->tiles_x - 1);
+		int ty0 = Clamp<int>(cmd.screen_y / TILE_SIZE, 0, this->tiles_y - 1);
+		int tx1 = Clamp<int>((cmd.screen_x + cmd.width - 1) / TILE_SIZE, 0, this->tiles_x - 1);
+		int ty1 = Clamp<int>((cmd.screen_y + cmd.height - 1) / TILE_SIZE, 0, this->tiles_y - 1);
+
+		for (int ty = ty0; ty <= ty1; ty++) {
+			for (int tx = tx0; tx <= tx1; tx++) {
+				int base = (ty * this->tiles_x + tx) * stride;
+				int32_t &count = this->data[base];
+				if (count < MAX_CMDS_PER_TILE) {
+					this->data[base + 1 + count] = static_cast<int32_t>(i);
+					count++;
+				}
+			}
+		}
+	}
+}
+
+/**
  * Compute synthetic depth from world coordinates.
  * Higher values = closer to camera in isometric projection.
  * @param world_x World X coordinate.

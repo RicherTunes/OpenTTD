@@ -61,4 +61,23 @@ struct MotionVectorState {
 
 extern MotionVectorState _motion_vectors;
 
+/** Tile-based spatial bin for GPU MV rasterization dispatch. */
+struct TileBin {
+	static constexpr int TILE_SIZE = 16;        ///< Tile size in pixels.
+	static constexpr int MAX_CMDS_PER_TILE = 64; ///< Max commands per tile.
+
+	int tiles_x = 0;                           ///< Number of tiles horizontally.
+	int tiles_y = 0;                           ///< Number of tiles vertically.
+	std::vector<int32_t> data;                  ///< Flat buffer: [count, idx0..idx63] per tile.
+
+	/** Allocate tile bins for the given screen size. */
+	void Resize(int screen_w, int screen_h);
+
+	/** Bin draw commands into tiles. */
+	void Build(const std::vector<DrawCommand> &commands);
+
+	/** Get the total buffer size in int32_t elements. */
+	size_t BufferSize() const { return static_cast<size_t>(this->tiles_x) * this->tiles_y * (MAX_CMDS_PER_TILE + 1); }
+};
+
 #endif /* VIDEO_MOTION_VECTOR_H */

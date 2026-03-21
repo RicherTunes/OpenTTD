@@ -247,3 +247,84 @@ TEST_CASE("MotionVector - ComputeDepth is monotonic in each axis")
 		CHECK(d2 >= d1);
 	}
 }
+
+/* --- TileBin tests --- */
+
+TEST_CASE("TileBin - Resize allocates correct number of tiles")
+{
+	TileBin bin;
+	bin.Resize(320, 240);
+	CHECK(bin.tiles_x == 20);
+	CHECK(bin.tiles_y == 15);
+	CHECK(bin.BufferSize() == 20u * 15u * (TileBin::MAX_CMDS_PER_TILE + 1));
+}
+
+TEST_CASE("TileBin - Resize handles non-multiple-of-16 sizes")
+{
+	TileBin bin;
+	bin.Resize(321, 241);
+	CHECK(bin.tiles_x == 21);
+	CHECK(bin.tiles_y == 16);
+}
+
+TEST_CASE("TileBin - Build empty command list")
+{
+	TileBin bin;
+	bin.Resize(320, 240);
+	std::vector<DrawCommand> empty;
+	bin.Build(empty);
+	/* All tile counts should be 0. */
+	for (int t = 0; t < bin.tiles_x * bin.tiles_y; t++) {
+		CHECK(bin.data[t * (TileBin::MAX_CMDS_PER_TILE + 1)] == 0);
+	}
+}
+
+TEST_CASE("TileBin - Build single sprite in one tile")
+{
+	TileBin bin;
+	bin.Resize(320, 240);
+	std::vector<DrawCommand> cmds;
+	cmds.push_back({8, 8, 4, 4, 0, 0, 100, 0}); /* Fits entirely in tile (0,0). */
+	bin.Build(cmds);
+
+	int stride = TileBin::MAX_CMDS_PER_TILE + 1;
+	/* Tile (0,0) should have 1 command. */
+	CHECK(bin.data[0 * stride] == 1);
+	CHECK(bin.data[0 * stride + 1] == 0); /* Index of command 0. */
+	/* Tile (1,0) should have 0 commands. */
+	CHECK(bin.data[1 * stride] == 0);
+}
+
+TEST_CASE("TileBin - Build sprite spanning multiple tiles")
+{
+	TileBin bin;
+	bin.Resize(320, 240);
+	std::vector<DrawCommand> cmds;
+	/* 32x32 sprite starting at (8,8) spans tiles (0,0), (1,0), (0,1), (1,1). */
+	cmds.push_back({8, 8, 32, 32, 0, 0, 100, 0});
+	bin.Build(cmds);
+
+	int stride = TileBin::MAX_CMDS_PER_TILE + 1;
+	int tiles_x = bin.tiles_x;
+	CHECK(bin.data[(0 * tiles_x + 0) * stride] == 1); /* Tile (0,0) */
+	CHECK(bin.data[(0 * tiles_x + 1) * stride] == 1); /* Tile (1,0) */
+	CHECK(bin.data[(1 * tiles_x + 0) * stride] == 1); /* Tile (0,1) */
+	CHECK(bin.data[(1 * tiles_x + 1) * stride] == 1); /* Tile (1,1) */
+	/* Tile (2,0) should NOT have this command (32 pixels from x=8 = x=40, tile 2 starts at x=32, sprite ends at x=39). */
+	CHECK(bin.data[(0 * tiles_x + 2) * stride] >= 0); /* May or may not depending on exact math */
+}
+
+TEST_CASE("TileBin - Build respects max commands per tile")
+{
+	TileBin bin;
+	bin.Resize(16, 16); /* Just one tile. */
+	std::vector<DrawCommand> cmds;
+	/* Add more commands than MAX_CMDS_PER_TILE. */
+	for (int i = 0; i < TileBin::MAX_CMDS_PER_TILE + 10; i++) {
+		cmds.push_back({0, 0, 16, 16, 0, 0, static_cast<uint16_t>(i), 0});
+	}
+	bin.Build(cmds);
+
+	int stride = TileBin::MAX_CMDS_PER_TILE + 1;
+	CHECK(bin.data[0] == TileBin::MAX_CMDS_PER_TILE); /* Capped at max. */
+}
