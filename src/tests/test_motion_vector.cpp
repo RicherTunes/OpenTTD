@@ -442,11 +442,12 @@ TEST_CASE("MotionVector - active flag gates RecordSprite behavior")
 	CHECK(state.commands.size() == 1);
 }
 
-TEST_CASE("MotionVector - TileBin Resize with zero dimensions")
+TEST_CASE("MotionVector - TileBin Resize with zero dimensions clamps to 1")
 {
 	TileBin bin;
 	bin.Resize(0, 0);
-	CHECK(bin.tiles_x == 0);
-	CHECK(bin.tiles_y == 0);
-	CHECK(bin.BufferSize() == 0);
+	/* Clamped to minimum 1x1 to prevent division by zero in compute shader. */
+	CHECK(bin.tiles_x == 1);
+	CHECK(bin.tiles_y == 1);
+	CHECK(bin.BufferSize() > 0);
 }

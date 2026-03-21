@@ -21,6 +21,7 @@ add_test_files(
     test_terrain_gen.cpp
     test_town_placement.cpp
     test_temporal_upscale.cpp
+    test_upscale_plugin.cpp
     test_script_admin.cpp
     test_window_desc.cpp
     tilearea.cpp

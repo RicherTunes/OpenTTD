@@ -47,6 +47,9 @@ add_files(
     null_v.h
     postprocess.cpp
     postprocess.h
+    render_backend.h
+    upscale_plugin.cpp
+    upscale_plugin.h
     video_driver.cpp
     video_driver.hpp
 )
