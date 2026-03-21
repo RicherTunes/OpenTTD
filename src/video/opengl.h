@@ -90,7 +90,6 @@ private:
 
 	/* Temporal accumulation resources. */
 	GLuint pp_temporal_program = 0;  ///< Temporal accumulation shader program.
-	GLuint pp_history_fbo = 0;       ///< FBO for history texture.
 	GLuint pp_history_tex = 0;       ///< History texture (previous frame output).
 	GLint pp_temporal_texel_loc = -1;  ///< texel_size uniform.
 	GLint pp_temporal_jitter_loc = -1; ///< jitter_offset uniform.

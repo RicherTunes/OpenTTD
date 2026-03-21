@@ -91,6 +91,7 @@ enum class BorderFlagPresets : uint8_t {
 	Manual,
 	InfiniteWater,
 };
+
 /** Continent shape options for terrain generation. */
 enum class ContinentShape : uint8_t {
 	None,         ///< No continent shaping (classic random landmass).
@@ -458,6 +459,12 @@ struct GameCreationSettings {
 	uint8_t min_river_length;                 ///< the minimum river length
 	uint8_t river_route_random;               ///< the amount of randomicity for the route finding
 	uint8_t amount_of_rivers;                 ///< the amount of rivers
+	ContinentShape continent_shape;           ///< continent shaping mode for terrain generation
+	TerrainAlgorithm terrain_algorithm;       ///< terrain generation algorithm variant
+	BiomeModel biome_model;                   ///< biome/climate zone distribution model
+	TownDistribution town_distribution;       ///< how towns are distributed on the map
+	uint8_t amount_of_lakes;                  ///< the amount of lakes (0=none, 1=few, 2=normal, 3=many)
+	uint8_t amount_of_mountain_ranges;        ///< the amount of mountain ranges (0=none, 1=few, 2=normal, 3=many)
 };
 
 /** Settings related to construction in-game */
