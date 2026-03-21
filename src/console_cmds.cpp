@@ -2984,7 +2984,101 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		return true;
 	}
 
-	IConsolePrint(CC_ERROR, "Unknown sub-command '{}'. Use: status, on, off, enable, disable, set, reset.", argv[1]);
+	if (argv[1] == "preset") {
+		if (argv.size() < 3) {
+			IConsolePrint(CC_HELP, "Usage: 'pp preset <name>'");
+			IConsolePrint(CC_HELP, "  retro     - CRT scanlines + film grain (retro monitor look)");
+			IConsolePrint(CC_HELP, "  cinematic - Vignette + color grading + film grain");
+			IConsolePrint(CC_HELP, "  night     - Night mode with blue tint");
+			IConsolePrint(CC_HELP, "  miniature - Tilt-shift miniature effect");
+			IConsolePrint(CC_HELP, "  sharp     - FSR1 upscale + CAS sharpening at 75%% render scale");
+			IConsolePrint(CC_HELP, "  clean     - Disable all effects (same as reset + on)");
+			return true;
+		}
+
+		/* Reset all post-processing settings to defaults first. */
+		_video_post_processing = false;
+		_video_render_scale = 100;
+		_video_upscale_mode = 0;
+		_video_sharpening = 50;
+		_video_texture_filter = 0;
+		_video_fxaa = false;
+		_video_night_mode = false;
+		_video_crt_filter = false;
+		_video_vignette = false;
+		_video_tiltshift = false;
+		_video_film_grain = false;
+		_video_brightness = 0;
+		_video_contrast = 100;
+		_video_saturation = 100;
+		_video_color_temperature = 0;
+		_video_night_intensity = 60;
+		_video_night_blue_shift = 30;
+		_video_crt_scanlines = 15;
+		_video_crt_curvature = 0;
+		_video_crt_aberration = 5;
+		_video_vignette_intensity = 30;
+		_video_vignette_radius = 85;
+		_video_tiltshift_focus_y = 45;
+		_video_tiltshift_focus_width = 25;
+		_video_tiltshift_blur = 30;
+		_video_grain_intensity = 4;
+		_video_dynamic_lighting = false;
+		_video_bloom = false;
+		_video_bloom_threshold = 70;
+		_video_bloom_intensity = 30;
+		_video_weather_type = 0;
+		_video_weather_intensity = 30;
+
+		/* Enable post-processing, then apply the preset. */
+		_video_post_processing = true;
+
+		if (argv[2] == "retro") {
+			_video_crt_filter = true;
+			_video_crt_scanlines = 20;
+			_video_crt_curvature = 10;
+			_video_crt_aberration = 8;
+			_video_film_grain = true;
+			_video_grain_intensity = 6;
+			IConsolePrint(CC_INFO, "Preset 'retro' applied: CRT + film grain.");
+		} else if (argv[2] == "cinematic") {
+			_video_vignette = true;
+			_video_vignette_intensity = 40;
+			_video_brightness = -5;
+			_video_contrast = 110;
+			_video_saturation = 90;
+			_video_film_grain = true;
+			_video_grain_intensity = 3;
+			IConsolePrint(CC_INFO, "Preset 'cinematic' applied: vignette + color grading + grain.");
+		} else if (argv[2] == "night") {
+			_video_night_mode = true;
+			_video_night_intensity = 70;
+			_video_night_blue_shift = 40;
+			IConsolePrint(CC_INFO, "Preset 'night' applied: night mode with blue tint.");
+		} else if (argv[2] == "miniature") {
+			_video_tiltshift = true;
+			_video_tiltshift_focus_y = 45;
+			_video_tiltshift_focus_width = 20;
+			_video_tiltshift_blur = 40;
+			_video_saturation = 130;
+			IConsolePrint(CC_INFO, "Preset 'miniature' applied: tilt-shift + boosted saturation.");
+		} else if (argv[2] == "sharp") {
+			_video_render_scale = 75;
+			_video_upscale_mode = 2; /* FSR1 */
+			_video_sharpening = 60;
+			_video_fxaa = true;
+			IConsolePrint(CC_INFO, "Preset 'sharp' applied: FSR1 at 75%% + FXAA.");
+		} else if (argv[2] == "clean") {
+			/* Already reset above, just enable PP. */
+			IConsolePrint(CC_INFO, "Preset 'clean' applied: all effects off.");
+		} else {
+			IConsolePrint(CC_ERROR, "Unknown preset '{}'. Use: retro, cinematic, night, miniature, sharp, clean.", argv[2]);
+			return false;
+		}
+		return true;
+	}
+
+	IConsolePrint(CC_ERROR, "Unknown sub-command '{}'. Use: status, on, off, enable, disable, set, reset, preset.", argv[1]);
 	return false;
 }
 
