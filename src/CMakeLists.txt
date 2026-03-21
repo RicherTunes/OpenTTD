@@ -504,6 +504,7 @@ add_files(
     terraform_gui.cpp
     terraform_gui.h
     terrain_advanced_gui.cpp
+    terrain_advanced_gui.h
     textbuf.cpp
     textbuf_gui.h
     textbuf_type.h

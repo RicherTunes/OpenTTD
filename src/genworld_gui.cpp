@@ -32,6 +32,7 @@
 #include "video/video_driver.hpp"
 #include "ai/ai_gui.hpp"
 #include "game/game_gui.hpp"
+#include "terrain_advanced_gui.h"
 #include "industry.h"
 #include "core/string_consumer.hpp"
 
@@ -100,9 +101,9 @@ static constexpr std::initializer_list<NWidgetPart> _nested_generate_landscape_w
 						NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_MAPGEN_TERRAIN_TYPE, STR_CONFIG_SETTING_TERRAIN_TYPE_HELPTEXT), SetFill(1, 1),
 						NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_MAPGEN_AVERAGE_HEIGHT, STR_CONFIG_SETTING_AVERAGE_HEIGHT_HELPTEXT), SetFill(1, 1),
 						NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_MAPGEN_VARIETY, STR_CONFIG_SETTING_VARIETY_HELPTEXT), SetFill(1, 1),
-						NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_MAPGEN_SMOOTHNESS, STR_CONFIG_SETTING_ROUGHNESS_OF_TERRAIN_HELPTEXT), SetFill(1, 1),
-						NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_MAPGEN_QUANTITY_OF_RIVERS, STR_CONFIG_SETTING_RIVER_AMOUNT_HELPTEXT), SetFill(1, 1),
 						NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_MAPGEN_BORDER_TYPE, STR_MAPGEN_BORDER_TYPE_TOOLTIP), SetFill(1, 1),
+						/* Spacer due to fewer items in columns 1-2 than in 3-4. */
+						NWidget(NWID_SPACER), SetFill(1, 1),
 					EndContainer(),
 
 					/* Widgets on the right side (global column 2). */
@@ -116,9 +117,9 @@ static constexpr std::initializer_list<NWidgetPart> _nested_generate_landscape_w
 						NWidget(WWT_DROPDOWN, COLOUR_ORANGE, WID_GL_MAX_HEIGHT_PULLDOWN), SetToolTip(STR_CONFIG_SETTING_TERRAIN_TYPE_HELPTEXT), SetFill(1, 1),
 						NWidget(WWT_DROPDOWN, COLOUR_ORANGE, WID_GL_AVERAGE_HEIGHT_PULLDOWN), SetToolTip(STR_CONFIG_SETTING_AVERAGE_HEIGHT_HELPTEXT), SetFill(1, 1),
 						NWidget(WWT_DROPDOWN, COLOUR_ORANGE, WID_GL_VARIETY_PULLDOWN), SetToolTip(STR_CONFIG_SETTING_VARIETY_HELPTEXT), SetFill(1, 1),
-						NWidget(WWT_DROPDOWN, COLOUR_ORANGE, WID_GL_SMOOTHNESS_PULLDOWN), SetToolTip(STR_CONFIG_SETTING_ROUGHNESS_OF_TERRAIN_HELPTEXT), SetFill(1, 1),
-						NWidget(WWT_DROPDOWN, COLOUR_ORANGE, WID_GL_RIVER_PULLDOWN), SetToolTip(STR_CONFIG_SETTING_RIVER_AMOUNT_HELPTEXT), SetFill(1, 1),
 						NWidget(WWT_DROPDOWN, COLOUR_ORANGE, WID_GL_BORDERS_PULLDOWN), SetToolTip(STR_MAPGEN_BORDER_TYPE_TOOLTIP), SetFill(1, 1),
+						/* Spacer due to fewer items in columns 1-2 than in 3-4. */
+						NWidget(NWID_SPACER), SetFill(1, 1),
 					EndContainer(),
 				EndContainer(),
 
@@ -136,8 +137,6 @@ static constexpr std::initializer_list<NWidgetPart> _nested_generate_landscape_w
 						NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_MAPGEN_NUMBER_OF_TOWNS, STR_MAPGEN_NUMBER_OF_TOWNS_TOOLTIP), SetFill(1, 1),
 						NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_MAPGEN_NUMBER_OF_INDUSTRIES, STR_MAPGEN_NUMBER_OF_INDUSTRIES_TOOLTIP), SetFill(1, 1),
 						NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_MAPGEN_SEA_LEVEL, STR_MAPGEN_SEA_LEVEL_TOOLTIP), SetFill(1, 1),
-						/* Spacer due to fewer items in columns 3-4 than in 1-2. */
-						NWidget(NWID_SPACER), SetFill(1, 1),
 					EndContainer(),
 
 					/* Widgets on the right side (global column 4). */
@@ -169,8 +168,6 @@ static constexpr std::initializer_list<NWidgetPart> _nested_generate_landscape_w
 						NWidget(WWT_DROPDOWN, COLOUR_ORANGE, WID_GL_TOWN_PULLDOWN), SetToolTip(STR_MAPGEN_NUMBER_OF_TOWNS_TOOLTIP), SetFill(1, 1),
 						NWidget(WWT_DROPDOWN, COLOUR_ORANGE, WID_GL_INDUSTRY_PULLDOWN), SetToolTip(STR_MAPGEN_NUMBER_OF_INDUSTRIES_TOOLTIP), SetFill(1, 1),
 						NWidget(WWT_DROPDOWN, COLOUR_ORANGE, WID_GL_WATER_PULLDOWN), SetToolTip(STR_MAPGEN_SEA_LEVEL_TOOLTIP), SetFill(1, 1),
-						/* Spacer due to fewer items in columns 3-4 than in 1-2. */
-						NWidget(NWID_SPACER), SetFill(1, 1),
 					EndContainer(),
 				EndContainer(),
 			EndContainer(),
@@ -191,11 +188,12 @@ static constexpr std::initializer_list<NWidgetPart> _nested_generate_landscape_w
 				EndContainer(),
 			EndContainer(),
 
-			/* AI, GS, and NewGRF settings */
+			/* AI, GS, NewGRF, and Terrain settings */
 			NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
 				NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, WID_GL_AI_BUTTON), SetMinimalTextLines(2, 0), SetStringTip(STR_MAPGEN_AI_SETTINGS, STR_MAPGEN_AI_SETTINGS_TOOLTIP), SetFill(1, 0),
 				NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, WID_GL_GS_BUTTON), SetMinimalTextLines(2, 0), SetStringTip(STR_MAPGEN_GS_SETTINGS, STR_MAPGEN_GS_SETTINGS_TOOLTIP), SetFill(1, 0),
 				NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, WID_GL_NEWGRF_BUTTON), SetMinimalTextLines(2, 0), SetStringTip(STR_MAPGEN_NEWGRF_SETTINGS, STR_MAPGEN_NEWGRF_SETTINGS_TOOLTIP), SetFill(1, 0),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREEN, WID_GL_TERRAIN_BUTTON), SetMinimalTextLines(2, 0), SetStringTip(STR_MAPGEN_TERRAIN_OPTIONS, STR_MAPGEN_TERRAIN_OPTIONS_TOOLTIP), SetFill(1, 0),
 			EndContainer(),
 
 			/* Generate */
@@ -238,7 +236,6 @@ static constexpr std::initializer_list<NWidgetPart> _nested_heightmap_load_widge
 						NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_MAPGEN_MAPSIZE, STR_MAPGEN_MAPSIZE_TOOLTIP), SetFill(1, 1),
 						NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_MAPGEN_HEIGHTMAP_ROTATION, STR_CONFIG_SETTING_HEIGHTMAP_ROTATION_TOOLTIP), SetFill(1, 1),
 						NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_MAPGEN_HEIGHTMAP_HEIGHT, STR_MAPGEN_HEIGHTMAP_HEIGHT_TOOLTIP), SetFill(1, 1),
-						NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_MAPGEN_QUANTITY_OF_RIVERS, STR_CONFIG_SETTING_RIVER_AMOUNT_HELPTEXT), SetFill(1, 1),
 						NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_MAPGEN_BORDER_TYPE, STR_MAPGEN_BORDER_TYPE_TOOLTIP), SetFill(1, 1),
 					EndContainer(),
 
@@ -258,7 +255,6 @@ static constexpr std::initializer_list<NWidgetPart> _nested_heightmap_load_widge
 							NWidget(WWT_TEXTBTN, COLOUR_ORANGE, WID_GL_HEIGHTMAP_HEIGHT_TEXT), SetToolTip(STR_MAPGEN_HEIGHTMAP_HEIGHT_TOOLTIP), SetFill(1, 1),
 							NWidget(WWT_IMGBTN, COLOUR_ORANGE, WID_GL_HEIGHTMAP_HEIGHT_UP), SetSpriteTip(SPR_ARROW_UP, STR_MAPGEN_HEIGHTMAP_HEIGHT_UP_TOOLTIP), SetFill(0, 1), SetAspect(WidgetDimensions::ASPECT_UP_DOWN_BUTTON),
 						EndContainer(),
-						NWidget(WWT_DROPDOWN, COLOUR_ORANGE, WID_GL_RIVER_PULLDOWN), SetToolTip(STR_CONFIG_SETTING_RIVER_AMOUNT_HELPTEXT), SetFill(1, 1),
 						NWidget(WWT_DROPDOWN, COLOUR_ORANGE, WID_GL_BORDERS_PULLDOWN), SetToolTip(STR_MAPGEN_BORDER_TYPE_TOOLTIP), SetFill(1, 1),
 					EndContainer(),
 				EndContainer(),
@@ -276,7 +272,6 @@ static constexpr std::initializer_list<NWidgetPart> _nested_heightmap_load_widge
 						NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_MAPGEN_TOWN_NAME_LABEL, STR_MAPGEN_TOWN_NAME_DROPDOWN_TOOLTIP), SetFill(1, 1),
 						NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_MAPGEN_NUMBER_OF_TOWNS, STR_MAPGEN_NUMBER_OF_TOWNS_TOOLTIP), SetFill(1, 1),
 						NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_MAPGEN_NUMBER_OF_INDUSTRIES, STR_MAPGEN_NUMBER_OF_INDUSTRIES_TOOLTIP), SetFill(1, 1),
-						NWidget(NWID_SPACER), SetFill(1, 1),
 					EndContainer(),
 
 					/* Right half widgets (global column 4) */
@@ -307,16 +302,16 @@ static constexpr std::initializer_list<NWidgetPart> _nested_heightmap_load_widge
 						NWidget(WWT_DROPDOWN, COLOUR_ORANGE, WID_GL_TOWNNAME_DROPDOWN), SetToolTip(STR_MAPGEN_TOWN_NAME_DROPDOWN_TOOLTIP), SetFill(1, 1),
 						NWidget(WWT_DROPDOWN, COLOUR_ORANGE, WID_GL_TOWN_PULLDOWN), SetToolTip(STR_MAPGEN_NUMBER_OF_TOWNS_TOOLTIP), SetFill(1, 1),
 						NWidget(WWT_DROPDOWN, COLOUR_ORANGE, WID_GL_INDUSTRY_PULLDOWN), SetToolTip(STR_MAPGEN_NUMBER_OF_INDUSTRIES_TOOLTIP), SetFill(1, 1),
-						NWidget(NWID_SPACER), SetFill(1, 1),
 					EndContainer(),
 				EndContainer(),
 			EndContainer(),
 
-			/* AI, GS, and NewGRF settings */
+			/* AI, GS, NewGRF, and Terrain settings */
 			NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
 				NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, WID_GL_AI_BUTTON), SetMinimalTextLines(2, 0), SetStringTip(STR_MAPGEN_AI_SETTINGS, STR_MAPGEN_AI_SETTINGS_TOOLTIP), SetFill(1, 0),
 				NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, WID_GL_GS_BUTTON), SetMinimalTextLines(2, 0), SetStringTip(STR_MAPGEN_GS_SETTINGS, STR_MAPGEN_GS_SETTINGS_TOOLTIP),  SetFill(1, 0),
 				NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, WID_GL_NEWGRF_BUTTON), SetMinimalTextLines(2, 0), SetStringTip(STR_MAPGEN_NEWGRF_SETTINGS, STR_MAPGEN_NEWGRF_SETTINGS_TOOLTIP), SetFill(1, 0),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREEN, WID_GL_TERRAIN_BUTTON), SetMinimalTextLines(2, 0), SetStringTip(STR_MAPGEN_TERRAIN_OPTIONS, STR_MAPGEN_TERRAIN_OPTIONS_TOOLTIP), SetFill(1, 0),
 			EndContainer(),
 
 			/* Generate */
@@ -389,9 +384,7 @@ static DropDownList BuildTownNameDropDown()
 
 static const StringID _max_height[]  = {STR_TERRAIN_TYPE_VERY_FLAT, STR_TERRAIN_TYPE_FLAT, STR_TERRAIN_TYPE_HILLY, STR_TERRAIN_TYPE_MOUNTAINOUS, STR_TERRAIN_TYPE_ALPINIST, STR_TERRAIN_TYPE_CUSTOM};
 static const StringID _sea_lakes[]   = {STR_SEA_LEVEL_VERY_LOW, STR_SEA_LEVEL_LOW, STR_SEA_LEVEL_MEDIUM, STR_SEA_LEVEL_HIGH, STR_SEA_LEVEL_CUSTOM};
-static const StringID _rivers[]      = {STR_RIVERS_NONE, STR_RIVERS_FEW, STR_RIVERS_MODERATE, STR_RIVERS_LOT};
 static const StringID _borders[]     = {STR_MAPGEN_BORDER_RANDOMIZE, STR_MAPGEN_BORDER_MANUAL, STR_MAPGEN_BORDER_INFINITE_WATER};
-static const StringID _smoothness[]  = {STR_CONFIG_SETTING_ROUGHNESS_OF_TERRAIN_VERY_SMOOTH, STR_CONFIG_SETTING_ROUGHNESS_OF_TERRAIN_SMOOTH, STR_CONFIG_SETTING_ROUGHNESS_OF_TERRAIN_ROUGH, STR_CONFIG_SETTING_ROUGHNESS_OF_TERRAIN_VERY_ROUGH};
 static const StringID _rotation[]    = {STR_CONFIG_SETTING_HEIGHTMAP_ROTATION_COUNTER_CLOCKWISE, STR_CONFIG_SETTING_HEIGHTMAP_ROTATION_CLOCKWISE};
 static const StringID _num_towns[]   = {STR_NUM_VERY_LOW, STR_NUM_LOW, STR_NUM_NORMAL, STR_NUM_HIGH, STR_NUM_CUSTOM};
 static const StringID _num_inds[]    = {STR_FUNDING_ONLY, STR_MINIMAL, STR_NUM_VERY_LOW, STR_NUM_LOW, STR_NUM_NORMAL, STR_NUM_HIGH, STR_NUM_CUSTOM};
@@ -481,8 +474,6 @@ struct GenerateLandscapeWindow : public Window {
 				return GetString(_sea_lakes[_settings_newgame.difficulty.quantity_sea_lakes]);
 
 			case WID_GL_HEIGHTMAP_NAME_TEXT: return this->name.GetDecodedString();
-			case WID_GL_RIVER_PULLDOWN:      return GetString(_rivers[_settings_newgame.game_creation.amount_of_rivers]);
-			case WID_GL_SMOOTHNESS_PULLDOWN: return GetString(_smoothness[_settings_newgame.game_creation.tgen_smoothness]);
 			case WID_GL_VARIETY_PULLDOWN:    return GetString(_variety[_settings_newgame.game_creation.variety]);
 			case WID_GL_AVERAGE_HEIGHT_PULLDOWN: return GetString(_average_height[to_underlying(_settings_newgame.game_creation.average_height)]);
 			case WID_GL_BORDERS_PULLDOWN: return GetString(_borders[to_underlying(_settings_newgame.game_creation.water_border_presets)]);
@@ -517,9 +508,8 @@ struct GenerateLandscapeWindow : public Window {
 		this->SetWidgetLoweredState(WID_GL_TROPICAL,  _settings_newgame.game_creation.landscape == LandscapeType::Tropic);
 		this->SetWidgetLoweredState(WID_GL_TOYLAND,   _settings_newgame.game_creation.landscape == LandscapeType::Toyland);
 
-		/* You can't select smoothness / non-water borders if not terragenesis */
+		/* You can't select variety / non-water borders if not terragenesis */
 		if (mode == GLWM_GENERATE) {
-			this->SetWidgetDisabledState(WID_GL_SMOOTHNESS_PULLDOWN, _settings_newgame.game_creation.land_generator == LG_ORIGINAL);
 			this->SetWidgetDisabledState(WID_GL_VARIETY_PULLDOWN, _settings_newgame.game_creation.land_generator == LG_ORIGINAL);
 			this->SetWidgetDisabledState(WID_GL_BORDERS_PULLDOWN, _settings_newgame.game_creation.land_generator == LG_ORIGINAL);
 			this->SetWidgetsDisabledState(_settings_newgame.game_creation.land_generator == LG_ORIGINAL || !_settings_newgame.construction.freeform_edges || _settings_newgame.game_creation.water_borders == BorderFlag::Random,
@@ -630,8 +620,6 @@ struct GenerateLandscapeWindow : public Window {
 				d = GetStringBoundingBox(GetString(STR_SEA_LEVEL_CUSTOM_PERCENTAGE, GetParamMaxValue(CUSTOM_SEA_LEVEL_MAX_PERCENTAGE)));
 				break;
 
-			case WID_GL_RIVER_PULLDOWN:      strs = _rivers; break;
-			case WID_GL_SMOOTHNESS_PULLDOWN: strs = _smoothness; break;
 			case WID_GL_AVERAGE_HEIGHT_PULLDOWN: strs = _variety; break;
 			case WID_GL_VARIETY_PULLDOWN:    strs = _variety; break;
 			case WID_GL_HEIGHTMAP_ROTATION_PULLDOWN: strs = _rotation; break;
@@ -805,14 +793,6 @@ struct GenerateLandscapeWindow : public Window {
 				break;
 			}
 
-			case WID_GL_RIVER_PULLDOWN: // Amount of rivers
-				ShowDropDownMenu(this, _rivers, _settings_newgame.game_creation.amount_of_rivers, WID_GL_RIVER_PULLDOWN, 0, 0);
-				break;
-
-			case WID_GL_SMOOTHNESS_PULLDOWN: // Map smoothness
-				ShowDropDownMenu(this, _smoothness, _settings_newgame.game_creation.tgen_smoothness, WID_GL_SMOOTHNESS_PULLDOWN, 0, 0);
-				break;
-
 			case WID_GL_VARIETY_PULLDOWN: // Map variety
 				ShowDropDownMenu(this, _variety, _settings_newgame.game_creation.variety, WID_GL_VARIETY_PULLDOWN, 0, 0);
 				break;
@@ -862,6 +842,10 @@ struct GenerateLandscapeWindow : public Window {
 			case WID_GL_NEWGRF_BUTTON: ///< NewGRF Settings
 				ShowNewGRFSettings(true, true, false, _grfconfig_newgame);
 				break;
+
+			case WID_GL_TERRAIN_BUTTON: ///< Terrain Options
+				ShowTerrainAdvancedWindow();
+				break;
 		}
 	}
 
@@ -879,8 +863,6 @@ struct GenerateLandscapeWindow : public Window {
 		switch (widget) {
 			case WID_GL_MAPSIZE_X_PULLDOWN:     _settings_newgame.game_creation.map_x = index; break;
 			case WID_GL_MAPSIZE_Y_PULLDOWN:     _settings_newgame.game_creation.map_y = index; break;
-			case WID_GL_RIVER_PULLDOWN:         _settings_newgame.game_creation.amount_of_rivers = index; break;
-			case WID_GL_SMOOTHNESS_PULLDOWN:    _settings_newgame.game_creation.tgen_smoothness = index;  break;
 			case WID_GL_VARIETY_PULLDOWN:       _settings_newgame.game_creation.variety = index; break;
 			case WID_GL_AVERAGE_HEIGHT_PULLDOWN: _settings_newgame.game_creation.average_height = static_cast<GenworldAverageHeight>(index); break;
 
