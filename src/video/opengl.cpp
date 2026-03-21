@@ -39,6 +39,8 @@
 #include "../debug.h"
 #include "../blitter/factory.hpp"
 #include "../window_func.h"
+#include "../timer/timer_game_calendar.h"
+#include "../timer/timer_game_tick.h"
 #include "../window_gui.h"
 #include "../zoom_func.h"
 #include "../core/string_consumer.hpp"
@@ -1862,8 +1864,8 @@ void OpenGLBackend::RenderPostProcess()
 	if (this->pp_config.fxaa && this->pp_fxaa_program != 0) {
 		_glUseProgram(this->pp_fxaa_program);
 		_glUniform2f(this->pp_fxaa_texel_loc, texel_w, texel_h);
-		_glUniform1f(this->pp_fxaa_subpix_loc, 0.75f);
-		_glUniform1f(this->pp_fxaa_edge_loc, 0.125f);
+		_glUniform1f(this->pp_fxaa_subpix_loc, this->pp_config.fxaa_quality / 100.0f);
+		_glUniform1f(this->pp_fxaa_edge_loc, this->pp_config.fxaa_threshold / 100.0f);
 		RunPass();
 	}
 
@@ -1999,6 +2001,12 @@ void OpenGLBackend::RenderPostProcess()
 			_glBindVertexArray(this->vao_quad);
 			_glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 		}
+	}
+
+	/* Check for GL errors in post-processing pipeline (debug only). */
+	GLenum err = _glGetError();
+	if (err != GL_NO_ERROR) {
+		Debug(driver, 0, "OpenGL: Post-processing pipeline GL error: 0x{:04X}", err);
 	}
 }
 
