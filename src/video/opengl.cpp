@@ -136,6 +136,7 @@ GL(glShaderStorageBlockBinding);
 GL(glBindImageTexture);
 GL(glBindBufferBase);
 GL(glUniform2i);
+GL(glCopyTexSubImage2D);
 
 GL(glGenQueries);
 GL(glDeleteQueries);
@@ -281,6 +282,7 @@ static bool BindBasicOpenGLProcs()
 	if (!BindGLProc(_glClearColor, "glClearColor")) return false;
 	if (!BindGLProc(_glBlendFunc, "glBlendFunc")) return false;
 	if (!BindGLProc(_glDrawArrays, "glDrawArrays")) return false;
+	if (!BindGLProc(_glCopyTexSubImage2D, "glCopyTexSubImage2D")) return false;
 
 	return true;
 }
@@ -616,6 +618,7 @@ OpenGLBackend::~OpenGLBackend()
 		if (this->pp_grain_program != 0) _glDeleteProgram(this->pp_grain_program);
 		if (this->pp_bicubic_program != 0) _glDeleteProgram(this->pp_bicubic_program);
 		if (this->pp_crt_program != 0) _glDeleteProgram(this->pp_crt_program);
+		if (this->pp_temporal_program != 0) _glDeleteProgram(this->pp_temporal_program);
 	}
 	if (_glDeleteVertexArrays != nullptr) _glDeleteVertexArrays(1, &this->vao_quad);
 	if (_glDeleteBuffers != nullptr) {
@@ -1604,6 +1607,10 @@ void OpenGLBackend::DestroyPostProcessFBOs()
 	if (this->pp_tex[0] != 0) {
 		_glDeleteTextures(2, this->pp_tex);
 		this->pp_tex[0] = this->pp_tex[1] = 0;
+	}
+	if (this->pp_history_tex != 0) {
+		_glDeleteTextures(1, &this->pp_history_tex);
+		this->pp_history_tex = 0;
 	}
 }
 

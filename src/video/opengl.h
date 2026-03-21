@@ -111,6 +111,11 @@ private:
 	GLuint pp_grain_program = 0;     ///< Film grain shader program.
 	GLuint pp_bicubic_program = 0;   ///< Bicubic texture filter shader program.
 	GLuint pp_crt_program = 0;       ///< CRT scanline filter shader program.
+	GLuint pp_lighting_program = 0;  ///< Dynamic time-of-day lighting shader program.
+	GLuint pp_bloom_threshold_program = 0; ///< Bloom threshold extraction shader program.
+	GLuint pp_bloom_blur_h_program = 0;    ///< Bloom horizontal blur shader program.
+	GLuint pp_bloom_blur_v_program = 0;    ///< Bloom vertical blur shader program.
+	GLuint pp_weather_program = 0;   ///< Weather particle overlay shader program.
 
 	/* Cached uniform locations for all post-processing shaders. */
 	GLint pp_cas_sharp_loc = -1;     ///< CAS sharpness uniform location.
@@ -145,6 +150,13 @@ private:
 	GLint pp_crt_scanline_loc = -1;  ///< CRT scanline_intensity uniform location.
 	GLint pp_crt_curve_loc = -1;     ///< CRT curvature uniform location.
 	GLint pp_crt_aberr_loc = -1;     ///< CRT chromatic_aberr uniform location.
+	GLint pp_lighting_tod_loc = -1;  ///< Dynamic lighting time_of_day uniform location.
+	GLint pp_bloom_thresh_loc = -1;  ///< Bloom threshold uniform location.
+	GLint pp_bloom_blur_h_texel_loc = -1; ///< Bloom blur H texel_size uniform location.
+	GLint pp_bloom_blur_v_texel_loc = -1; ///< Bloom blur V texel_size uniform location.
+	GLint pp_weather_time_loc = -1;  ///< Weather time uniform location.
+	GLint pp_weather_int_loc = -1;   ///< Weather intensity uniform location.
+	GLint pp_weather_type_loc = -1;  ///< Weather type uniform location.
 
 	PostProcessConfig pp_config;     ///< Current post-processing configuration.
 
