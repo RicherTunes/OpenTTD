@@ -913,8 +913,116 @@ static void HeightMapSmoothSlopes(Height dh_max)
 }
 
 /**
+ * Apply a continent shape mask to the heightmap.
+ * Multiplies each tile's height by a mask value M(x,y) in [0,1] based on the
+ * selected continent shape preset.
+ */
+static void HeightMapApplyContinentShape()
+{
+	const ContinentShape shape = _settings_game.game_creation.continent_shape;
+	if (shape == ContinentShape::None) return;
+
+	const int sx = _height_map.size_x;
+	const int sy = _height_map.size_y;
+	const double inv_sx = 1.0 / sx;
+	const double inv_sy = 1.0 / sy;
+
+	/* For Archipelago and Scattered: pre-generate random island centers */
+	struct IslandCenter { double cx, cy, r_sq; };
+	std::vector<IslandCenter> centers;
+
+	if (shape == ContinentShape::Archipelago) {
+		for (int i = 0; i < 8; i++) {
+			double cx = 0.1 + (double)RandomRange(800) / 1000.0;
+			double cy = 0.1 + (double)RandomRange(800) / 1000.0;
+			double r = 0.08 + (double)RandomRange(70) / 1000.0;
+			centers.push_back({cx, cy, r * r});
+		}
+	} else if (shape == ContinentShape::Scattered) {
+		for (int i = 0; i < 25; i++) {
+			double cx = 0.05 + (double)RandomRange(900) / 1000.0;
+			double cy = 0.05 + (double)RandomRange(900) / 1000.0;
+			double r = 0.03 + (double)RandomRange(50) / 1000.0;
+			centers.push_back({cx, cy, r * r});
+		}
+	}
+
+	/* For Peninsula: pick random edge direction */
+	int peninsula_edge = 0;
+	if (shape == ContinentShape::Peninsula) {
+		peninsula_edge = RandomRange(4);
+	}
+
+	for (int y = 0; y < sy; y++) {
+		for (int x = 0; x < sx; x++) {
+			Height &h = _height_map.height(x, y);
+			if (h <= 0) continue;
+
+			double nx = (double)x * inv_sx;
+			double ny = (double)y * inv_sy;
+			double mask = 0.0;
+
+			switch (shape) {
+				case ContinentShape::Island: {
+					double dx = nx - 0.5;
+					double dy = ny - 0.5;
+					double dist_sq = dx * dx + dy * dy;
+					mask = std::max(0.0, 1.0 - dist_sq / 0.16);
+					break;
+				}
+
+				case ContinentShape::Archipelago:
+				case ContinentShape::Scattered: {
+					for (const auto &c : centers) {
+						double dx = nx - c.cx;
+						double dy = ny - c.cy;
+						double dist_sq = dx * dx + dy * dy;
+						double island_mask = std::max(0.0, 1.0 - dist_sq / c.r_sq);
+						if (island_mask > mask) mask = island_mask;
+					}
+					break;
+				}
+
+				case ContinentShape::Fjords: {
+					double dx = nx - 0.5;
+					double dy = ny - 0.5;
+					double radial = std::max(0.0, 1.0 - (dx * dx + dy * dy) / 0.25);
+					double noise = PerlinCoastNoise2D(nx * 8.0, ny * 8.0, 0.6, 7);
+					mask = radial * (0.5 + 0.3 * noise);
+					mask = Clamp<double>(mask, 0.0, 1.0);
+					break;
+				}
+
+				case ContinentShape::Peninsula: {
+					double progress, width_coord;
+					switch (peninsula_edge) {
+						case 0: progress = 1.0 - ny; width_coord = nx; break; /* From north */
+						case 1: progress = nx;       width_coord = ny; break; /* From east */
+						case 2: progress = ny;       width_coord = nx; break; /* From south */
+						default: progress = 1.0 - nx; width_coord = ny; break; /* From west */
+					}
+					double width = 0.3 + 0.15 * sin(progress * 6.0);
+					double center_offset = abs(width_coord - 0.5);
+					if (center_offset < width) {
+						mask = std::max(0.0, 1.0 - center_offset / width) * std::max(0.0, 1.0 - progress * 1.2);
+					}
+					break;
+				}
+
+				default:
+					mask = 1.0;
+					break;
+			}
+
+			h = (Height)(h * mask);
+		}
+	}
+}
+
+/**
  * Height map terraform post processing:
  *  - water level adjusting
+ *  - continent shape masking
  *  - coast Smoothing
  *  - slope Smoothing
  *  - height histogram redistribution by sine wave transform
@@ -926,6 +1034,10 @@ static void HeightMapNormalize()
 	const Height roughness = 7 + 3 * _settings_game.game_creation.tgen_smoothness;
 
 	HeightMapAdjustWaterLevel(water_percent, h_max_new);
+
+	if (_settings_game.game_creation.continent_shape != ContinentShape::None) {
+		HeightMapApplyContinentShape();
+	}
 
 	BorderFlags water_borders = _settings_game.construction.freeform_edges ? _settings_game.game_creation.water_borders : BORDERFLAGS_ALL;
 	if (water_borders == BorderFlag::Random) water_borders = static_cast<BorderFlags>(GB(Random(), 0, 4));
@@ -1110,6 +1222,103 @@ static void TgenSetTileHeight(TileIndex tile, int height)
 }
 
 /**
+ * Add mountain ranges to the heightmap using random walks with Gaussian falloff.
+ * Generates 1-3 ridge lines depending on the mountain range setting.
+ * Each ridge is a random walk across the map; tiles near the walk path
+ * receive additional height via a Gaussian envelope.
+ */
+static void HeightMapMountainRanges()
+{
+	const int ridge_count = _settings_game.game_creation.amount_of_mountain_ranges;
+	if (ridge_count == 0) return;
+
+	const int size_x = _height_map.size_x;
+	const int size_y = _height_map.size_y;
+	const int walk_length = std::max(size_x, size_y) * 6 / 10;
+	const int sigma = std::max(std::min(size_x, size_y) / 64, 4);
+	const int sigma_sq = sigma * sigma;
+	const Height peak_amplitude = TGPGetMaxHeight() / 3;
+
+	/* Collect all spine points from all ridges. */
+	struct SpinePoint { int x; int y; };
+	std::vector<SpinePoint> spine;
+	spine.reserve(walk_length * ridge_count);
+
+	for (int r = 0; r < ridge_count; r++) {
+		/* Random start position. */
+		int px = RandomRange(size_x);
+		int py = RandomRange(size_y);
+
+		/* Random base direction. */
+		double theta = static_cast<double>(Random()) / static_cast<double>(UINT32_MAX) * 2.0 * M_PI;
+
+		for (int step = 0; step < walk_length; step++) {
+			if (px >= 0 && px < size_x && py >= 0 && py < size_y) {
+				spine.push_back({px, py});
+			}
+
+			/* Wobble: random perturbation in [-PI/6, PI/6]. */
+			double wobble = (static_cast<double>(RandomRange(1000)) / 1000.0 - 0.5) * M_PI / 3.0;
+			double angle = theta + wobble;
+			px += static_cast<int>(round(cos(angle)));
+			py += static_cast<int>(round(sin(angle)));
+		}
+	}
+
+	if (spine.empty()) return;
+
+	/* Build spatial grid for fast distance lookup.
+	 * Each cell covers grid_cell * grid_cell tiles. */
+	const int grid_cell = std::max(sigma * 3, 1);
+	const int grid_w = (size_x + grid_cell - 1) / grid_cell;
+	const int grid_h = (size_y + grid_cell - 1) / grid_cell;
+	std::vector<std::vector<uint32_t>> grid(grid_w * grid_h);
+
+	for (uint32_t i = 0; i < static_cast<uint32_t>(spine.size()); i++) {
+		int gx = spine[i].x / grid_cell;
+		int gy = spine[i].y / grid_cell;
+		if (gx >= 0 && gx < grid_w && gy >= 0 && gy < grid_h) {
+			grid[gx + gy * grid_w].push_back(i);
+		}
+	}
+
+	/* Apply Gaussian falloff to heightmap. */
+	const int search_radius = 3 * sigma;
+	const int search_radius_sq = search_radius * search_radius;
+
+	for (int y = 0; y < size_y; y++) {
+		for (int x = 0; x < size_x; x++) {
+			/* Find minimum squared distance to any spine point via grid. */
+			int min_dist_sq = search_radius_sq + 1;
+
+			int gx_center = x / grid_cell;
+			int gy_center = y / grid_cell;
+
+			for (int gy = std::max(0, gy_center - 1); gy <= std::min(grid_h - 1, gy_center + 1); gy++) {
+				for (int gx = std::max(0, gx_center - 1); gx <= std::min(grid_w - 1, gx_center + 1); gx++) {
+					for (uint32_t idx : grid[gx + gy * grid_w]) {
+						int dx = x - spine[idx].x;
+						int dy = y - spine[idx].y;
+						int dist_sq = dx * dx + dy * dy;
+						if (dist_sq < min_dist_sq) min_dist_sq = dist_sq;
+					}
+				}
+			}
+
+			if (min_dist_sq > search_radius_sq) continue;
+
+			/* Gaussian falloff: peak * exp(-dist^2 / (2 * sigma^2)). */
+			double falloff = exp(-static_cast<double>(min_dist_sq) / (2.0 * sigma_sq));
+			Height add = static_cast<Height>(peak_amplitude * falloff);
+
+			if (add > 0) {
+				_height_map.height(static_cast<uint>(x), static_cast<uint>(y)) += add;
+			}
+		}
+	}
+}
+
+/**
  * The main new land generator using Perlin noise. Desert landscape is handled
  * different to all others to give a desert valley between two high mountains.
  * Clearly if a low height terrain (flat/very flat) is chosen, then the tropic
@@ -1122,6 +1331,10 @@ void GenerateTerrainPerlin()
 	GenerateWorldSetAbortCallback(FreeHeightMap);
 
 	HeightMapGenerate();
+
+	if (_settings_game.game_creation.amount_of_mountain_ranges > 0) {
+		HeightMapMountainRanges();
+	}
 
 	IncreaseGeneratingWorldProgress(GWP_LANDSCAPE);
 
