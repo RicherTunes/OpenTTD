@@ -1225,6 +1225,12 @@ struct GameOptionsWindow : Window {
 				this->SetWidgetDisabledState(WID_GO_VIDEO_CRT_SCANLINES, !_video_post_processing || !_video_hw_accel);
 				this->SetWidgetDisabledState(WID_GO_VIDEO_CRT_CURVATURE, !_video_post_processing || !_video_hw_accel);
 				this->SetWidgetDisabledState(WID_GO_VIDEO_CRT_ABERRATION, !_video_post_processing || !_video_hw_accel);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_DYNAMIC_LIGHTING_BUTTON, !_video_post_processing || !_video_hw_accel);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_BLOOM_BUTTON, !_video_post_processing || !_video_hw_accel);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_BLOOM_THRESHOLD, !_video_post_processing || !_video_hw_accel);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_BLOOM_INTENSITY, !_video_post_processing || !_video_hw_accel);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_WEATHER_DROPDOWN, !_video_post_processing || !_video_hw_accel);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_WEATHER_INTENSITY, !_video_post_processing || !_video_hw_accel);
 				this->SetDirty();
 				break;
 
@@ -1789,6 +1795,11 @@ struct GameOptionsWindow : Window {
 				this->SetDirty();
 				break;
 
+			case WID_GO_VIDEO_WEATHER_DROPDOWN:
+				_video_weather_type = Clamp(index, 0, 2);
+				this->SetDirty();
+				break;
+
 			case WID_GO_BASE_GRF_DROPDOWN:
 				if (_game_mode == GM_MENU) {
 					CloseWindowByClass(WC_GRF_PARAMETERS);
@@ -1886,6 +1897,8 @@ struct GameOptionsWindow : Window {
 		this->SetWidgetLoweredState(WID_GO_VIDEO_VIGNETTE_BUTTON, _video_vignette);
 		this->SetWidgetLoweredState(WID_GO_VIDEO_TILTSHIFT_BUTTON, _video_tiltshift);
 		this->SetWidgetLoweredState(WID_GO_VIDEO_FILM_GRAIN_BUTTON, _video_film_grain);
+		this->SetWidgetLoweredState(WID_GO_VIDEO_DYNAMIC_LIGHTING_BUTTON, _video_dynamic_lighting);
+		this->SetWidgetLoweredState(WID_GO_VIDEO_BLOOM_BUTTON, _video_bloom);
 		bool gpu_enabled = _video_hw_accel && _video_post_processing;
 		this->SetWidgetDisabledState(WID_GO_VIDEO_RENDER_SCALE, !gpu_enabled);
 		this->SetWidgetDisabledState(WID_GO_VIDEO_UPSCALE_DROPDOWN, !gpu_enabled);
@@ -1912,6 +1925,12 @@ struct GameOptionsWindow : Window {
 		this->SetWidgetDisabledState(WID_GO_VIDEO_CRT_SCANLINES, !gpu_enabled);
 		this->SetWidgetDisabledState(WID_GO_VIDEO_CRT_CURVATURE, !gpu_enabled);
 		this->SetWidgetDisabledState(WID_GO_VIDEO_CRT_ABERRATION, !gpu_enabled);
+		this->SetWidgetDisabledState(WID_GO_VIDEO_DYNAMIC_LIGHTING_BUTTON, !gpu_enabled);
+		this->SetWidgetDisabledState(WID_GO_VIDEO_BLOOM_BUTTON, !gpu_enabled);
+		this->SetWidgetDisabledState(WID_GO_VIDEO_BLOOM_THRESHOLD, !gpu_enabled);
+		this->SetWidgetDisabledState(WID_GO_VIDEO_BLOOM_INTENSITY, !gpu_enabled);
+		this->SetWidgetDisabledState(WID_GO_VIDEO_WEATHER_DROPDOWN, !gpu_enabled);
+		this->SetWidgetDisabledState(WID_GO_VIDEO_WEATHER_INTENSITY, !gpu_enabled);
 
 		this->SetWidgetLoweredState(WID_GO_GUI_SCALE_AUTO, _gui_scale_cfg == -1);
 		this->SetWidgetLoweredState(WID_GO_GUI_SCALE_BEVEL_BUTTON, _settings_client.gui.scale_bevels);
