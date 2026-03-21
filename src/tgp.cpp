@@ -146,6 +146,7 @@
 #include "core/random_func.hpp"
 #include "landscape_type.h"
 #include "tgp_func.h"
+#include "debug.h"
 
 #include "safeguards.h"
 
@@ -1032,30 +1033,46 @@ static void HeightMapApplyContinentShape()
  */
 static void HeightMapNormalize()
 {
+	auto t_start = std::chrono::steady_clock::now();
+
 	const int64_t water_percent = _settings_game.difficulty.quantity_sea_lakes != CUSTOM_SEA_LEVEL_NUMBER_DIFFICULTY ? _water_percent[_settings_game.difficulty.quantity_sea_lakes] : _settings_game.game_creation.custom_sea_level * WATER_PERCENT_FACTOR / 100;
 	const Height h_max_new = TGPGetMaxHeight();
 	const Height roughness = ROUGHNESS_BASE + ROUGHNESS_PER_SMOOTHNESS * _settings_game.game_creation.tgen_smoothness;
 
 	HeightMapAdjustWaterLevel(water_percent, h_max_new);
+	auto t1 = std::chrono::steady_clock::now();
+	Debug(map, 2, "TGP: AdjustWaterLevel: {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t_start).count());
 
 	if (_settings_game.game_creation.continent_shape != ContinentShape::None) {
 		HeightMapApplyContinentShape();
 	}
+	auto t2 = std::chrono::steady_clock::now();
+	Debug(map, 2, "TGP: ContinentShape: {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count());
 
 	BorderFlags water_borders = _settings_game.construction.freeform_edges ? _settings_game.game_creation.water_borders : BORDERFLAGS_ALL;
 	if (water_borders == BorderFlag::Random) water_borders = static_cast<BorderFlags>(GB(Random(), 0, 4));
 
 	HeightMapCoastLines(water_borders);
 	HeightMapSmoothSlopes(roughness);
+	auto t3 = std::chrono::steady_clock::now();
+	Debug(map, 2, "TGP: CoastLines+SmoothSlopes(1): {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t2).count());
 
 	HeightMapSmoothCoasts(water_borders);
 	HeightMapSmoothSlopes(roughness);
+	auto t4 = std::chrono::steady_clock::now();
+	Debug(map, 2, "TGP: SmoothCoasts+SmoothSlopes(2): {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(t4 - t3).count());
 
 	HeightMapSineTransform(I2H(1), h_max_new);
+	auto t5 = std::chrono::steady_clock::now();
+	Debug(map, 2, "TGP: SineTransform: {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(t5 - t4).count());
 
 	if (_settings_game.game_creation.variety > 0) {
 		HeightMapCurves(_settings_game.game_creation.variety);
 	}
+	auto t6 = std::chrono::steady_clock::now();
+	Debug(map, 2, "TGP: Curves: {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(t6 - t5).count());
+
+	Debug(map, 1, "TGP: Normalize total: {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(t6 - t_start).count());
 }
 
 /**
@@ -1330,18 +1347,26 @@ static void HeightMapMountainRanges()
  */
 void GenerateTerrainPerlin()
 {
+	auto gen_start = std::chrono::steady_clock::now();
+
 	AllocHeightMap();
 	GenerateWorldSetAbortCallback(FreeHeightMap);
 
 	HeightMapGenerate();
+	auto t1 = std::chrono::steady_clock::now();
+	Debug(map, 2, "TGP: HeightMapGenerate: {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(t1 - gen_start).count());
 
 	if (_settings_game.game_creation.amount_of_mountain_ranges > 0) {
 		HeightMapMountainRanges();
 	}
+	auto t2 = std::chrono::steady_clock::now();
+	Debug(map, 2, "TGP: MountainRanges: {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count());
 
 	IncreaseGeneratingWorldProgress(GWP_LANDSCAPE);
 
 	HeightMapNormalize();
+	auto t3 = std::chrono::steady_clock::now();
+	Debug(map, 2, "TGP: Normalize: {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t2).count());
 
 	IncreaseGeneratingWorldProgress(GWP_LANDSCAPE);
 
@@ -1359,7 +1384,11 @@ void GenerateTerrainPerlin()
 			TgenSetTileHeight(TileXY(x, y), Clamp(H2I(_height_map.height(x, y)), 0, max_height));
 		}
 	}
+	auto t4 = std::chrono::steady_clock::now();
+	Debug(map, 2, "TGP: TransferToTiles: {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(t4 - t3).count());
 
 	FreeHeightMap();
 	GenerateWorldSetAbortCallback(nullptr);
+
+	Debug(map, 1, "TGP: Total generation: {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(t4 - gen_start).count());
 }
