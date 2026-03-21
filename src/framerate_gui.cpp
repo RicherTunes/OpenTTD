@@ -1118,3 +1118,22 @@ void ProcessPendingPerformanceMeasurements()
 		_sound_perf_pending.store(false, std::memory_order_relaxed);
 	}
 }
+
+/**
+ * Snapshot the latest duration for draw-thread performance elements.
+ * Only PFE_DRAWING and PFE_VIDEO are safe to read from the draw thread
+ * outside of the game_state_mutex. Must be called from the main/draw thread.
+ * @return Snapshot with latest durations in microseconds.
+ */
+PerformanceSnapshot SnapshotPerformanceData()
+{
+	PerformanceSnapshot snap{};
+	auto get_latest = [](const PerformanceData &pd) -> TimingMeasurement {
+		if (pd.num_valid == 0) return 0;
+		TimingMeasurement d = pd.durations[pd.prev_index];
+		return (d == PerformanceData::INVALID_DURATION) ? 0 : d;
+	};
+	snap.drawing_us = get_latest(_pf_data[PFE_DRAWING]);
+	snap.video_us   = get_latest(_pf_data[PFE_VIDEO]);
+	return snap;
+}

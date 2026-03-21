@@ -122,4 +122,12 @@ public:
 void ShowFramerateWindow();
 void ProcessPendingPerformanceMeasurements();
 
+/** Snapshot of the latest per-frame timing data for benchmark export. */
+struct PerformanceSnapshot {
+	TimingMeasurement drawing_us;  ///< PFE_DRAWING duration (CPU-side draw).
+	TimingMeasurement video_us;    ///< PFE_VIDEO duration (paint + swap).
+};
+
+PerformanceSnapshot SnapshotPerformanceData();
+
 #endif /* FRAMERATE_TYPE_H */
