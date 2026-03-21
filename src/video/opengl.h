@@ -88,6 +88,16 @@ private:
 	void DestroyMVResources();
 	void DispatchMVRasterization();
 
+	/* Temporal accumulation resources. */
+	GLuint pp_temporal_program = 0;  ///< Temporal accumulation shader program.
+	GLuint pp_history_fbo = 0;       ///< FBO for history texture.
+	GLuint pp_history_tex = 0;       ///< History texture (previous frame output).
+	GLint pp_temporal_texel_loc = -1;  ///< texel_size uniform.
+	GLint pp_temporal_jitter_loc = -1; ///< jitter_offset uniform.
+	GLint pp_temporal_reset_loc = -1;  ///< reset uniform.
+	GLint pp_temporal_history_loc = -1; ///< history_tex sampler uniform.
+	GLint pp_temporal_mv_loc = -1;     ///< mv_tex sampler uniform.
+
 	GLuint pp_blit_program = 0;      ///< Simple blit shader program.
 	GLuint pp_cas_program = 0;       ///< CAS sharpening shader program.
 	GLuint pp_fsr_easu_program = 0;  ///< FSR 1.0 EASU (upscale) shader program.

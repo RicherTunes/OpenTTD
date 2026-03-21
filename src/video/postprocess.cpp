@@ -77,7 +77,7 @@ bool PostProcessNeedsFBO(const PostProcessConfig &config)
 {
 	if (config.render_scale < 100) return true;
 	/* Bilinear upscale at 100% is a no-op -- don't allocate FBO for it. */
-	if (config.upscale_mode == UpscaleMode::FSR1) return true;
+	if (config.upscale_mode == UpscaleMode::FSR1 || config.upscale_mode == UpscaleMode::Temporal) return true;
 	if (config.sharpening > 0) return true;
 	if (config.fxaa) return true;
 	if (config.color_grading) return true;
@@ -107,12 +107,14 @@ int PostProcessPassCount(const PostProcessConfig &config)
 	/* Upscaling passes. */
 	if (config.upscale_mode == UpscaleMode::FSR1) {
 		passes += 2; /* EASU + RCAS */
+	} else if (config.upscale_mode == UpscaleMode::Temporal) {
+		passes += 1; /* Temporal accumulation pass. */
 	} else if (config.upscale_mode == UpscaleMode::Bilinear && config.render_scale < 100) {
 		passes += 1; /* Bilinear blit or bicubic Catmull-Rom upscale. */
 	}
 
-	/* CAS standalone (not when FSR1 is active, since RCAS already sharpens). */
-	if (config.sharpening > 0 && config.upscale_mode != UpscaleMode::FSR1) {
+	/* CAS standalone (not when FSR1 or Temporal is active). */
+	if (config.sharpening > 0 && config.upscale_mode != UpscaleMode::FSR1 && config.upscale_mode != UpscaleMode::Temporal) {
 		passes += 1;
 	}
 
