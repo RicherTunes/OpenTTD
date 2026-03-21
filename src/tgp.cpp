@@ -145,12 +145,9 @@
 #include "genworld.h"
 #include "core/random_func.hpp"
 #include "landscape_type.h"
+#include "tgp_func.h"
 
 #include "safeguards.h"
-
-/** Fixed point type for heights */
-using Height = int16_t;
-static const int HEIGHT_DECIMAL_BITS = 4;
 
 /** Fixed point array for amplitudes */
 using Amplitude = int;
@@ -742,6 +739,7 @@ static void HeightMapAdjustWaterLevel(int64_t water_percent, Height h_max_new)
 }
 
 static double PerlinCoastNoise2D(const double x, const double y, const double p, const int prime);
+static double SmoothedPerlinCoastNoise2D(const double x, const double y, const double p, const int prime);
 
 /**
  * This routine sculpts in from the edge a random amount, again from Perlin
@@ -776,7 +774,15 @@ static void HeightMapCoastLines(BorderFlags water_borders)
 	/* Function to get the distance from the edge at x (the coastline is actually 1D noise).
 	 * p1, p2, p3 are small prime numbers so the sequences aren't identical.
 	 */
+	const bool use_smoothed = _settings_game.game_creation.terrain_algorithm == TerrainAlgorithm::ImprovedPerlin;
+
 	auto get_depth = [&](int x, int p1, int p2, int p3) {
+		if (use_smoothed) {
+			return 2
+				+ smooth_distance * (1 + SmoothedPerlinCoastNoise2D(x, x, 0.2, p1))
+				+ jagged_distance * abs(SmoothedPerlinCoastNoise2D(x, x, 0.5, p2))
+				+ 8 * abs(SmoothedPerlinCoastNoise2D(x, x, 0.8, p3));
+		}
 		return 2 // we ensure a margin of two water tiles at the edge of the map
 			+ smooth_distance * (1 + PerlinCoastNoise2D(x, x, 0.2, p1)) // +1 rather than abs reduces the number of V shaped inlets
 			+ jagged_distance * abs(PerlinCoastNoise2D(x, x, 0.5, p2))
@@ -1000,6 +1006,33 @@ static double InterpolatedNoise(const double x, const double y, const int prime)
 }
 
 /**
+ * Smoothed interpolated noise using quintic Hermite interpolation.
+ * This produces smoother terrain with fewer grid artifacts than LinearInterpolate.
+ * @param x The X-coordinate.
+ * @param y The Y-coordinate.
+ * @param prime The prime for the generation.
+ * @return The smoothed Perlin noise.
+ */
+static double SmoothedInterpolatedNoise(const double x, const double y, const int prime)
+{
+	const int integer_x = (int)x;
+	const int integer_y = (int)y;
+
+	const double fractional_x = x - (double)integer_x;
+	const double fractional_y = y - (double)integer_y;
+
+	const double v1 = IntNoise(integer_x,     integer_y,     prime);
+	const double v2 = IntNoise(integer_x + 1, integer_y,     prime);
+	const double v3 = IntNoise(integer_x,     integer_y + 1, prime);
+	const double v4 = IntNoise(integer_x + 1, integer_y + 1, prime);
+
+	const double i1 = SmoothedInterpolate(v1, v2, fractional_x);
+	const double i2 = SmoothedInterpolate(v3, v4, fractional_x);
+
+	return SmoothedInterpolate(i1, i2, fractional_y);
+}
+
+/**
  * This is a similar function to the main perlin noise calculation, but uses
  * the value p passed as a parameter rather than selected from the predefined
  * sequences. as you can guess by its title, i use this to create the indented
@@ -1021,6 +1054,35 @@ static double PerlinCoastNoise2D(const double x, const double y, const double p,
 	double amplitude = 1.0;
 	for (int i = 0; i < OCTAVES; i++) {
 		total += InterpolatedNoise(x * frequency, y * frequency, prime) * amplitude;
+		max_value += amplitude;
+
+		frequency *= 2.0;
+		amplitude *= p;
+	}
+
+	/* Bringing the output range into [-1, 1] makes it much easier to reason with */
+	return total / max_value;
+}
+
+/**
+ * Smoothed Perlin noise for coastlines using quintic interpolation.
+ * @param x The X-coordinate.
+ * @param y The Y-coordinate.
+ * @param p Scaling factor for the noise.
+ * @param prime The prime for the generation.
+ * @return The smoothed Perlin coast noise.
+ */
+static double SmoothedPerlinCoastNoise2D(const double x, const double y, const double p, const int prime)
+{
+	constexpr int OCTAVES = 6;
+	constexpr double INITIAL_FREQUENCY = 1 << OCTAVES;
+
+	double total = 0.0;
+	double max_value = 0.0;
+	double frequency = 1.0 / INITIAL_FREQUENCY;
+	double amplitude = 1.0;
+	for (int i = 0; i < OCTAVES; i++) {
+		total += SmoothedInterpolatedNoise(x * frequency, y * frequency, prime) * amplitude;
 		max_value += amplitude;
 
 		frequency *= 2.0;
