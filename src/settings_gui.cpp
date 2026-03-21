@@ -557,6 +557,32 @@ struct GameOptionsWindow : Window {
 				}
 				break;
 
+			case WID_GO_VIDEO_UPSCALE_DROPDOWN: {
+				static const StringID _upscale_items[] = {
+					STR_GAME_OPTIONS_UPSCALE_NONE,
+					STR_GAME_OPTIONS_UPSCALE_BILINEAR,
+					STR_GAME_OPTIONS_UPSCALE_FSR1,
+				};
+				*selected_index = _video_upscale_mode;
+				for (int i = 0; i < 3; i++) {
+					list.push_back(MakeDropDownListStringItem(_upscale_items[i], i));
+				}
+				break;
+			}
+
+			case WID_GO_VIDEO_TEXTURE_FILTER_DROPDOWN: {
+				static const StringID _texfilter_items[] = {
+					STR_GAME_OPTIONS_TEXTURE_FILTER_NEAREST,
+					STR_GAME_OPTIONS_TEXTURE_FILTER_BILINEAR,
+					STR_GAME_OPTIONS_TEXTURE_FILTER_SMOOTH,
+				};
+				*selected_index = _video_texture_filter;
+				for (int i = 0; i < 3; i++) {
+					list.push_back(MakeDropDownListStringItem(_texfilter_items[i], i));
+				}
+				break;
+			}
+
 			case WID_GO_BASE_GRF_DROPDOWN:
 				list = BuildSetDropDownList<BaseGraphics>(selected_index);
 				break;
@@ -672,6 +698,27 @@ struct GameOptionsWindow : Window {
 			case WID_GO_VIDEO_VSYNC_TEXT:
 				return GetToggleString(STR_GAME_OPTIONS_VIDEO_VSYNC, WID_GO_VIDEO_VSYNC_BUTTON);
 
+			case WID_GO_VIDEO_POST_PROCESSING_TEXT:
+				return GetToggleString(STR_GAME_OPTIONS_POST_PROCESSING, WID_GO_VIDEO_POST_PROCESSING_BUTTON);
+
+			case WID_GO_VIDEO_UPSCALE_DROPDOWN: {
+				static const StringID _upscale_names[] = {
+					STR_GAME_OPTIONS_UPSCALE_NONE,
+					STR_GAME_OPTIONS_UPSCALE_BILINEAR,
+					STR_GAME_OPTIONS_UPSCALE_FSR1,
+				};
+				return GetString(_upscale_names[_video_upscale_mode]);
+			}
+
+			case WID_GO_VIDEO_TEXTURE_FILTER_DROPDOWN: {
+				static const StringID _texfilter_names[] = {
+					STR_GAME_OPTIONS_TEXTURE_FILTER_NEAREST,
+					STR_GAME_OPTIONS_TEXTURE_FILTER_BILINEAR,
+					STR_GAME_OPTIONS_TEXTURE_FILTER_SMOOTH,
+				};
+				return GetString(_texfilter_names[_video_texture_filter]);
+			}
+
 			default:
 				return this->Window::GetWidgetString(widget, stringid);
 		}
@@ -698,6 +745,14 @@ struct GameOptionsWindow : Window {
 
 			case WID_GO_VIDEO_DRIVER_INFO:
 				DrawStringMultiLine(r, GetString(STR_GAME_OPTIONS_VIDEO_DRIVER_INFO, std::string{VideoDriver::GetInstance()->GetInfoString()}), GAME_OPTIONS_SELECTED);
+				break;
+
+			case WID_GO_VIDEO_RENDER_SCALE:
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 50, 100, 11, _video_render_scale, nullptr);
+				break;
+
+			case WID_GO_VIDEO_SHARPENING:
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 100, 5, _video_sharpening, nullptr);
 				break;
 
 			case WID_GO_BASE_SFX_VOLUME:
@@ -1021,6 +1076,43 @@ struct GameOptionsWindow : Window {
 				this->SetWidgetDisabledState(WID_GO_REFRESH_RATE_DROPDOWN, _video_vsync);
 				this->SetWidgetDirty(WID_GO_REFRESH_RATE_DROPDOWN);
 				break;
+
+			case WID_GO_VIDEO_POST_PROCESSING_BUTTON:
+				_video_post_processing = !_video_post_processing;
+				this->SetWidgetLoweredState(WID_GO_VIDEO_POST_PROCESSING_BUTTON, _video_post_processing);
+				this->SetWidgetDirty(WID_GO_VIDEO_POST_PROCESSING_BUTTON);
+				this->SetWidgetDirty(WID_GO_VIDEO_POST_PROCESSING_TEXT);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_RENDER_SCALE, !_video_post_processing || !_video_hw_accel);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_UPSCALE_DROPDOWN, !_video_post_processing || !_video_hw_accel);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_SHARPENING, !_video_post_processing || !_video_hw_accel);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_TEXTURE_FILTER_DROPDOWN, !_video_post_processing || !_video_hw_accel);
+				this->SetDirty();
+				break;
+
+			case WID_GO_VIDEO_RENDER_SCALE:
+				if (!_video_post_processing || !_video_hw_accel) break;
+				if (ClickSliderWidget(this->GetWidget<NWidgetBase>(widget)->GetCurrentRect(), pt, 50, 100, _ctrl_pressed ? 0 : 11, _video_render_scale)) {
+					this->SetWidgetDirty(widget);
+				}
+				if (click_count > 0) this->mouse_capture_widget = widget;
+				break;
+
+			case WID_GO_VIDEO_SHARPENING:
+				if (!_video_post_processing || !_video_hw_accel) break;
+				if (ClickSliderWidget(this->GetWidget<NWidgetBase>(widget)->GetCurrentRect(), pt, 0, 100, _ctrl_pressed ? 0 : 5, _video_sharpening)) {
+					this->SetWidgetDirty(widget);
+				}
+				if (click_count > 0) this->mouse_capture_widget = widget;
+				break;
+
+			case WID_GO_VIDEO_UPSCALE_DROPDOWN:
+			case WID_GO_VIDEO_TEXTURE_FILTER_DROPDOWN: {
+				if (!_video_post_processing || !_video_hw_accel) break;
+				int selected;
+				DropDownList list = this->BuildDropDownList(widget, &selected);
+				if (!list.empty()) ShowDropDownList(this, std::move(list), selected, widget);
+				break;
+			}
 
 			case WID_GO_GUI_SCALE_BEVEL_BUTTON: {
 				_settings_client.gui.scale_bevels = !_settings_client.gui.scale_bevels;
@@ -1461,6 +1553,16 @@ struct GameOptionsWindow : Window {
 				break;
 			}
 
+			case WID_GO_VIDEO_UPSCALE_DROPDOWN:
+				_video_upscale_mode = Clamp(index, 0, 2);
+				this->SetDirty();
+				break;
+
+			case WID_GO_VIDEO_TEXTURE_FILTER_DROPDOWN:
+				_video_texture_filter = Clamp(index, 0, 2);
+				this->SetDirty();
+				break;
+
 			case WID_GO_BASE_GRF_DROPDOWN:
 				if (_game_mode == GM_MENU) {
 					CloseWindowByClass(WC_GRF_PARAMETERS);
@@ -1549,6 +1651,14 @@ struct GameOptionsWindow : Window {
 		this->SetWidgetLoweredState(WID_GO_VIDEO_VSYNC_BUTTON, _video_hw_accel && _video_vsync);
 		this->SetWidgetDisabledState(WID_GO_VIDEO_VSYNC_BUTTON, !_video_hw_accel);
 #endif
+
+		/* GPU rendering controls. */
+		this->SetWidgetLoweredState(WID_GO_VIDEO_POST_PROCESSING_BUTTON, _video_post_processing);
+		bool gpu_enabled = _video_hw_accel && _video_post_processing;
+		this->SetWidgetDisabledState(WID_GO_VIDEO_RENDER_SCALE, !gpu_enabled);
+		this->SetWidgetDisabledState(WID_GO_VIDEO_UPSCALE_DROPDOWN, !gpu_enabled);
+		this->SetWidgetDisabledState(WID_GO_VIDEO_SHARPENING, !gpu_enabled);
+		this->SetWidgetDisabledState(WID_GO_VIDEO_TEXTURE_FILTER_DROPDOWN, !gpu_enabled);
 
 		this->SetWidgetLoweredState(WID_GO_GUI_SCALE_AUTO, _gui_scale_cfg == -1);
 		this->SetWidgetLoweredState(WID_GO_GUI_SCALE_BEVEL_BUTTON, _settings_client.gui.scale_bevels);
@@ -1718,6 +1828,31 @@ static constexpr std::initializer_list<NWidgetPart> _nested_game_options_widgets
 #endif
 							NWidget(NWID_HORIZONTAL),
 								NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_DRIVER_INFO), SetMinimalTextLines(1, 0), SetFill(1, 0), SetResize(1, 0),
+							EndContainer(),
+						EndContainer(),
+					EndContainer(),
+
+					NWidget(WWT_FRAME, GAME_OPTIONS_BACKGROUND), SetStringTip(STR_GAME_OPTIONS_GPU_RENDERING), SetTextStyle(GAME_OPTIONS_FRAME),
+						NWidget(NWID_VERTICAL), SetPIP(0, WidgetDimensions::unscaled.vsep_normal, 0),
+							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+								NWidget(WWT_BOOLBTN, GAME_OPTIONS_BACKGROUND, WID_GO_VIDEO_POST_PROCESSING_BUTTON), SetAlternateColourTip(GAME_OPTIONS_BUTTON, STR_GAME_OPTIONS_POST_PROCESSING_TOOLTIP),
+								NWidget(WWT_TEXT, INVALID_COLOUR, WID_GO_VIDEO_POST_PROCESSING_TEXT), SetFill(1, 0), SetResize(1, 0), SetTextStyle(GAME_OPTIONS_LABEL),
+							EndContainer(),
+							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+								NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_RENDER_SCALE), SetTextStyle(GAME_OPTIONS_LABEL),
+								NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_RENDER_SCALE), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_RENDER_SCALE_TOOLTIP),
+							EndContainer(),
+							NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize), SetPIP(0, WidgetDimensions::unscaled.hsep_normal, 0),
+								NWidget(WWT_TEXT, INVALID_COLOUR), SetFill(1, 0), SetResize(1, 0), SetStringTip(STR_GAME_OPTIONS_UPSCALE_MODE), SetTextStyle(GAME_OPTIONS_LABEL),
+								NWidget(WWT_DROPDOWN, GAME_OPTIONS_BUTTON, WID_GO_VIDEO_UPSCALE_DROPDOWN), SetFill(1, 0), SetToolTip(STR_GAME_OPTIONS_UPSCALE_MODE_TOOLTIP),
+							EndContainer(),
+							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+								NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_SHARPENING), SetTextStyle(GAME_OPTIONS_LABEL),
+								NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_SHARPENING), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_SHARPENING_TOOLTIP),
+							EndContainer(),
+							NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize), SetPIP(0, WidgetDimensions::unscaled.hsep_normal, 0),
+								NWidget(WWT_TEXT, INVALID_COLOUR), SetFill(1, 0), SetResize(1, 0), SetStringTip(STR_GAME_OPTIONS_TEXTURE_FILTER), SetTextStyle(GAME_OPTIONS_LABEL),
+								NWidget(WWT_DROPDOWN, GAME_OPTIONS_BUTTON, WID_GO_VIDEO_TEXTURE_FILTER_DROPDOWN), SetFill(1, 0), SetToolTip(STR_GAME_OPTIONS_TEXTURE_FILTER_TOOLTIP),
 							EndContainer(),
 						EndContainer(),
 					EndContainer(),
