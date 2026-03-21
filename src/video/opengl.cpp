@@ -1271,8 +1271,12 @@ void OpenGLBackend::Paint()
 			/* Film grain sub-parameter. */
 			new_config.grain_intensity = _video_grain_intensity;
 
-			/* Dynamic lighting. */
+			/* Dynamic lighting: compute time-of-day from game calendar.
+			 * date_fract cycles 0..DAY_TICKS-1 within each game day. Map to 0.0..1.0. */
 			new_config.dynamic_lighting = _video_dynamic_lighting;
+			if (_video_dynamic_lighting) {
+				new_config.time_of_day = static_cast<float>(TimerGameCalendar::date_fract) / static_cast<float>(Ticks::DAY_TICKS);
+			}
 
 			/* Bloom. */
 			new_config.bloom = _video_bloom;
