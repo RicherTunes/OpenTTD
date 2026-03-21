@@ -133,6 +133,7 @@ GL(glBindFramebuffer);
 GL(glFramebufferTexture2D);
 GL(glCheckFramebufferStatus);
 GL(glDrawBuffers);
+GL(glBlitFramebuffer);
 
 /* GL 4.3 compute shader functions. */
 GL(glDispatchCompute);
@@ -486,6 +487,7 @@ static bool BindFBOExtensions()
 		if (!BindGLProc(_glFramebufferTexture2D, "glFramebufferTexture2D")) return false;
 		if (!BindGLProc(_glCheckFramebufferStatus, "glCheckFramebufferStatus")) return false;
 		if (!BindGLProc(_glDrawBuffers, "glDrawBuffers")) return false;
+		if (!BindGLProc(_glBlitFramebuffer, "glBlitFramebuffer")) return false;
 		return true;
 	}
 	return false;
@@ -1669,6 +1671,10 @@ void OpenGLBackend::DestroyPostProcessFBOs()
 		_glDeleteTextures(2, this->pp_tex);
 		this->pp_tex[0] = this->pp_tex[1] = 0;
 	}
+	if (this->pp_history_fbo != 0) {
+		_glDeleteFramebuffers(1, &this->pp_history_fbo);
+		this->pp_history_fbo = 0;
+	}
 	if (this->pp_history_tex != 0) {
 		_glDeleteTextures(1, &this->pp_history_tex);
 		this->pp_history_tex = 0;
@@ -1714,7 +1720,8 @@ void OpenGLBackend::RenderPostProcess()
 			total++;
 		}
 	}
-	if (this->pp_config.sharpening > 0 && this->pp_config.upscale_mode != UpscaleMode::FSR1 && this->pp_cas_program != 0) total++;
+	if (this->pp_config.upscale_mode == UpscaleMode::Temporal && this->pp_temporal_program != 0 && this->mv_compute_supported) total++;
+	if (this->pp_config.sharpening > 0 && this->pp_config.upscale_mode != UpscaleMode::FSR1 && this->pp_config.upscale_mode != UpscaleMode::Temporal && this->pp_cas_program != 0) total++;
 	if (WillRun(this->pp_config.fxaa, this->pp_fxaa_program)) total++;
 	if (WillRun(this->pp_config.tiltshift, this->pp_tiltshift_h_program)) total++;
 	if (WillRun(this->pp_config.tiltshift, this->pp_tiltshift_v_program)) total++;
@@ -1796,7 +1803,7 @@ void OpenGLBackend::RenderPostProcess()
 
 	/* Temporal accumulation upscaling. */
 	if (this->pp_config.upscale_mode == UpscaleMode::Temporal && this->pp_temporal_program != 0 && this->mv_compute_supported) {
-		/* Allocate history texture if needed. */
+		/* Allocate history texture and FBO if needed. */
 		if (this->pp_history_tex == 0) {
 			_glGenTextures(1, &this->pp_history_tex);
 			_glBindTexture(GL_TEXTURE_2D, this->pp_history_tex);
@@ -1809,6 +1816,17 @@ void OpenGLBackend::RenderPostProcess()
 			_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 			_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 			_glBindTexture(GL_TEXTURE_2D, 0);
+
+			/* Create FBO with history texture as color attachment for efficient blits. */
+			_glGenFramebuffers(1, &this->pp_history_fbo);
+			_glBindFramebuffer(GL_FRAMEBUFFER, this->pp_history_fbo);
+			_glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, this->pp_history_tex, 0);
+			GLenum draw_buf = GL_COLOR_ATTACHMENT0;
+			_glDrawBuffers(1, &draw_buf);
+			if (_glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+				Debug(driver, 0, "OpenGL: Temporal history FBO incomplete");
+			}
+			_glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		}
 
 		/* Compute jitter for this frame. */
@@ -1849,12 +1867,17 @@ void OpenGLBackend::RenderPostProcess()
 
 		RunPass();
 
-		/* Copy current output to history for next frame.
-		 * The output of RunPass is in pp_tex[src] (after ping-pong swap). */
-		_glBindTexture(GL_TEXTURE_2D, this->pp_history_tex);
-		_glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0,
-			this->pp_display_size.width, this->pp_display_size.height);
-		_glBindTexture(GL_TEXTURE_2D, 0);
+		/* Blit current output to history FBO for next frame.
+		 * Uses glBlitFramebuffer for efficient GPU-to-GPU copy (no pipeline stall). */
+		if (this->pp_history_fbo != 0) {
+			/* The source is the current read framebuffer (pp_fbo[src] after RunPass swap). */
+			_glBindFramebuffer(GL_READ_FRAMEBUFFER, pass > 0 ? this->pp_fbo[src] : this->pp_fbo[0]);
+			_glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->pp_history_fbo);
+			_glBlitFramebuffer(0, 0, this->pp_display_size.width, this->pp_display_size.height,
+			                   0, 0, this->pp_display_size.width, this->pp_display_size.height,
+			                   GL_COLOR_BUFFER_BIT, GL_NEAREST);
+			_glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		}
 	}
 
 	/* CAS standalone (not when FSR1 or Temporal active). */
