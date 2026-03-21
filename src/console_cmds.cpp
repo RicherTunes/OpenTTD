@@ -2836,6 +2836,47 @@ static bool ConBenchmark(std::span<std::string_view> argv)
 	return false;
 }
 
+/**
+ * Reset all post-processing settings to their default values.
+ * Used by both 'pp reset' and 'pp preset' to avoid code duplication.
+ */
+static void ResetPPDefaults()
+{
+	_video_post_processing = false;
+	_video_render_scale = 100;
+	_video_upscale_mode = 0;
+	_video_sharpening = 50;
+	_video_texture_filter = 0;
+	_video_fxaa = false;
+	_video_night_mode = false;
+	_video_crt_filter = false;
+	_video_vignette = false;
+	_video_tiltshift = false;
+	_video_film_grain = false;
+	_video_brightness = 0;
+	_video_contrast = 100;
+	_video_saturation = 100;
+	_video_color_temperature = 0;
+	_video_night_intensity = 60;
+	_video_night_blue_shift = 30;
+	_video_crt_scanlines = 15;
+	_video_crt_curvature = 0;
+	_video_crt_aberration = 5;
+	_video_vignette_intensity = 30;
+	_video_vignette_radius = 85;
+	_video_vignette_softness = 45;
+	_video_tiltshift_focus_y = 45;
+	_video_tiltshift_focus_width = 25;
+	_video_tiltshift_blur = 30;
+	_video_grain_intensity = 4;
+	_video_dynamic_lighting = false;
+	_video_bloom = false;
+	_video_bloom_threshold = 70;
+	_video_bloom_intensity = 30;
+	_video_weather_type = 0;
+	_video_weather_intensity = 30;
+}
+
 /** GPU post-processing control. @copydoc IConsoleCmdProc */
 static bool ConPostProcess(std::span<std::string_view> argv)
 {
@@ -2846,11 +2887,11 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		IConsolePrint(CC_HELP, "Usage: 'pp enable/disable <effect>' - Toggle an effect.");
 		IConsolePrint(CC_HELP, "  Effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather");
 		IConsolePrint(CC_HELP, "Usage: 'pp set <param> <value>' - Set a parameter.");
-		IConsolePrint(CC_HELP, "  Core: render_scale (50-200), sharpening (0-100), upscale (0-2)");
+		IConsolePrint(CC_HELP, "  Core: render_scale (50-200), sharpening (0-100), upscale (0-3), texture_filter (0-2)");
 		IConsolePrint(CC_HELP, "  Color: brightness (-50..50), contrast (50-200), saturation (0-200), temperature (-100..100)");
 		IConsolePrint(CC_HELP, "  Night: night_intensity (20-100), night_blue_shift (0-80)");
 		IConsolePrint(CC_HELP, "  CRT: crt_scanlines (0-50), crt_curvature (0-50), crt_aberration (0-30)");
-		IConsolePrint(CC_HELP, "  Vignette: vignette_intensity (0-100), vignette_radius (50-150)");
+		IConsolePrint(CC_HELP, "  Vignette: vignette_intensity (0-100), vignette_radius (50-150), vignette_softness (10-80)");
 		IConsolePrint(CC_HELP, "  Tilt-shift: tiltshift_focus (0-100), tiltshift_width (5-80), tiltshift_blur (10-60)");
 		IConsolePrint(CC_HELP, "  Other: grain_intensity (1-20), bloom_threshold (0-100), bloom_intensity (0-100)");
 		IConsolePrint(CC_HELP, "  Weather: weather_type (0-2), weather_intensity (0-100)");
@@ -2931,11 +2972,11 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 	if (argv[1] == "set") {
 		if (argv.size() < 4) {
 			IConsolePrint(CC_ERROR, "Usage: 'pp set <param> <value>'");
-			IConsolePrint(CC_ERROR, "  Core: render_scale (50-200), sharpening (0-100), upscale (0-2)");
+			IConsolePrint(CC_ERROR, "  Core: render_scale (50-200), sharpening (0-100), upscale (0-3), texture_filter (0-2)");
 			IConsolePrint(CC_ERROR, "  Color: brightness (-50..50), contrast (50-200), saturation (0-200), temperature (-100..100)");
 			IConsolePrint(CC_ERROR, "  Night: night_intensity (20-100), night_blue_shift (0-80)");
 			IConsolePrint(CC_ERROR, "  CRT: crt_scanlines (0-50), crt_curvature (0-50), crt_aberration (0-30)");
-			IConsolePrint(CC_ERROR, "  Vignette: vignette_intensity (0-100), vignette_radius (50-150)");
+			IConsolePrint(CC_ERROR, "  Vignette: vignette_intensity (0-100), vignette_radius (50-150), vignette_softness (10-80)");
 			IConsolePrint(CC_ERROR, "  Tilt-shift: tiltshift_focus (0-100), tiltshift_width (5-80), tiltshift_blur (10-60)");
 			IConsolePrint(CC_ERROR, "  Other: grain_intensity (1-20), bloom_threshold (0-100), bloom_intensity (0-100)");
 			IConsolePrint(CC_ERROR, "  Weather: weather_type (0-2), weather_intensity (0-100)");
@@ -2956,7 +2997,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			_video_sharpening = static_cast<uint8_t>(Clamp(value, 0, 100));
 			IConsolePrint(CC_INFO, "Sharpening set to {}.", _video_sharpening);
 		} else if (param == "upscale") {
-			_video_upscale_mode = static_cast<uint8_t>(Clamp(value, 0, 2));
+			_video_upscale_mode = static_cast<uint8_t>(Clamp(value, 0, 3));
 			IConsolePrint(CC_INFO, "Upscale mode set to {}.", _video_upscale_mode);
 		} else if (param == "brightness") {
 			_video_brightness = static_cast<int8_t>(Clamp(value, -50, 50));
@@ -2991,6 +3032,12 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		} else if (param == "vignette_radius") {
 			_video_vignette_radius = static_cast<uint8_t>(Clamp(value, 50, 150));
 			IConsolePrint(CC_INFO, "Vignette radius set to {}.", _video_vignette_radius);
+		} else if (param == "vignette_softness") {
+			_video_vignette_softness = static_cast<uint8_t>(Clamp(value, 10, 80));
+			IConsolePrint(CC_INFO, "Vignette softness set to {}.", _video_vignette_softness);
+		} else if (param == "texture_filter") {
+			_video_texture_filter = static_cast<uint8_t>(Clamp(value, 0, 2));
+			IConsolePrint(CC_INFO, "Texture filter set to {}.", _video_texture_filter);
 		} else if (param == "tiltshift_focus") {
 			_video_tiltshift_focus_y = static_cast<uint8_t>(Clamp(value, 0, 100));
 			IConsolePrint(CC_INFO, "Tilt-shift focus Y set to {}.", _video_tiltshift_focus_y);
@@ -3017,10 +3064,10 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			IConsolePrint(CC_INFO, "Weather intensity set to {}.", _video_weather_intensity);
 		} else {
 			IConsolePrint(CC_ERROR, "Unknown parameter '{}'.", param);
-			IConsolePrint(CC_ERROR, "  Core: render_scale, sharpening, upscale, brightness, contrast, saturation, temperature");
+			IConsolePrint(CC_ERROR, "  Core: render_scale, sharpening, upscale, texture_filter, brightness, contrast, saturation, temperature");
 			IConsolePrint(CC_ERROR, "  Night: night_intensity, night_blue_shift");
 			IConsolePrint(CC_ERROR, "  CRT: crt_scanlines, crt_curvature, crt_aberration");
-			IConsolePrint(CC_ERROR, "  Vignette: vignette_intensity, vignette_radius");
+			IConsolePrint(CC_ERROR, "  Vignette: vignette_intensity, vignette_radius, vignette_softness");
 			IConsolePrint(CC_ERROR, "  Tilt-shift: tiltshift_focus, tiltshift_width, tiltshift_blur");
 			IConsolePrint(CC_ERROR, "  Other: grain_intensity, bloom_threshold, bloom_intensity, weather_type, weather_intensity");
 			return false;
@@ -3029,38 +3076,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 	}
 
 	if (argv[1] == "reset") {
-		_video_post_processing = false;
-		_video_render_scale = 100;
-		_video_upscale_mode = 0;
-		_video_sharpening = 50;
-		_video_texture_filter = 0;
-		_video_fxaa = false;
-		_video_night_mode = false;
-		_video_crt_filter = false;
-		_video_vignette = false;
-		_video_tiltshift = false;
-		_video_film_grain = false;
-		_video_brightness = 0;
-		_video_contrast = 100;
-		_video_saturation = 100;
-		_video_color_temperature = 0;
-		_video_night_intensity = 60;
-		_video_night_blue_shift = 30;
-		_video_crt_scanlines = 15;
-		_video_crt_curvature = 0;
-		_video_crt_aberration = 5;
-		_video_vignette_intensity = 30;
-		_video_vignette_radius = 85;
-		_video_tiltshift_focus_y = 45;
-		_video_tiltshift_focus_width = 25;
-		_video_tiltshift_blur = 30;
-		_video_grain_intensity = 4;
-		_video_dynamic_lighting = false;
-		_video_bloom = false;
-		_video_bloom_threshold = 70;
-		_video_bloom_intensity = 30;
-		_video_weather_type = 0;
-		_video_weather_intensity = 30;
+		ResetPPDefaults();
 		IConsolePrint(CC_INFO, "All post-processing settings reset to defaults.");
 		return true;
 	}
@@ -3078,38 +3094,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		}
 
 		/* Reset all post-processing settings to defaults first. */
-		_video_post_processing = false;
-		_video_render_scale = 100;
-		_video_upscale_mode = 0;
-		_video_sharpening = 50;
-		_video_texture_filter = 0;
-		_video_fxaa = false;
-		_video_night_mode = false;
-		_video_crt_filter = false;
-		_video_vignette = false;
-		_video_tiltshift = false;
-		_video_film_grain = false;
-		_video_brightness = 0;
-		_video_contrast = 100;
-		_video_saturation = 100;
-		_video_color_temperature = 0;
-		_video_night_intensity = 60;
-		_video_night_blue_shift = 30;
-		_video_crt_scanlines = 15;
-		_video_crt_curvature = 0;
-		_video_crt_aberration = 5;
-		_video_vignette_intensity = 30;
-		_video_vignette_radius = 85;
-		_video_tiltshift_focus_y = 45;
-		_video_tiltshift_focus_width = 25;
-		_video_tiltshift_blur = 30;
-		_video_grain_intensity = 4;
-		_video_dynamic_lighting = false;
-		_video_bloom = false;
-		_video_bloom_threshold = 70;
-		_video_bloom_intensity = 30;
-		_video_weather_type = 0;
-		_video_weather_intensity = 30;
+		ResetPPDefaults();
 
 		/* Enable post-processing, then apply the preset. */
 		_video_post_processing = true;
