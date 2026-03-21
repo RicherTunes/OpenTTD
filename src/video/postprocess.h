@@ -18,6 +18,7 @@ enum class UpscaleMode : uint8_t {
 	Bilinear,  ///< GL_LINEAR texture filtering for upscale.
 	FSR1,      ///< AMD FSR 1.0 spatial upscaler (EASU + RCAS).
 	Temporal,  ///< Temporal accumulation upscaling (TAA-style, uses motion vectors).
+	Plugin,    ///< External plugin (DLSS, FSR 2/3) via C ABI.
 };
 
 /** Configuration for the post-processing pipeline. */

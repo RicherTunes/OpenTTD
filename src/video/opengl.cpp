@@ -32,6 +32,7 @@
 #include "motion_vector.h"
 #include "temporal_upscale.h"
 #include "pp_screenshot.h"
+#include "upscale_plugin.h"
 #include "../benchmark.h"
 #include "../core/geometry_func.hpp"
 #include "../core/math_func.hpp"
@@ -895,6 +896,18 @@ std::optional<std::string_view> OpenGLBackend::Init(const Dimension &screen_res)
 		_glReadPixels(x, y, w, h, GL_RGBA, GL_UNSIGNED_BYTE, data);
 	});
 
+	/* Try to discover and load an upscale plugin (DLSS, FSR).
+	 * Look for plugin DLLs in the game directory. */
+	auto TryLoadPlugin = [](const char *name) -> bool {
+		auto *plugin = LoadUpscalePlugin(name);
+		return plugin != nullptr;
+	};
+#ifdef _WIN32
+	if (!TryLoadPlugin("dlss_plugin.dll")) TryLoadPlugin("fsr_plugin.dll");
+#else
+	if (!TryLoadPlugin("./libdlss_plugin.so")) TryLoadPlugin("./libfsr_plugin.so");
+#endif
+
 	return std::nullopt;
 }
 
@@ -1721,7 +1734,8 @@ void OpenGLBackend::RenderPostProcess()
 		}
 	}
 	if (this->pp_config.upscale_mode == UpscaleMode::Temporal && this->pp_temporal_program != 0 && this->mv_compute_supported) total++;
-	if (this->pp_config.sharpening > 0 && this->pp_config.upscale_mode != UpscaleMode::FSR1 && this->pp_config.upscale_mode != UpscaleMode::Temporal && this->pp_cas_program != 0) total++;
+	if (this->pp_config.upscale_mode == UpscaleMode::Plugin) total++; /* Plugin handles its own pass */
+	if (this->pp_config.sharpening > 0 && this->pp_config.upscale_mode != UpscaleMode::FSR1 && this->pp_config.upscale_mode != UpscaleMode::Temporal && this->pp_config.upscale_mode != UpscaleMode::Plugin && this->pp_cas_program != 0) total++;
 	if (WillRun(this->pp_config.fxaa, this->pp_fxaa_program)) total++;
 	if (WillRun(this->pp_config.tiltshift, this->pp_tiltshift_h_program)) total++;
 	if (WillRun(this->pp_config.tiltshift, this->pp_tiltshift_v_program)) total++;
@@ -1880,8 +1894,50 @@ void OpenGLBackend::RenderPostProcess()
 		}
 	}
 
-	/* CAS standalone (not when FSR1 or Temporal active). */
-	if (this->pp_config.sharpening > 0 && this->pp_config.upscale_mode != UpscaleMode::FSR1 && this->pp_config.upscale_mode != UpscaleMode::Temporal && this->pp_cas_program != 0) {
+	/* External upscale plugin (DLSS, FSR 2/3). */
+	if (this->pp_config.upscale_mode == UpscaleMode::Plugin) {
+		UpscalePluginAPI *plugin = GetLoadedUpscalePlugin();
+		if (plugin != nullptr && plugin->evaluate != nullptr) {
+			float jitter_x = 0.0f, jitter_y = 0.0f;
+			if (ShouldApplyJitter(this->pp_config.render_scale, to_underlying(ZoomLevel::Out2x))) {
+				_jitter_sequence.NextFrame(jitter_x, jitter_y);
+			}
+
+			UpscaleDispatchParams params = {};
+			params.color_input.gl_texture_id = this->pp_tex[src];
+			params.color_input.width = this->pp_render_size.width;
+			params.color_input.height = this->pp_render_size.height;
+			params.motion_vectors.gl_texture_id = this->mv_texture;
+			params.motion_vectors.width = this->pp_render_size.width;
+			params.motion_vectors.height = this->pp_render_size.height;
+			params.depth.gl_texture_id = this->mv_depth_texture;
+			params.depth.width = this->pp_render_size.width;
+			params.depth.height = this->pp_render_size.height;
+			params.output.gl_texture_id = this->pp_tex[1 - src];
+			params.output.width = this->pp_display_size.width;
+			params.output.height = this->pp_display_size.height;
+			params.jitter_x = jitter_x;
+			params.jitter_y = jitter_y;
+			params.delta_time = 0.016f;
+			params.render_width = this->pp_render_size.width;
+			params.render_height = this->pp_render_size.height;
+			params.display_width = this->pp_display_size.width;
+			params.display_height = this->pp_display_size.height;
+
+			plugin->evaluate(&params);
+			src = 1 - src;
+			pass++;
+		} else {
+			/* Plugin not available, fall back to blit. */
+			if (this->pp_blit_program != 0) {
+				_glUseProgram(this->pp_blit_program);
+				RunPass();
+			}
+		}
+	}
+
+	/* CAS standalone (not when FSR1, Temporal, or Plugin active). */
+	if (this->pp_config.sharpening > 0 && this->pp_config.upscale_mode != UpscaleMode::FSR1 && this->pp_config.upscale_mode != UpscaleMode::Temporal && this->pp_config.upscale_mode != UpscaleMode::Plugin && this->pp_cas_program != 0) {
 		_glUseProgram(this->pp_cas_program);
 		_glUniform2f(this->pp_cas_texel_loc, texel_w, texel_h);
 		_glUniform1f(this->pp_cas_sharp_loc, MapSharpeningToCas(this->pp_config.sharpening));
