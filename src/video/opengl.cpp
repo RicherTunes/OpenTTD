@@ -1429,6 +1429,11 @@ bool OpenGLBackend::InitPostProcessShaders()
 	this->pp_grain_program = CompileAndLog("film-grain", _frag_shader_pp_grain, lengthof(_frag_shader_pp_grain));
 	this->pp_bicubic_program = CompileAndLog("bicubic", _frag_shader_pp_bicubic, lengthof(_frag_shader_pp_bicubic));
 	this->pp_crt_program = CompileAndLog("CRT", _frag_shader_pp_crt, lengthof(_frag_shader_pp_crt));
+	this->pp_lighting_program = CompileAndLog("lighting", _frag_shader_pp_lighting, lengthof(_frag_shader_pp_lighting));
+	this->pp_bloom_threshold_program = CompileAndLog("bloom-threshold", _frag_shader_pp_bloom_threshold, lengthof(_frag_shader_pp_bloom_threshold));
+	this->pp_bloom_blur_h_program = CompileAndLog("bloom-blur-h", _frag_shader_pp_bloom_blur_h, lengthof(_frag_shader_pp_bloom_blur_h));
+	this->pp_bloom_blur_v_program = CompileAndLog("bloom-blur-v", _frag_shader_pp_bloom_blur_v, lengthof(_frag_shader_pp_bloom_blur_v));
+	this->pp_weather_program = CompileAndLog("weather", _frag_shader_pp_weather, lengthof(_frag_shader_pp_weather));
 	this->pp_temporal_program = CompileAndLog("temporal-accum", _frag_shader_pp_temporal_accum, lengthof(_frag_shader_pp_temporal_accum));
 
 	_glDeleteShader(pp_vert);
@@ -1453,6 +1458,11 @@ bool OpenGLBackend::InitPostProcessShaders()
 	BindSourceTex(this->pp_grain_program);
 	BindSourceTex(this->pp_bicubic_program);
 	BindSourceTex(this->pp_crt_program);
+	BindSourceTex(this->pp_lighting_program);
+	BindSourceTex(this->pp_bloom_threshold_program);
+	BindSourceTex(this->pp_bloom_blur_h_program);
+	BindSourceTex(this->pp_bloom_blur_v_program);
+	BindSourceTex(this->pp_weather_program);
 	BindSourceTex(this->pp_temporal_program);
 	/* Temporal shader uses additional texture units for history and MV. */
 	if (this->pp_temporal_program != 0) {
