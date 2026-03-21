@@ -1594,3 +1594,64 @@ TEST_CASE("PostProcess - supersampling 200% dimensions at 4K")
 	CHECK(dims.render.height == 4320);
 	CHECK(dims.render.width > dims.display.width);
 }
+
+/* --- Supersampling dimension correctness --- */
+
+TEST_CASE("PostProcess - supersampling 150% produces 50% larger render dimensions")
+{
+	auto dims = CalculatePostProcessDimensions(1920, 1080, 150);
+	/* 1920 * 1.5 = 2880, 1080 * 1.5 = 1620 */
+	CHECK(dims.render.width > dims.display.width);
+	CHECK(dims.render.height > dims.display.height);
+	CHECK(dims.render.width >= 2878); /* Even-aligned: 2880 or 2878 */
+	CHECK(dims.render.width <= 2880);
+	CHECK(dims.render.height >= 1618);
+	CHECK(dims.render.height <= 1620);
+}
+
+TEST_CASE("PostProcess - supersampling 200% doubles render dimensions")
+{
+	auto dims = CalculatePostProcessDimensions(1920, 1080, 200);
+	CHECK(dims.render.width == 3840);
+	CHECK(dims.render.height == 2160);
+}
+
+TEST_CASE("PostProcess - supersampling 200% at 4K produces 8K render")
+{
+	auto dims = CalculatePostProcessDimensions(3840, 2160, 200);
+	CHECK(dims.render.width == 7680);
+	CHECK(dims.render.height == 4320);
+}
+
+TEST_CASE("PostProcess - supersampling clamped at 200%")
+{
+	auto dims_200 = CalculatePostProcessDimensions(1920, 1080, 200);
+	auto dims_250 = CalculatePostProcessDimensions(1920, 1080, 250);
+	/* 250 should clamp to 200, producing same dimensions */
+	CHECK(dims_200.render.width == dims_250.render.width);
+	CHECK(dims_200.render.height == dims_250.render.height);
+}
+
+TEST_CASE("PostProcess - supersampling dimensions always even")
+{
+	for (uint8_t scale = 101; scale <= 200; scale++) {
+		auto dims = CalculatePostProcessDimensions(1921, 1081, scale);
+		CHECK((dims.render.width % 2) == 0);
+		CHECK((dims.render.height % 2) == 0);
+	}
+}
+
+TEST_CASE("PostProcess - supersampling at small window")
+{
+	auto dims = CalculatePostProcessDimensions(320, 240, 200);
+	CHECK(dims.render.width == 640);
+	CHECK(dims.render.height == 480);
+}
+
+TEST_CASE("PostProcess - downsample pass counted for supersampling")
+{
+	PostProcessConfig config;
+	config.render_scale = 150;
+	CHECK(PostProcessNeedsFBO(config));
+	CHECK(PostProcessPassCount(config) >= 1); /* At least the downsample pass */
+}
