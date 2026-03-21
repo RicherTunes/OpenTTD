@@ -47,6 +47,7 @@
 #include "misc_cmd.h"
 #include "benchmark.h"
 #include "video/video_driver.hpp"
+#include "video/pp_screenshot.h"
 
 #if defined(WITH_ZLIB)
 #include "network/network_content.h"
@@ -2762,6 +2763,7 @@ static bool ConBenchmark(std::span<std::string_view> argv)
 		IConsolePrint(CC_HELP, "Usage: 'benchmark stop' - Stop recording and write CSV.");
 		IConsolePrint(CC_HELP, "Usage: 'benchmark abort' - Discard data without writing.");
 		IConsolePrint(CC_HELP, "Usage: 'benchmark status' - Show recording status.");
+		IConsolePrint(CC_HELP, "Usage: 'benchmark compare' - Show A/B comparison workflow for PP on vs off.");
 		return true;
 	}
 
@@ -2815,7 +2817,22 @@ static bool ConBenchmark(std::span<std::string_view> argv)
 		return true;
 	}
 
-	IConsolePrint(CC_ERROR, "Unknown sub-command '{}'. Use start, stop, abort, or status.", argv[1]);
+	if (argv[1] == "compare") {
+		IConsolePrint(CC_HELP, "A/B benchmark comparison workflow:");
+		IConsolePrint(CC_HELP, "  1. pp on");
+		IConsolePrint(CC_HELP, "  2. benchmark start 600 warmup=100 label=pp-on");
+		IConsolePrint(CC_HELP, "  3. (wait for completion)");
+		IConsolePrint(CC_HELP, "  4. pp off");
+		IConsolePrint(CC_HELP, "  5. benchmark start 600 warmup=100 label=pp-off");
+		IConsolePrint(CC_HELP, "  6. Compare CSV files in the screenshot directory.");
+		IConsolePrint(CC_HELP, "");
+		IConsolePrint(CC_HELP, "Or use presets:");
+		IConsolePrint(CC_HELP, "  pp preset sharp && benchmark start 600 label=sharp");
+		IConsolePrint(CC_HELP, "  pp preset clean && benchmark start 600 label=clean");
+		return true;
+	}
+
+	IConsolePrint(CC_ERROR, "Unknown sub-command '{}'. Use start, stop, abort, compare, or status.", argv[1]);
 	return false;
 }
 
@@ -3144,6 +3161,25 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 
 	IConsolePrint(CC_ERROR, "Unknown sub-command '{}'. Use: status, on, off, enable, disable, set, reset, preset.", argv[1]);
 	return false;
+}
+
+/** Capture a post-processed screenshot. @copydoc IConsoleCmdProc */
+static bool ConPPScreenshot(std::span<std::string_view> argv)
+{
+	if (argv.empty()) {
+		IConsolePrint(CC_HELP, "Capture a screenshot of the post-processed output.");
+		IConsolePrint(CC_HELP, "Usage: 'pp_screenshot [filename]'");
+		IConsolePrint(CC_HELP, "  filename: output name without extension (.bmp added automatically).");
+		IConsolePrint(CC_HELP, "  If omitted, defaults to 'pp_screenshot'.");
+		return true;
+	}
+
+	std::string filename = "pp_screenshot";
+	if (argv.size() >= 2) filename = std::string(argv[1]);
+
+	RequestPPScreenshot(filename);
+	IConsolePrint(CC_INFO, "Post-processing screenshot requested: '{}.bmp'.", filename);
+	return true;
 }
 
 /** Show the current framerate statistics. @copydoc IConsoleCmdProc */
@@ -3494,6 +3530,7 @@ void IConsoleStdLibRegister()
 	IConsole::CmdRegister("fps_wnd",                 ConFramerateWindow);
 	IConsole::CmdRegister("benchmark",               ConBenchmark);
 	IConsole::CmdRegister("pp",                      ConPostProcess);
+	IConsole::CmdRegister("pp_screenshot",           ConPPScreenshot);
 
 	/* NewGRF development stuff */
 	IConsole::CmdRegister("reload_newgrfs",          ConNewGRFReload,     ConHookNewGRFDeveloperTool);
