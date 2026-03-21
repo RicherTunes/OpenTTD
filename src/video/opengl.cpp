@@ -1791,7 +1791,10 @@ void OpenGLBackend::RenderPostProcess()
 		}
 
 		_glUseProgram(this->pp_temporal_program);
-		_glUniform2f(this->pp_temporal_texel_loc, texel_w, texel_h);
+		/* Temporal upscale samples from render-resolution input, not display-resolution. */
+		float temporal_texel_w = 1.0f / std::max(1u, this->pp_render_size.width);
+		float temporal_texel_h = 1.0f / std::max(1u, this->pp_render_size.height);
+		_glUniform2f(this->pp_temporal_texel_loc, temporal_texel_w, temporal_texel_h);
 		_glUniform2f(this->pp_temporal_jitter_loc, jitter_x, jitter_y);
 		_glUniform1f(this->pp_temporal_reset_loc, 0.0f); /* TODO: detect scene cuts */
 
