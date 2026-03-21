@@ -22,7 +22,7 @@ enum class UpscaleMode : uint8_t {
 
 /** Configuration for the post-processing pipeline. */
 struct PostProcessConfig {
-	uint8_t render_scale = 100;        ///< Render resolution as percentage of display (50-100).
+	uint8_t render_scale = 100;        ///< Render resolution as percentage of display (50-200).
 	UpscaleMode upscale_mode = UpscaleMode::None; ///< Upscaling algorithm.
 	uint8_t sharpening = 0;            ///< CAS sharpening intensity (0-100). 0 = off.
 	bool bilinear_filtering = false;   ///< Use GL_LINEAR instead of GL_NEAREST on framebuffer texture.
