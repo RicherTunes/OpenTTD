@@ -418,3 +418,35 @@ TEST_CASE("MotionVector - ComputeDepth Z=0 vs Z=max differs significantly")
 	/* The difference should be substantial (Z contributes 2*2040=4080). */
 	CHECK((d_sky - d_ground) > 1000);
 }
+
+/* --- MAX_COMMANDS cap test --- */
+
+TEST_CASE("MotionVector - RecordSprite respects MAX_COMMANDS cap")
+{
+	MotionVectorState state;
+	state.BeginFrame();
+	for (size_t i = 0; i < MotionVectorState::MAX_COMMANDS + 100; i++) {
+		state.RecordSprite(0, 0, 1, 1, 0, 0, 0);
+	}
+	CHECK(state.commands.size() == MotionVectorState::MAX_COMMANDS);
+}
+
+TEST_CASE("MotionVector - active flag gates RecordSprite behavior")
+{
+	MotionVectorState state;
+	state.active = false;
+	state.BeginFrame();
+	/* RecordSprite should still work regardless of active flag - active gates
+	 * the callers in viewport.cpp, not RecordSprite itself. */
+	state.RecordSprite(0, 0, 10, 10, 0, 0, 0);
+	CHECK(state.commands.size() == 1);
+}
+
+TEST_CASE("MotionVector - TileBin Resize with zero dimensions")
+{
+	TileBin bin;
+	bin.Resize(0, 0);
+	CHECK(bin.tiles_x == 0);
+	CHECK(bin.tiles_y == 0);
+	CHECK(bin.BufferSize() == 0);
+}

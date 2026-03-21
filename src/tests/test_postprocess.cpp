@@ -1707,3 +1707,92 @@ TEST_CASE("PostProcess - vignette with zero intensity still runs pass")
 	CHECK(PostProcessNeedsFBO(config));
 	CHECK(PostProcessPassCount(config) == 1);
 }
+
+/* --- FXAA tunable boundary tests --- */
+
+TEST_CASE("PostProcess - fxaa_quality defaults to 75")
+{
+	PostProcessConfig config;
+	CHECK(config.fxaa_quality == 75);
+	CHECK(config.fxaa_quality / 100.0f == Approx(0.75f));
+}
+
+TEST_CASE("PostProcess - fxaa_threshold defaults to 13")
+{
+	PostProcessConfig config;
+	CHECK(config.fxaa_threshold == 13);
+	CHECK(config.fxaa_threshold / 100.0f == Approx(0.13f));
+}
+
+TEST_CASE("PostProcess - fxaa_quality at extremes")
+{
+	PostProcessConfig config;
+	config.fxaa_quality = 0;
+	CHECK(config.fxaa_quality / 100.0f == Approx(0.0f));
+	config.fxaa_quality = 100;
+	CHECK(config.fxaa_quality / 100.0f == Approx(1.0f));
+}
+
+/* --- ComputeFsrRcasConstant remaining elements are zero --- */
+
+TEST_CASE("PostProcess - ComputeFsrRcasConstant remaining elements are zero")
+{
+	float con[4];
+	ComputeFsrRcasConstant(con, 1.0f);
+	CHECK(con[1] == 0.0f);
+	CHECK(con[2] == 0.0f);
+	CHECK(con[3] == 0.0f);
+}
+
+TEST_CASE("PostProcess - ComputeCasConstant con[3] is zero")
+{
+	float con[4];
+	ComputeCasConstant(con, 0.5f, 1920.0f, 1080.0f);
+	CHECK(con[3] == 0.0f);
+}
+
+/* --- NeedsFBO implies PassCount > 0 exhaustive sweep --- */
+
+TEST_CASE("PostProcess - NeedsFBO implies PassCount > 0 for each effect toggle")
+{
+	/* Test every boolean that triggers FBO individually. */
+	auto TestEffect = [](auto setter) {
+		PostProcessConfig config;
+		setter(config);
+		if (PostProcessNeedsFBO(config)) {
+			/* Exception: render_scale < 100 with UpscaleMode::None has 0 passes
+			 * (handled by blit fallback). All other FBO triggers should have > 0 passes. */
+			if (config.render_scale < 100 && config.upscale_mode == UpscaleMode::None &&
+			    config.sharpening == 0 && !config.fxaa && !config.color_grading &&
+			    !config.vignette && !config.tiltshift && !config.night_mode &&
+			    !config.film_grain && !config.crt_filter && !config.bloom &&
+			    !config.dynamic_lighting && config.weather_type == 0) {
+				/* This is the documented exception -- blit fallback handles it. */
+				return;
+			}
+			CHECK(PostProcessPassCount(config) > 0);
+		}
+	};
+	TestEffect([](auto &c) { c.fxaa = true; });
+	TestEffect([](auto &c) { c.color_grading = true; });
+	TestEffect([](auto &c) { c.vignette = true; });
+	TestEffect([](auto &c) { c.tiltshift = true; });
+	TestEffect([](auto &c) { c.night_mode = true; });
+	TestEffect([](auto &c) { c.film_grain = true; });
+	TestEffect([](auto &c) { c.crt_filter = true; });
+	TestEffect([](auto &c) { c.sharpening = 50; });
+	TestEffect([](auto &c) { c.bloom = true; });
+	TestEffect([](auto &c) { c.dynamic_lighting = true; });
+	TestEffect([](auto &c) { c.weather_type = 1; });
+	TestEffect([](auto &c) { c.upscale_mode = UpscaleMode::FSR1; });
+	TestEffect([](auto &c) { c.render_scale = 150; }); /* supersampling */
+}
+
+/* --- Exact dimension tests for small windows --- */
+
+TEST_CASE("PostProcess - CalculateDimensions 4x4 at 50% gives exactly 2x2")
+{
+	auto dims = CalculatePostProcessDimensions(4, 4, 50);
+	CHECK(dims.render.width == 2);
+	CHECK(dims.render.height == 2);
+}

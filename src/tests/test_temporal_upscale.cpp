@@ -148,3 +148,23 @@ TEST_CASE("TemporalUpscale - Params default to sane values")
 	CHECK(params.reset == false);
 	CHECK(params.color_texture == 0);
 }
+
+/* --- TemporalUpscaleParams field defaults --- */
+
+TEST_CASE("TemporalUpscale - TemporalUpscaleParams dimensions default to zero")
+{
+	TemporalUpscaleParams params;
+	CHECK(params.render_size.width == 0);
+	CHECK(params.render_size.height == 0);
+	CHECK(params.display_size.width == 0);
+	CHECK(params.display_size.height == 0);
+}
+
+TEST_CASE("TemporalUpscale - TemporalUpscaleParams texture handles default to zero")
+{
+	TemporalUpscaleParams params;
+	CHECK(params.color_texture == 0);
+	CHECK(params.mv_texture == 0);
+	CHECK(params.depth_texture == 0);
+	CHECK(params.output_texture == 0);
+}
