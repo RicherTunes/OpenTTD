@@ -886,6 +886,11 @@ std::optional<std::string_view> OpenGLBackend::Init(const Dimension &screen_res)
 	this->PrepareContext();
 	(void)_glGetError(); // Clear errors.
 
+	/* Register GL pixel reader for PP screenshots. */
+	SetPPPixelReader([](int x, int y, int w, int h, void *data) {
+		_glReadPixels(x, y, w, h, GL_RGBA, GL_UNSIGNED_BYTE, data);
+	});
+
 	return std::nullopt;
 }
 
@@ -1222,7 +1227,7 @@ void OpenGLBackend::Paint()
 		if (_video_post_processing) {
 			/* Core upscaling settings. */
 			new_config.render_scale = _video_render_scale;
-			uint8_t clamped_mode = Clamp<uint8_t>(_video_upscale_mode, 0, static_cast<uint8_t>(UpscaleMode::FSR1));
+			uint8_t clamped_mode = Clamp<uint8_t>(_video_upscale_mode, 0, static_cast<uint8_t>(UpscaleMode::Temporal));
 			new_config.upscale_mode = static_cast<UpscaleMode>(clamped_mode);
 			new_config.sharpening = _video_sharpening;
 
