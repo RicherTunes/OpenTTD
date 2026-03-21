@@ -50,7 +50,7 @@ struct TemporalUpscaleParams {
  * Determine whether temporal upscaling should use jitter.
  * Jitter is only applied when render_scale < 100% AND zoom level is Out2x or further.
  * At native resolution or zoomed in, pixel art must remain pixel-perfect.
- * @param render_scale Current render scale percentage (50-100).
+ * @param render_scale Current render scale percentage (50-200).
  * @param zoom Current viewport zoom level (0=In4x, 2=Normal, 5=Out8x).
  * @return True if jitter should be applied.
  */

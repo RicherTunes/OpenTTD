@@ -2907,7 +2907,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 	if (argv[1] == "set") {
 		if (argv.size() < 4) {
 			IConsolePrint(CC_ERROR, "Usage: 'pp set <param> <value>'");
-			IConsolePrint(CC_ERROR, "  Params: render_scale (50-100), sharpening (0-100), upscale (0-2),");
+			IConsolePrint(CC_ERROR, "  Params: render_scale (50-200), sharpening (0-100), upscale (0-2),");
 			IConsolePrint(CC_ERROR, "          brightness (-50..50), contrast (50-200), saturation (0-200), temperature (-100..100)");
 			return false;
 		}
@@ -2920,7 +2920,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		int32_t value = *parsed;
 
 		if (param == "render_scale") {
-			_video_render_scale = static_cast<uint8_t>(Clamp(value, 50, 100));
+			_video_render_scale = static_cast<uint8_t>(Clamp(value, 50, 200));
 			IConsolePrint(CC_INFO, "Render scale set to {}%.", _video_render_scale);
 		} else if (param == "sharpening") {
 			_video_sharpening = static_cast<uint8_t>(Clamp(value, 0, 100));

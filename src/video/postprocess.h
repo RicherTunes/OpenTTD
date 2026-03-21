@@ -81,7 +81,7 @@ struct PostProcessConfig {
 /** Computed dimensions for the post-processing pipeline. */
 struct PostProcessDimensions {
 	Dimension display;  ///< Display/window resolution.
-	Dimension render;   ///< Internal render resolution (may be smaller).
+	Dimension render;   ///< Internal render resolution (may be smaller or larger for supersampling).
 };
 
 PostProcessDimensions CalculatePostProcessDimensions(int display_w, int display_h, uint8_t render_scale);

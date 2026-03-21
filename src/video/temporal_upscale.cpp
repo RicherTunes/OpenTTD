@@ -50,7 +50,7 @@ void JitterSequence::NextFrame(float &jitter_x, float &jitter_y)
 
 /**
  * Determine whether temporal jitter should be applied.
- * @param render_scale Render scale percentage (50-100).
+ * @param render_scale Render scale percentage (50-200).
  * @param zoom_level Zoom level as integer (0=In4x, 2=Normal, 5=Out8x).
  * @return True if jitter is appropriate for current settings.
  */

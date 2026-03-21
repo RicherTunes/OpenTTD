@@ -794,7 +794,7 @@ struct GameOptionsWindow : Window {
 				break;
 
 			case WID_GO_VIDEO_RENDER_SCALE:
-				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 50, 100, 11, _video_render_scale, nullptr);
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 50, 200, 16, _video_render_scale, nullptr);
 				break;
 
 			case WID_GO_VIDEO_SHARPENING:
@@ -1236,7 +1236,7 @@ struct GameOptionsWindow : Window {
 
 			case WID_GO_VIDEO_RENDER_SCALE:
 				if (!_video_post_processing || !_video_hw_accel) break;
-				if (ClickSliderWidget(this->GetWidget<NWidgetBase>(widget)->GetCurrentRect(), pt, 50, 100, _ctrl_pressed ? 0 : 11, _video_render_scale)) {
+				if (ClickSliderWidget(this->GetWidget<NWidgetBase>(widget)->GetCurrentRect(), pt, 50, 200, _ctrl_pressed ? 0 : 16, _video_render_scale)) {
 					this->SetWidgetDirty(widget);
 				}
 				if (click_count > 0) this->mouse_capture_widget = widget;
