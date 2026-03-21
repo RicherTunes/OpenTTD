@@ -213,6 +213,9 @@ static const int MAX_TGP_FREQUENCIES = 10;
 
 static constexpr int WATER_PERCENT_FACTOR = 1024;
 
+static constexpr int ROUGHNESS_BASE = 7;          ///< Base roughness for slope smoothing
+static constexpr int ROUGHNESS_PER_SMOOTHNESS = 3; ///< Additional roughness per smoothness level
+
 /** Desired water percentage (100% == 1024) - indexed by _settings_game.difficulty.quantity_sea_lakes */
 static const int64_t _water_percent[4] = {70, 170, 270, 420};
 
@@ -1031,7 +1034,7 @@ static void HeightMapNormalize()
 {
 	const int64_t water_percent = _settings_game.difficulty.quantity_sea_lakes != CUSTOM_SEA_LEVEL_NUMBER_DIFFICULTY ? _water_percent[_settings_game.difficulty.quantity_sea_lakes] : _settings_game.game_creation.custom_sea_level * WATER_PERCENT_FACTOR / 100;
 	const Height h_max_new = TGPGetMaxHeight();
-	const Height roughness = 7 + 3 * _settings_game.game_creation.tgen_smoothness;
+	const Height roughness = ROUGHNESS_BASE + ROUGHNESS_PER_SMOOTHNESS * _settings_game.game_creation.tgen_smoothness;
 
 	HeightMapAdjustWaterLevel(water_percent, h_max_new);
 
