@@ -38,6 +38,8 @@
 #include "../gfx_func.h"
 #include "../debug.h"
 #include "../blitter/factory.hpp"
+#include "../window_func.h"
+#include "../window_gui.h"
 #include "../zoom_func.h"
 #include "../core/string_consumer.hpp"
 
@@ -1281,6 +1283,9 @@ void OpenGLBackend::Paint()
 		 * dragged — only apply when the value stabilizes. */
 		bool fbo_need_changed = PostProcessNeedsFBO(new_config) != PostProcessNeedsFBO(this->pp_config);
 		bool scale_changed = (new_config.render_scale != this->pp_config.render_scale);
+		bool config_changed = fbo_need_changed || scale_changed ||
+		                      (new_config.upscale_mode != this->pp_config.upscale_mode);
+		if (config_changed) this->pp_temporal_frame_count = 0;
 		this->pp_config = new_config;
 		if (fbo_need_changed) {
 			this->SetupPostProcessFBOs(this->pp_display_size.width > 0 ? this->pp_display_size.width : _screen.width,
@@ -1796,9 +1801,24 @@ void OpenGLBackend::RenderPostProcess()
 
 		/* Compute jitter for this frame. */
 		float jitter_x = 0.0f, jitter_y = 0.0f;
-		if (ShouldApplyJitter(this->pp_config.render_scale, to_underlying(ZoomLevel::Out2x))) {
+		const Window *main_window = GetMainWindow();
+		int current_zoom = (main_window != nullptr && main_window->viewport != nullptr)
+			? to_underlying(main_window->viewport->zoom)
+			: to_underlying(ZoomLevel::Normal);
+		if (ShouldApplyJitter(this->pp_config.render_scale, current_zoom)) {
 			_jitter_sequence.NextFrame(jitter_x, jitter_y);
 		}
+
+		/* Detect scene cuts: large viewport jumps or zoom changes invalidate temporal history. */
+		bool scene_cut = false;
+		if (this->pp_temporal_frame_count == 0) scene_cut = true; /* First frame after enable. */
+		int32_t scroll_delta_x = _motion_vectors.prev_scroll_x - this->pp_temporal_prev_scroll_x;
+		int32_t scroll_delta_y = _motion_vectors.prev_scroll_y - this->pp_temporal_prev_scroll_y;
+		if (std::abs(scroll_delta_x) > 500 || std::abs(scroll_delta_y) > 500) scene_cut = true;
+		/* Store for next frame. */
+		this->pp_temporal_prev_scroll_x = _motion_vectors.prev_scroll_x;
+		this->pp_temporal_prev_scroll_y = _motion_vectors.prev_scroll_y;
+		this->pp_temporal_frame_count++;
 
 		_glUseProgram(this->pp_temporal_program);
 		/* Temporal upscale samples from render-resolution input, not display-resolution. */
@@ -1806,7 +1826,7 @@ void OpenGLBackend::RenderPostProcess()
 		float temporal_texel_h = 1.0f / std::max(1u, this->pp_render_size.height);
 		_glUniform2f(this->pp_temporal_texel_loc, temporal_texel_w, temporal_texel_h);
 		_glUniform2f(this->pp_temporal_jitter_loc, jitter_x, jitter_y);
-		_glUniform1f(this->pp_temporal_reset_loc, 0.0f); /* TODO: detect scene cuts */
+		_glUniform1f(this->pp_temporal_reset_loc, scene_cut ? 1.0f : 0.0f);
 
 		/* Bind history texture to texture unit 1 and MV texture to unit 2. */
 		_glActiveTexture(GL_TEXTURE1);

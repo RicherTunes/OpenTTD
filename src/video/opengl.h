@@ -97,6 +97,10 @@ private:
 	GLint pp_temporal_reset_loc = -1;  ///< reset uniform.
 	GLint pp_temporal_history_loc = -1; ///< history_tex sampler uniform.
 	GLint pp_temporal_mv_loc = -1;     ///< mv_tex sampler uniform.
+	int32_t pp_temporal_prev_scroll_x = 0; ///< Previous frame viewport X for scene cut detection.
+	int32_t pp_temporal_prev_scroll_y = 0; ///< Previous frame viewport Y for scene cut detection.
+	uint8_t pp_temporal_prev_zoom = 0;     ///< Previous frame zoom level.
+	uint32_t pp_temporal_frame_count = 0;  ///< Frames since last reset.
 
 	GLuint pp_blit_program = 0;      ///< Simple blit shader program.
 	GLuint pp_cas_program = 0;       ///< CAS sharpening shader program.
