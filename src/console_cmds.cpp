@@ -45,6 +45,8 @@
 #include "3rdparty/fmt/chrono.h"
 #include "company_cmd.h"
 #include "misc_cmd.h"
+#include "benchmark.h"
+#include "video/video_driver.hpp"
 
 #if defined(WITH_ZLIB)
 #include "network/network_content.h"
@@ -2749,6 +2751,232 @@ static void IConsoleDebugLibRegister()
 }
 #endif
 
+/** Rendering benchmark for GPU performance measurement. @copydoc IConsoleCmdProc */
+static bool ConBenchmark(std::span<std::string_view> argv)
+{
+	if (argv.size() < 2) {
+		IConsolePrint(CC_HELP, "Capture per-frame GPU rendering timing data to CSV for performance analysis.");
+		IConsolePrint(CC_HELP, "Usage: 'benchmark start [<frame-count>] [warmup=<N>] [label=<name>]'");
+		IConsolePrint(CC_HELP, "  Begin recording. Auto-stops after <frame-count> frames (default: unlimited).");
+		IConsolePrint(CC_HELP, "  warmup=N discards first N frames (default: 300). label=NAME tags the output file.");
+		IConsolePrint(CC_HELP, "Usage: 'benchmark stop' - Stop recording and write CSV.");
+		IConsolePrint(CC_HELP, "Usage: 'benchmark abort' - Discard data without writing.");
+		IConsolePrint(CC_HELP, "Usage: 'benchmark status' - Show recording status.");
+		return true;
+	}
+
+	if (argv[1] == "start") {
+		uint32_t target = 0;
+		uint32_t warmup = 300;
+		std::string label;
+
+		for (size_t i = 2; i < argv.size(); i++) {
+			if (argv[i].starts_with("warmup=")) {
+				auto val = ParseInteger<uint32_t>(argv[i].substr(7));
+				if (val.has_value()) warmup = *val;
+			} else if (argv[i].starts_with("label=")) {
+				label = argv[i].substr(6);
+			} else {
+				auto val = ParseInteger<uint32_t>(argv[i]);
+				if (val.has_value()) target = *val;
+			}
+		}
+
+		_benchmark.Start(target, warmup, label);
+		return true;
+	}
+
+	if (argv[1] == "stop") {
+		_benchmark.Stop();
+		return true;
+	}
+
+	if (argv[1] == "abort") {
+		_benchmark.Abort();
+		return true;
+	}
+
+	if (argv[1] == "status") {
+		if (_benchmark.IsActive()) {
+			uint32_t captured = _benchmark.GetFramesCaptured();
+			uint32_t counter = _benchmark.GetFrameCounter();
+			uint32_t warmup = _benchmark.GetWarmupFrames();
+			uint32_t target = _benchmark.GetTargetFrames();
+			if (counter <= warmup) {
+				IConsolePrint(CC_INFO, "Benchmark active: warming up ({}/{} frames).", counter, warmup);
+			} else if (target > 0) {
+				IConsolePrint(CC_INFO, "Benchmark active: {}/{} frames captured.", captured, target);
+			} else {
+				IConsolePrint(CC_INFO, "Benchmark active: {} frames captured (unlimited).", captured);
+			}
+		} else {
+			IConsolePrint(CC_INFO, "No benchmark running.");
+		}
+		return true;
+	}
+
+	IConsolePrint(CC_ERROR, "Unknown sub-command '{}'. Use start, stop, abort, or status.", argv[1]);
+	return false;
+}
+
+/** GPU post-processing control. @copydoc IConsoleCmdProc */
+static bool ConPostProcess(std::span<std::string_view> argv)
+{
+	if (argv.size() < 2) {
+		IConsolePrint(CC_HELP, "GPU post-processing control.");
+		IConsolePrint(CC_HELP, "Usage: 'pp status' - Show current effect states.");
+		IConsolePrint(CC_HELP, "Usage: 'pp on/off' - Toggle master post-processing switch.");
+		IConsolePrint(CC_HELP, "Usage: 'pp enable/disable <effect>' - Toggle an effect.");
+		IConsolePrint(CC_HELP, "  Effects: fxaa, night, crt, vignette, tiltshift, grain");
+		IConsolePrint(CC_HELP, "Usage: 'pp set <param> <value>' - Set a parameter.");
+		IConsolePrint(CC_HELP, "  Params: render_scale, sharpening, upscale, brightness, contrast, saturation, temperature");
+		IConsolePrint(CC_HELP, "Usage: 'pp reset' - Restore all post-processing settings to defaults.");
+		return true;
+	}
+
+	if (argv[1] == "status") {
+		IConsolePrint(CC_INFO, "Post-processing: {}", _video_post_processing ? "ON" : "OFF");
+		IConsolePrint(CC_INFO, "  Render scale: {}%", _video_render_scale);
+		IConsolePrint(CC_INFO, "  Upscale mode: {}", _video_upscale_mode);
+		IConsolePrint(CC_INFO, "  Sharpening: {}", _video_sharpening);
+		IConsolePrint(CC_INFO, "  FXAA: {}", _video_fxaa ? "ON" : "OFF");
+		IConsolePrint(CC_INFO, "  Night mode: {} (intensity={}, blue_shift={})", _video_night_mode ? "ON" : "OFF", _video_night_intensity, _video_night_blue_shift);
+		IConsolePrint(CC_INFO, "  CRT filter: {} (scanlines={}, curvature={}, aberration={})", _video_crt_filter ? "ON" : "OFF", _video_crt_scanlines, _video_crt_curvature, _video_crt_aberration);
+		IConsolePrint(CC_INFO, "  Vignette: {} (intensity={}, radius={})", _video_vignette ? "ON" : "OFF", _video_vignette_intensity, _video_vignette_radius);
+		IConsolePrint(CC_INFO, "  Tilt-shift: {} (focus_y={}, focus_width={}, blur={})", _video_tiltshift ? "ON" : "OFF", _video_tiltshift_focus_y, _video_tiltshift_focus_width, _video_tiltshift_blur);
+		IConsolePrint(CC_INFO, "  Film grain: {} (intensity={})", _video_film_grain ? "ON" : "OFF", _video_grain_intensity);
+		IConsolePrint(CC_INFO, "  Brightness: {}", _video_brightness);
+		IConsolePrint(CC_INFO, "  Contrast: {}", _video_contrast);
+		IConsolePrint(CC_INFO, "  Saturation: {}", _video_saturation);
+		IConsolePrint(CC_INFO, "  Color temperature: {}", _video_color_temperature);
+		return true;
+	}
+
+	if (argv[1] == "on") {
+		_video_post_processing = true;
+		IConsolePrint(CC_INFO, "Post-processing enabled.");
+		return true;
+	}
+
+	if (argv[1] == "off") {
+		_video_post_processing = false;
+		IConsolePrint(CC_INFO, "Post-processing disabled.");
+		return true;
+	}
+
+	if (argv[1] == "enable" || argv[1] == "disable") {
+		if (argv.size() < 3) {
+			IConsolePrint(CC_ERROR, "Usage: 'pp {} <effect>' - Effects: fxaa, night, crt, vignette, tiltshift, grain", argv[1]);
+			return false;
+		}
+		bool enable = (argv[1] == "enable");
+		std::string_view effect = argv[2];
+
+		if (effect == "fxaa") {
+			_video_fxaa = enable;
+		} else if (effect == "night") {
+			_video_night_mode = enable;
+		} else if (effect == "crt") {
+			_video_crt_filter = enable;
+		} else if (effect == "vignette") {
+			_video_vignette = enable;
+		} else if (effect == "tiltshift") {
+			_video_tiltshift = enable;
+		} else if (effect == "grain") {
+			_video_film_grain = enable;
+		} else {
+			IConsolePrint(CC_ERROR, "Unknown effect '{}'. Valid effects: fxaa, night, crt, vignette, tiltshift, grain", effect);
+			return false;
+		}
+
+		IConsolePrint(CC_INFO, "Effect '{}' {}.", effect, enable ? "enabled" : "disabled");
+		return true;
+	}
+
+	if (argv[1] == "set") {
+		if (argv.size() < 4) {
+			IConsolePrint(CC_ERROR, "Usage: 'pp set <param> <value>'");
+			IConsolePrint(CC_ERROR, "  Params: render_scale (50-100), sharpening (0-100), upscale (0-2),");
+			IConsolePrint(CC_ERROR, "          brightness (-50..50), contrast (50-200), saturation (0-200), temperature (-100..100)");
+			return false;
+		}
+		std::string_view param = argv[2];
+		auto parsed = ParseInteger<int32_t>(argv[3]);
+		if (!parsed.has_value()) {
+			IConsolePrint(CC_ERROR, "Invalid numeric value '{}'.", argv[3]);
+			return false;
+		}
+		int32_t value = *parsed;
+
+		if (param == "render_scale") {
+			_video_render_scale = static_cast<uint8_t>(Clamp(value, 50, 100));
+			IConsolePrint(CC_INFO, "Render scale set to {}%.", _video_render_scale);
+		} else if (param == "sharpening") {
+			_video_sharpening = static_cast<uint8_t>(Clamp(value, 0, 100));
+			IConsolePrint(CC_INFO, "Sharpening set to {}.", _video_sharpening);
+		} else if (param == "upscale") {
+			_video_upscale_mode = static_cast<uint8_t>(Clamp(value, 0, 2));
+			IConsolePrint(CC_INFO, "Upscale mode set to {}.", _video_upscale_mode);
+		} else if (param == "brightness") {
+			_video_brightness = static_cast<int8_t>(Clamp(value, -50, 50));
+			IConsolePrint(CC_INFO, "Brightness set to {}.", _video_brightness);
+		} else if (param == "contrast") {
+			_video_contrast = static_cast<uint8_t>(Clamp(value, 50, 200));
+			IConsolePrint(CC_INFO, "Contrast set to {}.", _video_contrast);
+		} else if (param == "saturation") {
+			_video_saturation = static_cast<uint8_t>(Clamp(value, 0, 200));
+			IConsolePrint(CC_INFO, "Saturation set to {}.", _video_saturation);
+		} else if (param == "temperature") {
+			_video_color_temperature = static_cast<int8_t>(Clamp(value, -100, 100));
+			IConsolePrint(CC_INFO, "Color temperature set to {}.", _video_color_temperature);
+		} else {
+			IConsolePrint(CC_ERROR, "Unknown parameter '{}'. Valid params: render_scale, sharpening, upscale, brightness, contrast, saturation, temperature", param);
+			return false;
+		}
+		return true;
+	}
+
+	if (argv[1] == "reset") {
+		_video_post_processing = false;
+		_video_render_scale = 100;
+		_video_upscale_mode = 0;
+		_video_sharpening = 50;
+		_video_texture_filter = 0;
+		_video_fxaa = false;
+		_video_night_mode = false;
+		_video_crt_filter = false;
+		_video_vignette = false;
+		_video_tiltshift = false;
+		_video_film_grain = false;
+		_video_brightness = 0;
+		_video_contrast = 100;
+		_video_saturation = 100;
+		_video_color_temperature = 0;
+		_video_night_intensity = 60;
+		_video_night_blue_shift = 30;
+		_video_crt_scanlines = 15;
+		_video_crt_curvature = 0;
+		_video_crt_aberration = 5;
+		_video_vignette_intensity = 30;
+		_video_vignette_radius = 85;
+		_video_tiltshift_focus_y = 45;
+		_video_tiltshift_focus_width = 25;
+		_video_tiltshift_blur = 30;
+		_video_grain_intensity = 4;
+		_video_dynamic_lighting = false;
+		_video_bloom = false;
+		_video_bloom_threshold = 70;
+		_video_bloom_intensity = 30;
+		_video_weather_type = 0;
+		_video_weather_intensity = 30;
+		IConsolePrint(CC_INFO, "All post-processing settings reset to defaults.");
+		return true;
+	}
+
+	IConsolePrint(CC_ERROR, "Unknown sub-command '{}'. Use: status, on, off, enable, disable, set, reset.", argv[1]);
+	return false;
+}
+
 /** Show the current framerate statistics. @copydoc IConsoleCmdProc */
 static bool ConFramerate(std::span<std::string_view> argv)
 {
@@ -3095,6 +3323,8 @@ void IConsoleStdLibRegister()
 #endif
 	IConsole::CmdRegister("fps",                     ConFramerate);
 	IConsole::CmdRegister("fps_wnd",                 ConFramerateWindow);
+	IConsole::CmdRegister("benchmark",               ConBenchmark);
+	IConsole::CmdRegister("pp",                      ConPostProcess);
 
 	/* NewGRF development stuff */
 	IConsole::CmdRegister("reload_newgrfs",          ConNewGRFReload,     ConHookNewGRFDeveloperTool);
