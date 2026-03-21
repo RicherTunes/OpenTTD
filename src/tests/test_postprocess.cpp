@@ -1525,3 +1525,72 @@ TEST_CASE("PostProcess - bicubic with weather and all new features")
 	CHECK(PostProcessPassCount(config) == 6);
 	CHECK(PostProcessNeedsFBO(config));
 }
+
+/* ====== Temporal upscale mode tests (Phase 2a) ====== */
+
+TEST_CASE("PostProcess - Temporal upscale mode adds 1 pass")
+{
+	PostProcessConfig config;
+	config.upscale_mode = UpscaleMode::Temporal;
+	config.render_scale = 75;
+	CHECK(PostProcessPassCount(config) == 1);
+}
+
+TEST_CASE("PostProcess - Temporal mode suppresses CAS sharpening")
+{
+	PostProcessConfig config;
+	config.upscale_mode = UpscaleMode::Temporal;
+	config.render_scale = 75;
+	config.sharpening = 80;
+	/* Temporal(1) only — CAS suppressed for temporal mode (same as FSR1). */
+	CHECK(PostProcessPassCount(config) == 1);
+}
+
+TEST_CASE("PostProcess - Temporal mode needs FBO")
+{
+	PostProcessConfig config;
+	config.upscale_mode = UpscaleMode::Temporal;
+	config.render_scale = 75;
+	CHECK(PostProcessNeedsFBO(config));
+}
+
+/* ====== UpscaleMode enum coverage ====== */
+
+TEST_CASE("PostProcess - UpscaleMode None at 100% no passes")
+{
+	PostProcessConfig config;
+	config.upscale_mode = UpscaleMode::None;
+	config.render_scale = 100;
+	CHECK(PostProcessPassCount(config) == 0);
+}
+
+TEST_CASE("PostProcess - all UpscaleMode values produce valid pass counts")
+{
+	for (uint8_t mode = 0; mode <= static_cast<uint8_t>(UpscaleMode::Temporal); mode++) {
+		PostProcessConfig config;
+		config.upscale_mode = static_cast<UpscaleMode>(mode);
+		config.render_scale = 75;
+		CHECK(PostProcessPassCount(config) >= 0);
+	}
+}
+
+/* ====== Supersampling with effects ====== */
+
+TEST_CASE("PostProcess - supersampling 150% with bloom and weather")
+{
+	PostProcessConfig config;
+	config.render_scale = 150;
+	config.bloom = true;
+	config.weather_type = 1;
+	/* downsample(1) + bloom(3) + weather(1) = 5 */
+	CHECK(PostProcessPassCount(config) == 5);
+	CHECK(PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("PostProcess - supersampling 200% dimensions at 4K")
+{
+	auto dims = CalculatePostProcessDimensions(3840, 2160, 200);
+	CHECK(dims.render.width == 7680);
+	CHECK(dims.render.height == 4320);
+	CHECK(dims.render.width > dims.display.width);
+}
