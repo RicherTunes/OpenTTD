@@ -20,12 +20,39 @@
 #include "../rev.h"
 #include "../thread.h"
 #include "../window_func.h"
+#include "../benchmark.h"
 #include "video_driver.hpp"
 
 #include "../safeguards.h"
 
 bool _video_hw_accel; ///< Whether to consider hardware accelerated video drivers on startup.
 bool _video_vsync; ///< Whether we should use vsync (only if active video driver supports HW acceleration).
+bool _video_post_processing; ///< Whether GPU post-processing effects are enabled.
+uint8_t _video_render_scale = 100; ///< Internal render resolution as percentage of display (50-100).
+uint8_t _video_upscale_mode = 0; ///< Upscale mode: 0=None, 1=Bilinear, 2=FSR1.
+uint8_t _video_sharpening = 50; ///< CAS sharpening intensity (0-100).
+uint8_t _video_texture_filter = 0; ///< Texture filter: 0=Nearest, 1=Bilinear, 2=Smooth.
+bool _video_fxaa; ///< Whether FXAA anti-aliasing is enabled.
+bool _video_night_mode; ///< Whether night mode effect is enabled.
+bool _video_crt_filter; ///< Whether CRT scanline filter is enabled.
+bool _video_vignette; ///< Whether vignette edge darkening is enabled.
+bool _video_tiltshift; ///< Whether tilt-shift miniature effect is enabled.
+bool _video_film_grain; ///< Whether film grain overlay is enabled.
+int8_t _video_brightness = 0; ///< Brightness offset (-50 to 50).
+uint8_t _video_contrast = 100; ///< Contrast percentage (50-200).
+uint8_t _video_saturation = 100; ///< Saturation percentage (0-200).
+int8_t _video_color_temperature = 0; ///< Color temperature shift (-100 to 100).
+uint8_t _video_night_intensity = 60; ///< Night mode darkness (20-100).
+uint8_t _video_night_blue_shift = 30; ///< Night mode blue tint (0-80).
+uint8_t _video_crt_scanlines = 15; ///< CRT scanline intensity (0-50).
+uint8_t _video_crt_curvature = 0; ///< CRT screen curvature (0-50).
+uint8_t _video_crt_aberration = 5; ///< CRT chromatic aberration (0-30).
+uint8_t _video_vignette_intensity = 30; ///< Vignette darkness (0-100).
+uint8_t _video_vignette_radius = 85; ///< Vignette inner radius (50-150).
+uint8_t _video_tiltshift_focus_y = 45; ///< Tilt-shift focus center (0-100).
+uint8_t _video_tiltshift_focus_width = 25; ///< Tilt-shift focus band width (5-80).
+uint8_t _video_tiltshift_blur = 30; ///< Tilt-shift blur strength (10-60).
+uint8_t _video_grain_intensity = 4; ///< Film grain intensity (1-20).
 
 void VideoDriver::GameLoop()
 {
@@ -158,6 +185,7 @@ void VideoDriver::Tick()
 
 		this->CheckPaletteAnim();
 		this->Paint();
+		BenchmarkRecordFrame();
 
 		this->UnlockVideoBuffer();
 

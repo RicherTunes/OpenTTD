@@ -59,6 +59,39 @@ enum GameOptionsWidgets : WidgetID {
 	WID_GO_VIDEO_ACCEL_TEXT,       ///< Text for video acceleration toggle.
 	WID_GO_VIDEO_VSYNC_BUTTON,     ///< Toggle for video vsync.
 	WID_GO_VIDEO_VSYNC_TEXT,       ///< Text for video vsync toggle.
+	WID_GO_VIDEO_POST_PROCESSING_BUTTON, ///< Toggle for post-processing.
+	WID_GO_VIDEO_POST_PROCESSING_TEXT,   ///< Text for post-processing toggle.
+	WID_GO_VIDEO_RENDER_SCALE,           ///< Render scale slider.
+	WID_GO_VIDEO_UPSCALE_DROPDOWN,       ///< Upscale mode dropdown.
+	WID_GO_VIDEO_SHARPENING,             ///< Sharpening intensity slider.
+	WID_GO_VIDEO_TEXTURE_FILTER_DROPDOWN, ///< Texture filtering dropdown.
+	WID_GO_VIDEO_FXAA_BUTTON,            ///< Toggle for FXAA anti-aliasing.
+	WID_GO_VIDEO_FXAA_TEXT,              ///< Text for FXAA toggle.
+	WID_GO_VIDEO_BRIGHTNESS,             ///< Brightness slider.
+	WID_GO_VIDEO_CONTRAST,               ///< Contrast slider.
+	WID_GO_VIDEO_SATURATION,             ///< Saturation slider.
+	WID_GO_VIDEO_NIGHT_MODE_BUTTON,      ///< Toggle for night mode.
+	WID_GO_VIDEO_NIGHT_MODE_TEXT,        ///< Text for night mode toggle.
+	WID_GO_VIDEO_CRT_FILTER_BUTTON,      ///< Toggle for CRT filter.
+	WID_GO_VIDEO_CRT_FILTER_TEXT,        ///< Text for CRT filter toggle.
+	WID_GO_VIDEO_COLOR_TEMPERATURE,      ///< Color temperature slider.
+	WID_GO_VIDEO_VIGNETTE_BUTTON,        ///< Toggle for vignette effect.
+	WID_GO_VIDEO_VIGNETTE_TEXT,          ///< Text for vignette toggle.
+	WID_GO_VIDEO_VIGNETTE_INTENSITY,     ///< Vignette intensity slider.
+	WID_GO_VIDEO_VIGNETTE_RADIUS,        ///< Vignette radius slider.
+	WID_GO_VIDEO_TILTSHIFT_BUTTON,       ///< Toggle for tilt-shift effect.
+	WID_GO_VIDEO_TILTSHIFT_TEXT,         ///< Text for tilt-shift toggle.
+	WID_GO_VIDEO_TILTSHIFT_FOCUS_Y,      ///< Tilt-shift focus Y slider.
+	WID_GO_VIDEO_TILTSHIFT_FOCUS_WIDTH,  ///< Tilt-shift focus width slider.
+	WID_GO_VIDEO_TILTSHIFT_BLUR,         ///< Tilt-shift blur strength slider.
+	WID_GO_VIDEO_FILM_GRAIN_BUTTON,      ///< Toggle for film grain.
+	WID_GO_VIDEO_FILM_GRAIN_TEXT,        ///< Text for film grain toggle.
+	WID_GO_VIDEO_GRAIN_INTENSITY,        ///< Film grain intensity slider.
+	WID_GO_VIDEO_NIGHT_INTENSITY,        ///< Night mode intensity slider.
+	WID_GO_VIDEO_NIGHT_BLUE_SHIFT,       ///< Night mode blue shift slider.
+	WID_GO_VIDEO_CRT_SCANLINES,          ///< CRT scanline intensity slider.
+	WID_GO_VIDEO_CRT_CURVATURE,          ///< CRT curvature slider.
+	WID_GO_VIDEO_CRT_ABERRATION,         ///< CRT chromatic aberration slider.
 	WID_GO_REFRESH_RATE_DROPDOWN,  ///< Dropdown for all available refresh rates.
 	WID_GO_VIDEO_DRIVER_INFO,      ///< Label showing details about the current video driver.
 	WID_GO_SURVEY_SEL,             ///< Selection to hide survey if no JSON library is compiled in.

@@ -1078,6 +1078,66 @@ STR_GAME_OPTIONS_VIDEO_VSYNC_TOOLTIP                            :Turn on to v-sy
 
 STR_GAME_OPTIONS_VIDEO_DRIVER_INFO                              :Current driver: {RAW_STRING}
 
+STR_GAME_OPTIONS_GPU_RENDERING                                  :GPU Rendering
+STR_GAME_OPTIONS_POST_PROCESSING                                :{PUSH_COLOUR}{ORANGE}Post-processing: {POP_COLOUR}{STRING}
+STR_GAME_OPTIONS_POST_PROCESSING_TOOLTIP                        :{BLACK}Enable GPU post-processing effects. When off, rendering is unchanged (zero overhead)
+STR_GAME_OPTIONS_RENDER_SCALE                                   :Render scale
+STR_GAME_OPTIONS_RENDER_SCALE_TOOLTIP                           :{BLACK}Internal rendering resolution. Lower values improve performance, upscaling restores quality. Requires hardware acceleration
+STR_GAME_OPTIONS_UPSCALE_MODE                                   :Upscale mode
+STR_GAME_OPTIONS_UPSCALE_MODE_TOOLTIP                           :{BLACK}Upscaling algorithm used when render scale is below 100%
+STR_GAME_OPTIONS_UPSCALE_NONE                                   :None (nearest)
+STR_GAME_OPTIONS_UPSCALE_BILINEAR                               :Bilinear
+STR_GAME_OPTIONS_UPSCALE_FSR1                                   :FSR 1.0
+STR_GAME_OPTIONS_SHARPENING                                     :Sharpening
+STR_GAME_OPTIONS_SHARPENING_TOOLTIP                             :{BLACK}Contrast Adaptive Sharpening intensity
+STR_GAME_OPTIONS_TEXTURE_FILTER                                 :Texture filtering
+STR_GAME_OPTIONS_TEXTURE_FILTER_TOOLTIP                         :{BLACK}Texture filtering mode for the video buffer
+STR_GAME_OPTIONS_TEXTURE_FILTER_NEAREST                         :Nearest (pixel-perfect)
+STR_GAME_OPTIONS_TEXTURE_FILTER_BILINEAR                        :Bilinear (smooth)
+STR_GAME_OPTIONS_TEXTURE_FILTER_SMOOTH                          :Smooth (bicubic)
+STR_GAME_OPTIONS_FXAA                                           :Anti-aliasing (FXAA)
+STR_GAME_OPTIONS_FXAA_TOOLTIP                                   :{BLACK}Enable FXAA to smooth jagged edges. Works at any resolution
+STR_GAME_OPTIONS_BRIGHTNESS                                     :Brightness
+STR_GAME_OPTIONS_BRIGHTNESS_TOOLTIP                             :{BLACK}Adjust display brightness. 0 = no change
+STR_GAME_OPTIONS_CONTRAST                                       :Contrast
+STR_GAME_OPTIONS_CONTRAST_TOOLTIP                               :{BLACK}Adjust display contrast. 100 = no change
+STR_GAME_OPTIONS_SATURATION                                     :Saturation
+STR_GAME_OPTIONS_SATURATION_TOOLTIP                             :{BLACK}Adjust colour saturation. 100 = no change, 0 = grayscale
+STR_GAME_OPTIONS_NIGHT_MODE                                     :Night mode
+STR_GAME_OPTIONS_NIGHT_MODE_TOOLTIP                             :{BLACK}Apply a night-time blue-tinted desaturation effect
+STR_GAME_OPTIONS_CRT_FILTER                                     :CRT filter
+STR_GAME_OPTIONS_CRT_FILTER_TOOLTIP                             :{BLACK}Retro CRT monitor effect with scanlines and optional curvature
+STR_GAME_OPTIONS_COLOR_TEMPERATURE                              :Colour temperature
+STR_GAME_OPTIONS_COLOR_TEMPERATURE_TOOLTIP                      :{BLACK}Shift colours warm (positive) or cool (negative). 0 = no change
+STR_GAME_OPTIONS_VIGNETTE                                       :Vignette
+STR_GAME_OPTIONS_VIGNETTE_TOOLTIP                               :{BLACK}Darken screen edges for a cinematic look
+STR_GAME_OPTIONS_VIGNETTE_INTENSITY                             :Vignette intensity
+STR_GAME_OPTIONS_VIGNETTE_INTENSITY_TOOLTIP                     :{BLACK}How dark the screen edges become
+STR_GAME_OPTIONS_VIGNETTE_RADIUS                                :Vignette radius
+STR_GAME_OPTIONS_VIGNETTE_RADIUS_TOOLTIP                        :{BLACK}Size of the clear centre area. Higher = less vignette
+STR_GAME_OPTIONS_TILTSHIFT                                      :Tilt-shift
+STR_GAME_OPTIONS_TILTSHIFT_TOOLTIP                              :{BLACK}Miniature diorama effect with selective focus blur
+STR_GAME_OPTIONS_TILTSHIFT_FOCUS_Y                              :Focus position
+STR_GAME_OPTIONS_TILTSHIFT_FOCUS_Y_TOOLTIP                      :{BLACK}Vertical position of the sharp focus band (% from top)
+STR_GAME_OPTIONS_TILTSHIFT_FOCUS_WIDTH                          :Focus width
+STR_GAME_OPTIONS_TILTSHIFT_FOCUS_WIDTH_TOOLTIP                  :{BLACK}Width of the sharp focus band (% of screen height)
+STR_GAME_OPTIONS_TILTSHIFT_BLUR                                 :Blur strength
+STR_GAME_OPTIONS_TILTSHIFT_BLUR_TOOLTIP                         :{BLACK}Intensity of the out-of-focus blur
+STR_GAME_OPTIONS_FILM_GRAIN                                     :Film grain
+STR_GAME_OPTIONS_FILM_GRAIN_TOOLTIP                             :{BLACK}Add subtle film grain noise overlay
+STR_GAME_OPTIONS_GRAIN_INTENSITY                                :Grain intensity
+STR_GAME_OPTIONS_GRAIN_INTENSITY_TOOLTIP                        :{BLACK}Strength of the grain noise effect
+STR_GAME_OPTIONS_NIGHT_INTENSITY                                :Night intensity
+STR_GAME_OPTIONS_NIGHT_INTENSITY_TOOLTIP                        :{BLACK}How dark the night effect is
+STR_GAME_OPTIONS_NIGHT_BLUE_SHIFT                               :Blue shift
+STR_GAME_OPTIONS_NIGHT_BLUE_SHIFT_TOOLTIP                       :{BLACK}Strength of the moonlight blue tint
+STR_GAME_OPTIONS_CRT_SCANLINES                                  :Scanline intensity
+STR_GAME_OPTIONS_CRT_SCANLINES_TOOLTIP                          :{BLACK}Visibility of CRT scanlines
+STR_GAME_OPTIONS_CRT_CURVATURE                                  :Screen curvature
+STR_GAME_OPTIONS_CRT_CURVATURE_TOOLTIP                          :{BLACK}Barrel distortion simulating a curved CRT screen
+STR_GAME_OPTIONS_CRT_ABERRATION                                 :Chromatic aberration
+STR_GAME_OPTIONS_CRT_ABERRATION_TOOLTIP                         :{BLACK}RGB colour fringing at screen edges
+
 STR_GAME_OPTIONS_INTERFACE                                      :Interface
 
 STR_GAME_OPTIONS_GUI_SCALE_FRAME                                :Interface size

@@ -30,6 +30,32 @@ extern Dimension _cur_resolution;
 extern bool _rightclick_emulate;
 extern bool _video_hw_accel;
 extern bool _video_vsync;
+extern bool _video_post_processing;
+extern uint8_t _video_render_scale;
+extern uint8_t _video_upscale_mode;
+extern uint8_t _video_sharpening;
+extern uint8_t _video_texture_filter;
+extern bool _video_fxaa;
+extern bool _video_night_mode;
+extern bool _video_crt_filter;
+extern bool _video_vignette;
+extern bool _video_tiltshift;
+extern bool _video_film_grain;
+extern int8_t _video_brightness;
+extern uint8_t _video_contrast;
+extern uint8_t _video_saturation;
+extern int8_t _video_color_temperature;
+extern uint8_t _video_night_intensity;
+extern uint8_t _video_night_blue_shift;
+extern uint8_t _video_crt_scanlines;
+extern uint8_t _video_crt_curvature;
+extern uint8_t _video_crt_aberration;
+extern uint8_t _video_vignette_intensity;
+extern uint8_t _video_vignette_radius;
+extern uint8_t _video_tiltshift_focus_y;
+extern uint8_t _video_tiltshift_focus_width;
+extern uint8_t _video_tiltshift_blur;
+extern uint8_t _video_grain_intensity;
 
 /** The base of all video drivers. */
 class VideoDriver : public Driver {
