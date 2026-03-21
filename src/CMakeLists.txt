@@ -223,6 +223,8 @@ add_files(
     group_gui.h
     group_type.h
     gui.h
+    harbor_gen.cpp
+    harbor_gen.h
     heightmap.cpp
     heightmap.h
     help_gui.cpp
@@ -245,6 +247,8 @@ add_files(
     ini_load.cpp
     ini_type.h
     intro_gui.cpp
+    lake_gen.cpp
+    lake_gen.h
     landscape.cpp
     landscape.h
     landscape_cmd.h

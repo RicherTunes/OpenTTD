@@ -40,6 +40,8 @@
 #include "station_func.h"
 #include "pathfinder/water_regions.h"
 #include "pathfinder/yapf/yapf_river_builder.h"
+#include "lake_gen.h"
+#include "harbor_gen.h"
 
 #include "table/strings.h"
 #include "table/sprites.h"
@@ -1615,6 +1617,160 @@ static uint8_t CalculateDesertLine()
 	return CalculateCoverageLine(100 - _settings_game.game_creation.desert_coverage, 4);
 }
 
+/**
+ * Calculate the snow line using temperature-based biomes.
+ * Temperature decreases with altitude and varies spatially via Perlin noise,
+ * producing more natural snow boundaries than a flat height threshold.
+ */
+static void CalculateSnowLineWithBiomes()
+{
+	uint coverage = _settings_game.game_creation.snow_coverage;
+	uint max_h = 0;
+
+	/* Find the maximum tile height on the map */
+	for (const auto tile : Map::Iterate()) {
+		uint h = TileHeight(tile);
+		if (h > max_h) max_h = h;
+	}
+	if (max_h == 0) {
+		_settings_game.game_creation.snow_line_height = 2;
+		return;
+	}
+
+	/* Compute per-tile temperature and build a histogram.
+	 * temperature = 1.0 - (height / max_h) + noise_factor * noise
+	 * We subsample noise at 1/4 resolution for performance. */
+	double inv_max_h = 1.0 / max_h;
+	double noise_factor = 0.2;
+
+	/* Build temperature histogram to find the threshold matching coverage */
+	std::array<int, 256> temp_histogram = {};
+	uint land_tiles = 0;
+
+	/* Use tile coordinates as noise input, scaled for large features */
+	double freq = 4.0 / std::max(Map::SizeX(), Map::SizeY());
+
+	for (const auto tile : Map::Iterate()) {
+		if (!IsValidTile(tile)) continue;
+		uint h = TileHeight(tile);
+		if (h == 0) continue; /* Skip sea */
+		land_tiles++;
+
+		/* Temperature: higher altitude = colder */
+		double base_temp = 1.0 - (double)h * inv_max_h;
+
+		/* Add spatial noise using cheap hash-based pseudo-noise */
+		uint x = TileX(tile);
+		uint y = TileY(tile);
+		uint noise_val = ((x * 374761393u + y * 668265263u) ^ (x * y * 1274126177u)) & 0xFF;
+		double noise = ((double)noise_val / 255.0 - 0.5) * 2.0; /* [-1, 1] */
+
+		double temperature = base_temp + noise_factor * noise;
+		int temp_idx = Clamp((int)(temperature * 255.0), 0, 255);
+		temp_histogram[temp_idx]++;
+	}
+
+	/* Find temperature threshold for requested snow coverage */
+	int goal = land_tiles * coverage / 100;
+	int accumulated = 0;
+	int best_threshold = 0;
+	int best_score = land_tiles;
+
+	for (int t = 0; t < 256; t++) {
+		accumulated += temp_histogram[t];
+		int score = std::abs(goal - accumulated);
+		if (score < best_score) {
+			best_score = score;
+			best_threshold = t;
+		}
+	}
+
+	/* Convert temperature threshold to approximate height for snow_line_height
+	 * (used by game logic and NewGRFs that check snow line) */
+	double temp_threshold = (double)best_threshold / 255.0;
+	uint snow_height = std::max(2u, (uint)((1.0 - temp_threshold) * max_h));
+	_settings_game.game_creation.snow_line_height = snow_height;
+}
+
+/**
+ * Create desert and rainforest zones using temperature-based biomes.
+ * Higher tiles and tiles with low spatial noise get desert; the rest
+ * gets rainforest where appropriate.
+ */
+static void CreateDesertOrRainForestWithBiomes()
+{
+	uint coverage = _settings_game.game_creation.desert_coverage;
+	uint max_h = 0;
+	uint update_freq = Map::Size() / 4;
+
+	for (const auto tile : Map::Iterate()) {
+		uint h = TileHeight(tile);
+		if (h > max_h) max_h = h;
+	}
+	if (max_h == 0) return;
+
+	double inv_max_h = 1.0 / max_h;
+	double noise_factor = 0.25;
+
+	/* First pass: compute temperature and mark desert */
+	uint land_tiles = 0;
+	std::vector<std::pair<TileIndex, double>> tile_temps;
+	tile_temps.reserve(Map::Size() / 2);
+
+	for (const auto tile : Map::Iterate()) {
+		if ((tile % update_freq) == 0) IncreaseGeneratingWorldProgress(GWP_LANDSCAPE);
+		if (!IsValidTile(tile)) continue;
+		uint h = TileHeight(tile);
+		if (h == 0) continue;
+		land_tiles++;
+
+		/* Temperature: lower altitude = hotter (for desert) */
+		double base_temp = (double)h * inv_max_h;
+
+		uint x = TileX(tile);
+		uint y = TileY(tile);
+		uint noise_val = ((x * 374761393u + y * 668265263u) ^ (x * y * 1274126177u)) & 0xFF;
+		double noise = ((double)noise_val / 255.0 - 0.5) * 2.0;
+
+		double temperature = 1.0 - base_temp + noise_factor * noise;
+		tile_temps.push_back({tile, temperature});
+	}
+
+	/* Sort by temperature descending to find the hottest coverage% */
+	std::sort(tile_temps.begin(), tile_temps.end(),
+		[](const auto &a, const auto &b) { return a.second > b.second; });
+
+	uint desert_goal = land_tiles * coverage / 100;
+	uint desert_count = 0;
+
+	for (const auto &[tile, temp] : tile_temps) {
+		if (desert_count >= desert_goal) break;
+		if (IsTileType(tile, TileType::Water)) continue;
+		SetTropicZone(tile, TROPICZONE_DESERT);
+		desert_count++;
+	}
+
+	/* Run tile loop to let desert spread */
+	for (uint i = 0; i != TILE_UPDATE_FREQUENCY; i++) {
+		if ((i % 64) == 0) IncreaseGeneratingWorldProgress(GWP_LANDSCAPE);
+		RunTileLoop();
+	}
+
+	/* Mark rainforest on remaining suitable tiles */
+	for (const auto tile : Map::Iterate()) {
+		if ((tile % update_freq) == 0) IncreaseGeneratingWorldProgress(GWP_LANDSCAPE);
+		if (!IsValidTile(tile)) continue;
+
+		auto allows_rainforest = [tile](auto &offset) {
+			TileIndex t = AddTileIndexDiffCWrap(tile, offset);
+			return t == INVALID_TILE || !IsTileType(t, TileType::Clear) || !IsClearGround(t, ClearGround::Desert);
+		};
+		if (std::all_of(std::begin(_make_desert_or_rainforest_data), std::end(_make_desert_or_rainforest_data), allows_rainforest)) {
+			SetTropicZone(tile, TROPICZONE_RAINFOREST);
+		}
+	}
+}
+
 bool GenerateLandscape(uint8_t mode)
 {
 	/* Number of steps of landscape generation */
@@ -1699,16 +1855,31 @@ bool GenerateLandscape(uint8_t mode)
 	MarkWholeScreenDirty();
 	IncreaseGeneratingWorldProgress(GWP_LANDSCAPE);
 
+	/* Create lakes in enclosed depressions above sea level */
+	if (_settings_game.game_creation.amount_of_lakes > 0) {
+		CreateLakes();
+	}
+
+	/* Compute harbor suitability scores for town/industry placement */
+	ComputeHarborScores();
+
 	switch (_settings_game.game_creation.landscape) {
 		case LandscapeType::Arctic:
-			CalculateSnowLine();
+			if (_settings_game.game_creation.biome_model == BiomeModel::TemperatureBased) {
+				CalculateSnowLineWithBiomes();
+			} else {
+				CalculateSnowLine();
+			}
 			break;
 
-		case LandscapeType::Tropic: {
-			uint desert_tropic_line = CalculateDesertLine();
-			CreateDesertOrRainForest(desert_tropic_line);
+		case LandscapeType::Tropic:
+			if (_settings_game.game_creation.biome_model == BiomeModel::TemperatureBased) {
+				CreateDesertOrRainForestWithBiomes();
+			} else {
+				uint desert_tropic_line = CalculateDesertLine();
+				CreateDesertOrRainForest(desert_tropic_line);
+			}
 			break;
-		}
 
 		default:
 			break;
