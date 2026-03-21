@@ -161,13 +161,22 @@ The GPU post-processing pipeline adds visual enhancement to OpenTTD's OpenGL bac
 
 ### Key Files
 - `src/video/postprocess.h/.cpp` -- Post-processing config, dimension math, FSR/CAS constants
-- `src/video/motion_vector.h/.cpp` -- Draw-command recording, tile-based spatial binning
+- `src/video/motion_vector.h/.cpp` -- Draw-command recording, tile-based spatial binning (MAX_COMMANDS=16384)
 - `src/video/temporal_upscale.h/.cpp` -- Jitter sequence, temporal upscale interface
-- `src/table/postprocess_shader.h` -- All GLSL shader source code (12+ effects + compute)
+- `src/table/postprocess_shader.h` -- All GLSL shader source (12+ effects + compute + bicubic)
 - `src/video/opengl.h/.cpp` -- FBO pipeline, shader compilation, render dispatch
-- `src/tests/test_postprocess.cpp` -- 80+ postprocess tests
-- `src/tests/test_motion_vector.cpp` -- 30+ motion vector tests
+- `src/benchmark.h/.cpp` -- GPU benchmark harness with CSV export and statistics
+- `src/tests/test_postprocess.cpp` -- 100+ postprocess tests
+- `src/tests/test_motion_vector.cpp` -- 40+ motion vector tests
 - `src/tests/test_temporal_upscale.cpp` -- 12 temporal upscale tests
+
+### Console Commands
+- `benchmark start [N] [warmup=M] [label=X]` -- Capture N frames of GPU timing to CSV
+- `benchmark stop/abort/status` -- Control benchmark recording
+- `pp status/on/off` -- Master post-processing toggle
+- `pp enable/disable <effect>` -- Toggle individual effects (fxaa, night, crt, vignette, tiltshift, grain)
+- `pp set <param> <value>` -- Set numeric parameters (render_scale, sharpening, brightness, etc.)
+- `pp reset` -- Restore all PP settings to defaults
 
 ### Design Decisions
 - All features default to OFF (zero overhead when disabled)
@@ -177,12 +186,23 @@ The GPU post-processing pipeline adds visual enhancement to OpenTTD's OpenGL bac
 - Cursor rendered after PP at display resolution (position corrected for render scaling)
 - DLSS requires plugin architecture with C ABI boundary for GPLv2 compliance
 
+### Settings Flow
+Global variables (`_video_*` in `video_driver.cpp`) → synced per-frame in `Paint()` → `PostProcessConfig` struct → shader uniforms in `RenderPostProcess()`. Settings persisted in openttd.cfg via `misc_settings.ini`. GUI controls in `settings_gui.cpp` modify globals directly; all 30+ GPU sub-controls disabled when PP master toggle is off.
+
 ### Tech Debt Paid
 - All uniform locations cached at init time (no per-frame string lookups)
 - FBO ping-pong both at display resolution (prevents corruption with >2 passes)
 - Config sync properly gates on PP master toggle
-- Shader compilation failures logged per-shader
+- Shader compilation failures logged per-shader with graceful fallback
 - Division-by-zero guards on all constant computations
+- FSR EASU con1.zw stores pixel dimensions (not reciprocal) for correct UV-to-texel math
+- GPU timer queries double-buffered (read previous frame, no GPU stall)
+- Blitter depth cached per Paint() frame (avoid repeated virtual calls)
+- Film grain time base is member variable (not function-local static)
+- Motion vectors activated from Paint() when compute shaders available
+- Safety blit fallback when all PP shader programs fail (prevents black screen)
+- Benchmark CSV reports all 28+ PP settings as metadata
+- Bicubic upscale uses render-resolution texel pitch (not display-resolution)
 
 ## Documentation
 
