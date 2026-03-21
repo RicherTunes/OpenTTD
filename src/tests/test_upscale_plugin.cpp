@@ -111,3 +111,43 @@ TEST_CASE("UpscalePlugin - API struct has all required function pointers")
 	CHECK(api.get_version == nullptr);
 	CHECK(api.get_render_resolution == nullptr);
 }
+
+TEST_CASE("UpscalePlugin - UpscaleMode::Plugin is available")
+{
+	CHECK(static_cast<int>(UpscaleMode::Plugin) == 4);
+}
+
+TEST_CASE("UpscalePlugin - PostProcessNeedsFBO with Plugin mode")
+{
+	PostProcessConfig config;
+	config.upscale_mode = UpscaleMode::Plugin;
+	CHECK(PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("UpscalePlugin - PostProcessPassCount with Plugin mode")
+{
+	PostProcessConfig config;
+	config.upscale_mode = UpscaleMode::Plugin;
+	config.render_scale = 75;
+	CHECK(PostProcessPassCount(config) == 1);
+}
+
+TEST_CASE("UpscalePlugin - Plugin dispatch params initialization")
+{
+	UpscaleDispatchParams params = {};
+	params.color_input.gl_texture_id = 42;
+	params.motion_vectors.gl_texture_id = 43;
+	params.depth.gl_texture_id = 44;
+	params.output.gl_texture_id = 45;
+	params.render_width = 960;
+	params.render_height = 540;
+	params.display_width = 1920;
+	params.display_height = 1080;
+	params.jitter_x = 0.25f;
+	params.jitter_y = -0.125f;
+
+	CHECK(params.color_input.gl_texture_id == 42);
+	CHECK(params.render_width == 960);
+	CHECK(params.display_width == 1920);
+	CHECK(params.jitter_x == Approx(0.25f));
+}
