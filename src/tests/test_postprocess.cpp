@@ -1655,3 +1655,55 @@ TEST_CASE("PostProcess - downsample pass counted for supersampling")
 	CHECK(PostProcessNeedsFBO(config));
 	CHECK(PostProcessPassCount(config) >= 1); /* At least the downsample pass */
 }
+
+/* ====== Temporal upscale mode UI and enum coverage ====== */
+
+TEST_CASE("PostProcess - Temporal is valid UpscaleMode value 3")
+{
+	CHECK(static_cast<uint8_t>(UpscaleMode::Temporal) == 3);
+}
+
+TEST_CASE("PostProcess - Temporal mode at 100% still needs FBO")
+{
+	PostProcessConfig config;
+	config.upscale_mode = UpscaleMode::Temporal;
+	config.render_scale = 100;
+	CHECK(PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("PostProcess - Temporal with all effects gives correct total")
+{
+	PostProcessConfig config;
+	config.upscale_mode = UpscaleMode::Temporal;
+	config.render_scale = 75;
+	config.fxaa = true;
+	config.bloom = true;
+	config.dynamic_lighting = true;
+	/* Temporal(1) + FXAA(1) + lighting(1) + bloom(3) = 6 */
+	CHECK(PostProcessPassCount(config) == 6);
+}
+
+/* ====== Additional NeedsFBO edge cases ====== */
+
+TEST_CASE("PostProcess - render_scale above 100 alone triggers FBO")
+{
+	PostProcessConfig config;
+	config.render_scale = 150;
+	CHECK(PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("PostProcess - render_scale exactly 100 with no effects needs no FBO")
+{
+	PostProcessConfig config;
+	config.render_scale = 100;
+	CHECK_FALSE(PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("PostProcess - vignette with zero intensity still runs pass")
+{
+	PostProcessConfig config;
+	config.vignette = true;
+	config.vignette_intensity = 0;
+	CHECK(PostProcessNeedsFBO(config));
+	CHECK(PostProcessPassCount(config) == 1);
+}

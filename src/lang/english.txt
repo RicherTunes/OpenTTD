@@ -1088,6 +1088,7 @@ STR_GAME_OPTIONS_UPSCALE_MODE_TOOLTIP                           :{BLACK}Upscalin
 STR_GAME_OPTIONS_UPSCALE_NONE                                   :None (nearest)
 STR_GAME_OPTIONS_UPSCALE_BILINEAR                               :Bilinear
 STR_GAME_OPTIONS_UPSCALE_FSR1                                   :FSR 1.0
+STR_GAME_OPTIONS_UPSCALE_TEMPORAL                               :Temporal (TAA)
 STR_GAME_OPTIONS_SHARPENING                                     :Sharpening
 STR_GAME_OPTIONS_SHARPENING_TOOLTIP                             :{BLACK}Contrast Adaptive Sharpening intensity
 STR_GAME_OPTIONS_TEXTURE_FILTER                                 :Texture filtering
