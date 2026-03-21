@@ -44,7 +44,7 @@ void CreateLakes()
 	std::vector<TileIndex> component;
 
 	for (const auto start_tile : Map::Iterate()) {
-		if (visited[start_tile]) continue;
+		if (visited[(uint)start_tile]) continue;
 		if (!IsValidTile(start_tile)) continue;
 
 		uint h = TileHeight(start_tile);
@@ -55,7 +55,7 @@ void CreateLakes()
 		/* BFS to find connected flat tiles at the same height */
 		component.clear();
 		queue.push(start_tile);
-		visited[start_tile] = true;
+		visited[(uint)start_tile] = true;
 
 		bool is_enclosed = true;
 		uint component_height = h;
@@ -82,8 +82,8 @@ void CreateLakes()
 				uint nh = TileHeight(neighbor);
 
 				if (nh == component_height && IsTileFlat(neighbor) && !IsTileType(neighbor, TileType::Water)) {
-					if (!visited[neighbor]) {
-						visited[neighbor] = true;
+					if (!visited[neighbor.base()]) {
+						visited[neighbor.base()] = true;
 						queue.push(neighbor);
 					}
 				} else if (nh < component_height) {
@@ -96,7 +96,7 @@ void CreateLakes()
 
 		/* Drain remaining queue if we broke out early */
 		while (!queue.empty()) {
-			visited[queue.front()] = true;
+			visited[queue.front().base()] = true;
 			queue.pop();
 		}
 
