@@ -37,6 +37,7 @@ static_assert(sizeof(DrawCommand) == 16, "DrawCommand must be 16 bytes for GPU u
  * and consumed during Paint() by the GPU MV rasterization shader.
  */
 struct MotionVectorState {
+	static constexpr size_t MAX_COMMANDS = 16384; ///< Hard cap on draw commands per frame to prevent unbounded growth.
 	std::vector<DrawCommand> commands;  ///< Recorded draw commands this frame.
 	int16_t scroll_dx = 0;              ///< Global viewport scroll delta X (1/8 px).
 	int16_t scroll_dy = 0;              ///< Global viewport scroll delta Y (1/8 px).

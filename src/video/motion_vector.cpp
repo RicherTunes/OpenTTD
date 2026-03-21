@@ -17,8 +17,11 @@
 /** Global motion vector state, shared between viewport rendering and the GPU backend. */
 MotionVectorState _motion_vectors;
 
-/** Maximum world coordinate diagonal for depth normalization. */
-static constexpr int32_t MAX_WORLD_DIAGONAL = 4096 * 2 + 256; /* Typical max map size * 2 + max height */
+/** Maximum world coordinate diagonal for depth normalization.
+ * Depth = x + y + z*2. Max tile coords: MAX_MAP_SIZE-1 each axis.
+ * Max z = MAX_TILE_HEIGHT * TILE_HEIGHT = 255 * 8 = 2040.
+ * Max raw depth = 4095 + 4095 + 2040*2 = 12270. Round up for safety. */
+static constexpr int32_t MAX_WORLD_DIAGONAL = 13000;
 
 /**
  * Clear the command buffer for a new frame.
@@ -26,6 +29,8 @@ static constexpr int32_t MAX_WORLD_DIAGONAL = 4096 * 2 + 256; /* Typical max map
 void MotionVectorState::BeginFrame()
 {
 	this->commands.clear();
+	/* Shrink capacity if it has grown far beyond the hard cap (e.g. after a spike). */
+	if (this->commands.capacity() > MAX_COMMANDS * 2) this->commands.shrink_to_fit();
 	this->scroll_dx = 0;
 	this->scroll_dy = 0;
 }
@@ -45,6 +50,7 @@ void MotionVectorState::RecordSprite(int screen_x, int screen_y, int width, int 
                                      int32_t world_x, int32_t world_y, int32_t world_z)
 {
 	if (width <= 0 || height <= 0) return;
+	if (this->commands.size() >= MAX_COMMANDS) return;
 
 	DrawCommand cmd;
 	cmd.screen_x = static_cast<int16_t>(Clamp(screen_x, -32768, 32767));

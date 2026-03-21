@@ -202,3 +202,48 @@ TEST_CASE("MotionVector - Full frame workflow")
 	CHECK(state.scroll_dx != 0); /* Should be non-zero due to scroll */
 	CHECK(state.commands[0].motion_x == state.scroll_dx); /* Sprite inherits scroll delta */
 }
+
+/* --- Depth normalization boundary tests --- */
+
+TEST_CASE("MotionVector - ComputeDepth at typical max world coords")
+{
+	/* Max map: x=4095, y=4095, z=255*8=2040. raw_depth = 4095+4095+4080 = 12270 */
+	uint16_t d = MotionVectorState::ComputeDepth(4095, 4095, 2040);
+	CHECK(d > 0);
+	CHECK(d <= 65535);
+}
+
+TEST_CASE("MotionVector - ComputeDepth negative coords clamp to 0")
+{
+	CHECK(MotionVectorState::ComputeDepth(-5000, -5000, -5000) == 0);
+}
+
+TEST_CASE("MotionVector - RecordSprite at INT16 boundary coords")
+{
+	MotionVectorState state;
+	state.BeginFrame();
+	state.RecordSprite(32767, -32768, 1, 1, 0, 0, 0);
+	REQUIRE(state.commands.size() == 1);
+	CHECK(state.commands[0].screen_x == 32767);
+	CHECK(state.commands[0].screen_y == -32768);
+}
+
+TEST_CASE("MotionVector - BeginFrame resets but preserves prev_scroll")
+{
+	MotionVectorState state;
+	state.prev_scroll_x = 1000;
+	state.prev_scroll_y = 2000;
+	state.BeginFrame();
+	/* BeginFrame should NOT reset prev_scroll, only commands and current delta. */
+	CHECK(state.prev_scroll_x == 1000);
+	CHECK(state.prev_scroll_y == 2000);
+}
+
+TEST_CASE("MotionVector - ComputeDepth is monotonic in each axis")
+{
+	for (int i = 0; i < 100; i++) {
+		uint16_t d1 = MotionVectorState::ComputeDepth(i * 10, 0, 0);
+		uint16_t d2 = MotionVectorState::ComputeDepth((i + 1) * 10, 0, 0);
+		CHECK(d2 >= d1);
+	}
+}

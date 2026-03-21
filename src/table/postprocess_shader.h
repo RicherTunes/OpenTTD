@@ -82,9 +82,9 @@ static const char *_frag_shader_pp_cas[] = {
  *
  * Uniforms:
  *   easu_con0 - viewport-to-input scale (xy) and offset (zw)
- *   easu_con1 - reciprocal input texel size (xy), input size (zw)
- *   easu_con2 - reserved for future use
- *   easu_con3 - reserved for future use
+ *   easu_con1 - reciprocal input texel size (xy), input size in pixels (zw)
+ *   easu_con2 - reserved for gather-based EASU variant
+ *   easu_con3 - reserved for gather-based EASU variant
  */
 static const char *_frag_shader_pp_fsr_easu[] = {
 	"#version 150\n",
@@ -516,5 +516,43 @@ static const char *_frag_shader_pp_crt[] = {
 	"  c *= 1.0 - scanline_strength * (1.0 - scanline);",
 	"",
 	"  frag_colour = vec4(c, src_alpha);",
+	"}",
+};
+
+/* ---- Motion vector rasterization compute shader (GL 4.3+) ---- */
+
+/** Compute shader: rasterize per-pixel MV + depth from draw command list.
+ * Tile-based: each 16x16 workgroup processes only commands overlapping its tile. */
+static const char *_compute_shader_mv_rasterize[] = {
+	"#version 430\n",
+	"struct DrawCommand { int sx, sy, w, h, mx, my, depth, pad; };",
+	"layout(std430, binding=0) readonly buffer CmdBuf { DrawCommand cmds[]; };",
+	"layout(std430, binding=1) readonly buffer TileBuf { int tile_data[]; };",
+	"layout(rg16f, binding=0) writeonly uniform image2D mv_out;",
+	"layout(r16f, binding=1) writeonly uniform image2D depth_out;",
+	"uniform ivec2 screen_size;",
+	"uniform ivec2 tile_count;",
+	"uniform ivec2 global_motion;",
+	"uniform int max_cmds_per_tile;",
+	"layout(local_size_x=16, local_size_y=16) in;",
+	"void main() {",
+	"  ivec2 px = ivec2(gl_GlobalInvocationID.xy);",
+	"  if (px.x >= screen_size.x || px.y >= screen_size.y) return;",
+	"  ivec2 tile = px / 16;",
+	"  int ti = tile.y * tile_count.x + tile.x;",
+	"  int off = ti * (max_cmds_per_tile + 1);",
+	"  int cnt = tile_data[off];",
+	"  vec2 bm = vec2(global_motion) / 8.0;",
+	"  float bd = 0.0;",
+	"  for (int i = 0; i < cnt; i++) {",
+	"    int ci = tile_data[off + 1 + i];",
+	"    DrawCommand c = cmds[ci];",
+	"    if (px.x >= c.sx && px.x < c.sx + c.w && px.y >= c.sy && px.y < c.sy + c.h) {",
+	"      float d = float(c.depth) / 65535.0;",
+	"      if (d >= bd) { bm = vec2(c.mx, c.my) / 8.0; bd = d; }",
+	"    }",
+	"  }",
+	"  imageStore(mv_out, px, vec4(bm / vec2(screen_size), 0, 0));",
+	"  imageStore(depth_out, px, vec4(bd, 0, 0, 0));",
 	"}",
 };
