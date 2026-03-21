@@ -111,7 +111,7 @@ void ComputeHarborScores()
 		if (land_rays > 0 && water_rays > 0) {
 			int avg_depth = total_water_depth / water_rays;
 			int raw_score = land_rays * avg_depth;
-			_harbor_scores[(uint)tile] = static_cast<uint8_t>(std::min(raw_score * 4, 255));
+			_harbor_scores[(uint)tile] = static_cast<uint8_t>(Clamp(raw_score * 4, 0, 255));
 		}
 	}
 }

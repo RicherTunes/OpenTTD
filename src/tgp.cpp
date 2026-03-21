@@ -1002,7 +1002,7 @@ static void HeightMapApplyContinentShape()
 						default: progress = 1.0 - nx; width_coord = ny; break; /* From west */
 					}
 					double width = 0.3 + 0.15 * sin(progress * 6.0);
-					double center_offset = abs(width_coord - 0.5);
+					double center_offset = fabs(width_coord - 0.5);
 					if (center_offset < width) {
 						mask = std::max(0.0, 1.0 - center_offset / width) * std::max(0.0, 1.0 - progress * 1.2);
 					}

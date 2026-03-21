@@ -40,11 +40,12 @@ void CreateLakes()
 	const uint max_lake_size = Map::ScaleBySize(64 << amount); /* Larger lakes for higher settings */
 
 	std::vector<bool> visited(Map::Size(), false);
-	std::queue<TileIndex> queue;
+	std::queue<TileIndex> bfs_queue;
 	std::vector<TileIndex> component;
 
 	for (const auto start_tile : Map::Iterate()) {
-		if (visited[(uint)start_tile]) continue;
+		uint start_idx = (uint)start_tile;
+		if (visited[start_idx]) continue;
 		if (!IsValidTile(start_tile)) continue;
 
 		uint h = TileHeight(start_tile);
@@ -54,15 +55,16 @@ void CreateLakes()
 
 		/* BFS to find connected flat tiles at the same height */
 		component.clear();
-		queue.push(start_tile);
-		visited[(uint)start_tile] = true;
+		TileIndex start_ti = start_tile;
+		bfs_queue.push(start_ti);
+		visited[start_idx] = true;
 
 		bool is_enclosed = true;
 		uint component_height = h;
 
-		while (!queue.empty()) {
-			TileIndex tile = queue.front();
-			queue.pop();
+		while (!bfs_queue.empty()) {
+			TileIndex tile = bfs_queue.front();
+			bfs_queue.pop();
 			component.push_back(tile);
 
 			/* Check if component is getting too large */
@@ -84,7 +86,7 @@ void CreateLakes()
 				if (nh == component_height && IsTileFlat(neighbor) && !IsTileType(neighbor, TileType::Water)) {
 					if (!visited[neighbor.base()]) {
 						visited[neighbor.base()] = true;
-						queue.push(neighbor);
+						bfs_queue.push(neighbor);
 					}
 				} else if (nh < component_height) {
 					/* Lower neighbor means water can drain out */
@@ -95,9 +97,9 @@ void CreateLakes()
 		}
 
 		/* Drain remaining queue if we broke out early */
-		while (!queue.empty()) {
-			visited[queue.front().base()] = true;
-			queue.pop();
+		while (!bfs_queue.empty()) {
+			visited[bfs_queue.front().base()] = true;
+			bfs_queue.pop();
 		}
 
 		if (!is_enclosed) continue;
