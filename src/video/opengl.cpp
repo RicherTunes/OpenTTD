@@ -1425,6 +1425,7 @@ bool OpenGLBackend::InitPostProcessShaders()
 	this->pp_grain_program = CompileAndLog("film-grain", _frag_shader_pp_grain, lengthof(_frag_shader_pp_grain));
 	this->pp_bicubic_program = CompileAndLog("bicubic", _frag_shader_pp_bicubic, lengthof(_frag_shader_pp_bicubic));
 	this->pp_crt_program = CompileAndLog("CRT", _frag_shader_pp_crt, lengthof(_frag_shader_pp_crt));
+	this->pp_temporal_program = CompileAndLog("temporal-accum", _frag_shader_pp_temporal_accum, lengthof(_frag_shader_pp_temporal_accum));
 
 	_glDeleteShader(pp_vert);
 
@@ -1448,6 +1449,15 @@ bool OpenGLBackend::InitPostProcessShaders()
 	BindSourceTex(this->pp_grain_program);
 	BindSourceTex(this->pp_bicubic_program);
 	BindSourceTex(this->pp_crt_program);
+	BindSourceTex(this->pp_temporal_program);
+	/* Temporal shader uses additional texture units for history and MV. */
+	if (this->pp_temporal_program != 0) {
+		_glUseProgram(this->pp_temporal_program);
+		this->pp_temporal_history_loc = _glGetUniformLocation(this->pp_temporal_program, "history_tex");
+		this->pp_temporal_mv_loc = _glGetUniformLocation(this->pp_temporal_program, "mv_tex");
+		if (this->pp_temporal_history_loc >= 0) _glUniform1i(this->pp_temporal_history_loc, 1);
+		if (this->pp_temporal_mv_loc >= 0) _glUniform1i(this->pp_temporal_mv_loc, 2);
+	}
 
 	/* Cache ALL uniform locations at init time (not per-frame). */
 	auto CacheLoc = [](GLuint prog, const char *name) -> GLint {
@@ -1702,8 +1712,53 @@ void OpenGLBackend::RenderPostProcess()
 		}
 	}
 
-	/* CAS standalone (not when FSR1 active). */
-	if (this->pp_config.sharpening > 0 && this->pp_config.upscale_mode != UpscaleMode::FSR1 && this->pp_cas_program != 0) {
+	/* Temporal accumulation upscaling. */
+	if (this->pp_config.upscale_mode == UpscaleMode::Temporal && this->pp_temporal_program != 0 && this->mv_compute_supported) {
+		/* Allocate history texture if needed. */
+		if (this->pp_history_tex == 0) {
+			_glGenTextures(1, &this->pp_history_tex);
+			_glBindTexture(GL_TEXTURE_2D, this->pp_history_tex);
+			_glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
+				this->pp_display_size.width, this->pp_display_size.height,
+				0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+			_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+			_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+			_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+			_glBindTexture(GL_TEXTURE_2D, 0);
+		}
+
+		/* Compute jitter for this frame. */
+		float jitter_x = 0.0f, jitter_y = 0.0f;
+		if (ShouldApplyJitter(this->pp_config.render_scale, to_underlying(ZoomLevel::Out2x))) {
+			_jitter_sequence.NextFrame(jitter_x, jitter_y);
+		}
+
+		_glUseProgram(this->pp_temporal_program);
+		_glUniform2f(this->pp_temporal_texel_loc, texel_w, texel_h);
+		_glUniform2f(this->pp_temporal_jitter_loc, jitter_x, jitter_y);
+		_glUniform1f(this->pp_temporal_reset_loc, 0.0f); /* TODO: detect scene cuts */
+
+		/* Bind history texture to texture unit 1 and MV texture to unit 2. */
+		_glActiveTexture(GL_TEXTURE1);
+		_glBindTexture(GL_TEXTURE_2D, this->pp_history_tex);
+		_glActiveTexture(GL_TEXTURE2);
+		_glBindTexture(GL_TEXTURE_2D, this->mv_texture);
+		_glActiveTexture(GL_TEXTURE0);
+
+		RunPass();
+
+		/* Copy current output to history for next frame.
+		 * The output of RunPass is in pp_tex[src] (after ping-pong swap). */
+		_glBindTexture(GL_TEXTURE_2D, this->pp_history_tex);
+		_glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0,
+			this->pp_display_size.width, this->pp_display_size.height);
+		_glBindTexture(GL_TEXTURE_2D, 0);
+	}
+
+	/* CAS standalone (not when FSR1 or Temporal active). */
+	if (this->pp_config.sharpening > 0 && this->pp_config.upscale_mode != UpscaleMode::FSR1 && this->pp_config.upscale_mode != UpscaleMode::Temporal && this->pp_cas_program != 0) {
 		_glUseProgram(this->pp_cas_program);
 		_glUniform2f(this->pp_cas_texel_loc, texel_w, texel_h);
 		_glUniform1f(this->pp_cas_sharp_loc, MapSharpeningToCas(this->pp_config.sharpening));
