@@ -62,6 +62,7 @@
 #include "timer/timer_game_calendar.h"
 #include "timer/timer_game_economy.h"
 #include "timer/timer_game_tick.h"
+#include "harbor_gen.h"
 
 #include "table/strings.h"
 #include "table/town_land.h"
@@ -2417,6 +2418,177 @@ uint GetDefaultTownsForMapSize()
 }
 
 /**
+ * Place towns using grid-based Lloyd relaxation for even distribution.
+ * Generates candidate positions, iteratively relaxes them toward weighted
+ * centroids, then places towns at the best positions.
+ * @param layout The town layout to use.
+ * @param num_towns The number of towns to place.
+ * @return The number of towns actually placed.
+ */
+static int PlaceTownsVoronoi(TownLayout layout, uint num_towns)
+{
+	assert(_game_mode == GM_EDITOR || _generating_world);
+
+	if (num_towns == 0) return 0;
+
+	const uint map_x = Map::SizeX();
+	const uint map_y = Map::SizeY();
+
+	/* Generate 3x oversampled candidate positions */
+	uint num_candidates = num_towns * 3;
+	struct Candidate {
+		double x, y;
+		double score;
+	};
+	std::vector<Candidate> candidates;
+	candidates.reserve(num_candidates);
+
+	for (uint attempts = 0; attempts < num_candidates * 10 && candidates.size() < num_candidates; attempts++) {
+		TileIndex tile = RandomTile();
+		if (!IsValidTile(tile)) continue;
+		if (IsTileType(tile, TileType::Water)) continue;
+		if (!IsTileFlat(tile)) continue;
+		uint x = TileX(tile);
+		uint y = TileY(tile);
+		if (x < 12 || y < 12 || x >= map_x - 12 || y >= map_y - 12) continue;
+
+		candidates.push_back({(double)x, (double)y, 0.0});
+	}
+
+	if (candidates.empty()) return 0;
+
+	/* Grid-based Lloyd relaxation: 3 iterations */
+	const uint cell_size = 64;
+	const uint grid_w = (map_x + cell_size - 1) / cell_size;
+	const uint grid_h = (map_y + cell_size - 1) / cell_size;
+
+	for (int iteration = 0; iteration < 3; iteration++) {
+		/* Assign each cell to its nearest candidate */
+		struct CellData {
+			double sum_x, sum_y, sum_w;
+			uint nearest;
+		};
+		std::vector<CellData> cells(grid_w * grid_h, {0, 0, 0, 0});
+
+		for (uint gy = 0; gy < grid_h; gy++) {
+			for (uint gx = 0; gx < grid_w; gx++) {
+				double cx = (gx + 0.5) * cell_size;
+				double cy = (gy + 0.5) * cell_size;
+
+				/* Find nearest candidate */
+				double min_dist = 1e18;
+				uint nearest = 0;
+				for (uint c = 0; c < candidates.size(); c++) {
+					double dx = cx - candidates[c].x;
+					double dy = cy - candidates[c].y;
+					double dist = dx * dx + dy * dy;
+					if (dist < min_dist) {
+						min_dist = dist;
+						nearest = c;
+					}
+				}
+
+				/* Compute weight for this cell center */
+				TileIndex tile = TileXY(Clamp((uint)cx, 0u, map_x - 1), Clamp((uint)cy, 0u, map_y - 1));
+				double weight = 1.0;
+				if (IsValidTile(tile)) {
+					if (IsTileFlat(tile)) weight *= 2.0;
+					uint harbor = GetHarborScore(tile);
+					weight *= 1.0 + (double)harbor / 255.0;
+				}
+
+				auto &cell = cells[gx + gy * grid_w];
+				cell.sum_x += cx * weight;
+				cell.sum_y += cy * weight;
+				cell.sum_w += weight;
+				cell.nearest = nearest;
+			}
+		}
+
+		/* Move candidates to weighted centroids */
+		std::vector<double> new_x(candidates.size(), 0);
+		std::vector<double> new_y(candidates.size(), 0);
+		std::vector<double> new_w(candidates.size(), 0);
+
+		for (uint i = 0; i < cells.size(); i++) {
+			auto &cell = cells[i];
+			if (cell.sum_w > 0) {
+				new_x[cell.nearest] += cell.sum_x;
+				new_y[cell.nearest] += cell.sum_y;
+				new_w[cell.nearest] += cell.sum_w;
+			}
+		}
+
+		for (uint c = 0; c < candidates.size(); c++) {
+			if (new_w[c] > 0) {
+				candidates[c].x = Clamp(new_x[c] / new_w[c], 12.0, (double)(map_x - 12));
+				candidates[c].y = Clamp(new_y[c] / new_w[c], 12.0, (double)(map_y - 12));
+			}
+		}
+	}
+
+	/* Score candidates and select the best ones */
+	for (auto &c : candidates) {
+		TileIndex tile = TileXY(Clamp((uint)c.x, 0u, map_x - 1), Clamp((uint)c.y, 0u, map_y - 1));
+		c.score = 0;
+		if (!IsValidTile(tile)) continue;
+		if (IsTileFlat(tile)) c.score += 10.0;
+		if (!IsTileType(tile, TileType::Water)) c.score += 5.0;
+		c.score += (double)GetHarborScore(tile) / 25.5;
+	}
+
+	/* Sort by score descending */
+	std::sort(candidates.begin(), candidates.end(),
+		[](const Candidate &a, const Candidate &b) { return a.score > b.score; });
+
+	/* Place towns at best positions, respecting minimum distance */
+	int placed = 0;
+	uint32_t townnameparts;
+
+	for (const auto &c : candidates) {
+		if ((uint)placed >= num_towns) break;
+
+		TileIndex tile = TileXY(Clamp((uint)c.x, 0u, map_x - 1), Clamp((uint)c.y, 0u, map_y - 1));
+		if (!IsValidTile(tile)) continue;
+		if (IsTileType(tile, TileType::Water)) continue;
+
+		/* Check placement suitability */
+		if (TownCanBePlacedHere(tile, true).Failed()) continue;
+
+		/* Generate town name */
+		if (!GenerateTownName(_random, &townnameparts)) continue;
+
+		/* Determine town size */
+		TownSize size = TSZ_RANDOM;
+		bool city = false;
+		if (_settings_game.economy.larger_towns != 0 && (placed % _settings_game.economy.larger_towns) == 0) {
+			city = true;
+		}
+
+		if (!Town::CanAllocateItem()) break;
+
+		Town *t = Town::Create(tile);
+		if (t == nullptr) break;
+
+		DoCreateTown(t, tile, townnameparts, size, city, layout, false);
+
+		/* If the population is still 0, the placement was too bad to grow */
+		if (t->cache.population == 0) {
+			Backup<CompanyID> cur_company(_current_company, OWNER_TOWN);
+			[[maybe_unused]] CommandCost rc = Command<Commands::DeleteTown>::Do(DoCommandFlag::Execute, t->index);
+			cur_company.Restore();
+			assert(rc.Succeeded());
+			assert(Town::CanAllocateItem());
+			continue;
+		}
+
+		placed++;
+	}
+
+	return placed;
+}
+
+/**
  * Generate a number of towns with a given layout.
  * This function is used by the Random Towns button in Scenario Editor as well as in world generation.
  * @param layout The road layout to build.
@@ -2440,6 +2612,16 @@ bool GenerateTowns(TownLayout layout, std::optional<uint> number)
 	TownNames town_names;
 
 	SetGeneratingWorldProgress(GWP_TOWN, total);
+
+	/* Use Voronoi-based even distribution if the setting is enabled */
+	if (_settings_game.game_creation.town_distribution == TownDistribution::Even) {
+		int placed = PlaceTownsVoronoi(layout, total);
+		if (placed > 0) {
+			RebuildTownKdtree();
+			return true;
+		}
+		/* Fall through to random placement if Voronoi fails */
+	}
 
 	/* Pre-populate the town names list with the names of any towns already on the map */
 	for (const Town *town : Town::Iterate()) {
