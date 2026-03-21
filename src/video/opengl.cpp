@@ -1262,6 +1262,7 @@ void OpenGLBackend::Paint()
 			/* Vignette sub-parameters. */
 			new_config.vignette_intensity = _video_vignette_intensity;
 			new_config.vignette_radius = _video_vignette_radius;
+			new_config.vignette_softness = _video_vignette_softness;
 
 			/* Tilt-shift sub-parameters. */
 			new_config.tiltshift_focus_y = _video_tiltshift_focus_y;
@@ -1913,7 +1914,7 @@ void OpenGLBackend::RenderPostProcess()
 		_glUseProgram(this->pp_vignette_program);
 		_glUniform1f(this->pp_vig_intensity_loc, this->pp_config.vignette_intensity / 100.0f);
 		_glUniform1f(this->pp_vig_radius_loc, this->pp_config.vignette_radius / 100.0f);
-		_glUniform1f(this->pp_vig_softness_loc, 0.45f);
+		_glUniform1f(this->pp_vig_softness_loc, this->pp_config.vignette_softness / 100.0f);
 		RunPass();
 	}
 
