@@ -2827,10 +2827,12 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		IConsolePrint(CC_HELP, "Usage: 'pp status' - Show current effect states.");
 		IConsolePrint(CC_HELP, "Usage: 'pp on/off' - Toggle master post-processing switch.");
 		IConsolePrint(CC_HELP, "Usage: 'pp enable/disable <effect>' - Toggle an effect.");
-		IConsolePrint(CC_HELP, "  Effects: fxaa, night, crt, vignette, tiltshift, grain");
+		IConsolePrint(CC_HELP, "  Effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather");
 		IConsolePrint(CC_HELP, "Usage: 'pp set <param> <value>' - Set a parameter.");
 		IConsolePrint(CC_HELP, "  Params: render_scale, sharpening, upscale, brightness, contrast, saturation, temperature");
 		IConsolePrint(CC_HELP, "Usage: 'pp reset' - Restore all post-processing settings to defaults.");
+		IConsolePrint(CC_HELP, "Usage: 'pp preset <name>' - Apply a predefined configuration.");
+		IConsolePrint(CC_HELP, "  Presets: retro, cinematic, night, miniature, sharp, clean");
 		return true;
 	}
 
@@ -2845,6 +2847,9 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		IConsolePrint(CC_INFO, "  Vignette: {} (intensity={}, radius={})", _video_vignette ? "ON" : "OFF", _video_vignette_intensity, _video_vignette_radius);
 		IConsolePrint(CC_INFO, "  Tilt-shift: {} (focus_y={}, focus_width={}, blur={})", _video_tiltshift ? "ON" : "OFF", _video_tiltshift_focus_y, _video_tiltshift_focus_width, _video_tiltshift_blur);
 		IConsolePrint(CC_INFO, "  Film grain: {} (intensity={})", _video_film_grain ? "ON" : "OFF", _video_grain_intensity);
+		IConsolePrint(CC_INFO, "  Dynamic lighting: {}", _video_dynamic_lighting ? "ON" : "OFF");
+		IConsolePrint(CC_INFO, "  Bloom: {} (threshold={}, intensity={})", _video_bloom ? "ON" : "OFF", _video_bloom_threshold, _video_bloom_intensity);
+		IConsolePrint(CC_INFO, "  Weather: {} (type={}, intensity={})", _video_weather_type > 0 ? "ON" : "OFF", _video_weather_type, _video_weather_intensity);
 		IConsolePrint(CC_INFO, "  Brightness: {}", _video_brightness);
 		IConsolePrint(CC_INFO, "  Contrast: {}", _video_contrast);
 		IConsolePrint(CC_INFO, "  Saturation: {}", _video_saturation);
@@ -2866,7 +2871,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 
 	if (argv[1] == "enable" || argv[1] == "disable") {
 		if (argv.size() < 3) {
-			IConsolePrint(CC_ERROR, "Usage: 'pp {} <effect>' - Effects: fxaa, night, crt, vignette, tiltshift, grain", argv[1]);
+			IConsolePrint(CC_ERROR, "Usage: 'pp {} <effect>' - Effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather", argv[1]);
 			return false;
 		}
 		bool enable = (argv[1] == "enable");
@@ -2884,8 +2889,14 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			_video_tiltshift = enable;
 		} else if (effect == "grain") {
 			_video_film_grain = enable;
+		} else if (effect == "lighting" || effect == "dynamic_lighting") {
+			_video_dynamic_lighting = enable;
+		} else if (effect == "bloom") {
+			_video_bloom = enable;
+		} else if (effect == "weather") {
+			_video_weather_type = enable ? 1 : 0;
 		} else {
-			IConsolePrint(CC_ERROR, "Unknown effect '{}'. Valid effects: fxaa, night, crt, vignette, tiltshift, grain", effect);
+			IConsolePrint(CC_ERROR, "Unknown effect '{}'. Valid effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather", effect);
 			return false;
 		}
 

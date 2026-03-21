@@ -74,6 +74,8 @@ struct PostProcessConfig {
 	/* Weather effects. */
 	uint8_t weather_type = 0;          ///< Weather overlay: 0=none, 1=rain, 2=snow.
 	uint8_t weather_intensity = 30;    ///< Weather effect strength (0-100).
+
+	bool operator==(const PostProcessConfig &) const = default;
 };
 
 /** Computed dimensions for the post-processing pipeline. */

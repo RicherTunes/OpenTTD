@@ -19,7 +19,7 @@
  * Calculate render and display dimensions for the post-processing pipeline.
  * @param display_w Display/window width in pixels.
  * @param display_h Display/window height in pixels.
- * @param render_scale Render resolution as percentage of display (50-100).
+ * @param render_scale Render resolution as percentage of display (50-200).
  * @return Computed dimensions for both render and display resolution.
  */
 PostProcessDimensions CalculatePostProcessDimensions(int display_w, int display_h, uint8_t render_scale)

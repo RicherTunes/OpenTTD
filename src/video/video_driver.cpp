@@ -28,7 +28,7 @@
 bool _video_hw_accel; ///< Whether to consider hardware accelerated video drivers on startup.
 bool _video_vsync; ///< Whether we should use vsync (only if active video driver supports HW acceleration).
 bool _video_post_processing = false; ///< Whether GPU post-processing effects are enabled.
-uint8_t _video_render_scale = 100; ///< Internal render resolution as percentage of display (50-100).
+uint8_t _video_render_scale = 100; ///< Internal render resolution as percentage of display (50-200).
 uint8_t _video_upscale_mode = 0; ///< Upscale mode: 0=None, 1=Bilinear, 2=FSR1.
 uint8_t _video_sharpening = 50; ///< CAS sharpening intensity (0-100).
 uint8_t _video_texture_filter = 0; ///< Texture filter: 0=Nearest, 1=Bilinear, 2=Smooth.
