@@ -39,6 +39,8 @@ add_files(
     dedicated_v.h
     null_v.cpp
     null_v.h
+    postprocess.cpp
+    postprocess.h
     video_driver.cpp
     video_driver.hpp
 )
