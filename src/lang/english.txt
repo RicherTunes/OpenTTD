@@ -1284,6 +1284,32 @@ STR_RIVERS_FEW                                                  :Few
 STR_RIVERS_MODERATE                                             :Medium
 STR_RIVERS_LOT                                                  :Many
 
+STR_CONTINENT_SHAPE_NONE                                        :None
+STR_CONTINENT_SHAPE_ISLAND                                      :Island
+STR_CONTINENT_SHAPE_ARCHIPELAGO                                 :Archipelago
+STR_CONTINENT_SHAPE_FJORDS                                      :Fjords
+STR_CONTINENT_SHAPE_SCATTERED                                   :Scattered
+STR_CONTINENT_SHAPE_PENINSULA                                   :Peninsula
+
+STR_TERRAIN_ALGORITHM_CLASSIC                                   :Classic
+STR_TERRAIN_ALGORITHM_IMPROVED_PERLIN                           :Improved Perlin
+
+STR_BIOME_MODEL_CLASSIC                                         :Classic
+STR_BIOME_MODEL_TEMPERATURE_BASED                               :Temperature-Based
+
+STR_TOWN_DISTRIBUTION_RANDOM                                    :Random
+STR_TOWN_DISTRIBUTION_EVEN                                      :Even
+
+STR_LAKES_NONE                                                  :None
+STR_LAKES_FEW                                                   :Few
+STR_LAKES_NORMAL                                                :Normal
+STR_LAKES_MANY                                                  :Many
+
+STR_MOUNTAIN_RANGES_NONE                                        :None
+STR_MOUNTAIN_RANGES_FEW                                         :Few
+STR_MOUNTAIN_RANGES_NORMAL                                      :Normal
+STR_MOUNTAIN_RANGES_MANY                                        :Many
+
 ###length 3
 STR_DISASTER_NONE                                               :None
 STR_DISASTER_REDUCED                                            :Reduced
@@ -1712,6 +1738,19 @@ STR_CONFIG_SETTING_AVERAGE_HEIGHT_PLATEAUS                      :Plateaus
 
 STR_CONFIG_SETTING_VARIETY                                      :Variety distribution: {STRING2}
 STR_CONFIG_SETTING_VARIETY_HELPTEXT                             :Choose if the map contains both mountains and flat areas. The higher the variety, the more differences in elevation between mountainous and flat areas
+
+STR_CONFIG_SETTING_CONTINENT_SHAPE                              :Continent shape: {STRING2}
+STR_CONFIG_SETTING_CONTINENT_SHAPE_HELPTEXT                     :Choose the large-scale shape of landmasses. 'None' uses classic random generation
+STR_CONFIG_SETTING_TERRAIN_ALGORITHM                            :Terrain algorithm: {STRING2}
+STR_CONFIG_SETTING_TERRAIN_ALGORITHM_HELPTEXT                   :Choose the terrain generation algorithm. 'Improved Perlin' produces smoother terrain but generates different maps from the same seed
+STR_CONFIG_SETTING_BIOME_MODEL                                  :Biome model: {STRING2}
+STR_CONFIG_SETTING_BIOME_MODEL_HELPTEXT                         :Choose how climate zones are distributed. 'Temperature-Based' creates realistic zones based on altitude and noise
+STR_CONFIG_SETTING_TOWN_DISTRIBUTION                            :Town distribution: {STRING2}
+STR_CONFIG_SETTING_TOWN_DISTRIBUTION_HELPTEXT                   :Choose how towns are placed on the map. 'Even' distributes towns uniformly across the landscape
+STR_CONFIG_SETTING_LAKES                                        :Lakes: {STRING2}
+STR_CONFIG_SETTING_LAKES_HELPTEXT                               :Choose the quantity of inland lakes generated on the map
+STR_CONFIG_SETTING_MOUNTAIN_RANGES                              :Mountain ranges: {STRING2}
+STR_CONFIG_SETTING_MOUNTAIN_RANGES_HELPTEXT                     :Choose the quantity of continuous mountain ranges generated on the map
 
 STR_CONFIG_SETTING_RIVER_AMOUNT                                 :River amount: {STRING2}
 STR_CONFIG_SETTING_RIVER_AMOUNT_HELPTEXT                        :Choose how many rivers to generate
@@ -3505,6 +3544,18 @@ STR_MAPGEN_AI_SETTINGS                                          :{BLACK}AI Setti
 STR_MAPGEN_AI_SETTINGS_TOOLTIP                                  :{BLACK}Open AI settings
 STR_MAPGEN_GS_SETTINGS                                          :{BLACK}Game Script Settings
 STR_MAPGEN_GS_SETTINGS_TOOLTIP                                  :{BLACK}Open game script settings
+STR_MAPGEN_TERRAIN_OPTIONS                                      :{BLACK}Terrain Options
+STR_MAPGEN_TERRAIN_OPTIONS_TOOLTIP                              :{BLACK}Open terrain generation options
+
+STR_TERRAIN_ADVANCED_CAPTION                                    :{WHITE}Terrain Options
+STR_TERRAIN_ADVANCED_SMOOTHNESS                                 :{BLACK}Smoothness:
+STR_TERRAIN_ADVANCED_RIVERS                                     :{BLACK}Rivers:
+STR_TERRAIN_ADVANCED_LAKES                                      :{BLACK}Lakes:
+STR_TERRAIN_ADVANCED_MOUNTAIN_RANGES                            :{BLACK}Mountain ranges:
+STR_TERRAIN_ADVANCED_CONTINENT_SHAPE                            :{BLACK}Continent shape:
+STR_TERRAIN_ADVANCED_TERRAIN_ALGORITHM                          :{BLACK}Terrain algorithm:
+STR_TERRAIN_ADVANCED_BIOME_MODEL                                :{BLACK}Biome model:
+STR_TERRAIN_ADVANCED_TOWN_DISTRIBUTION                          :{BLACK}Town distribution:
 
 ###length 21
 STR_MAPGEN_TOWN_NAME_ORIGINAL_ENGLISH                           :English (Original)
