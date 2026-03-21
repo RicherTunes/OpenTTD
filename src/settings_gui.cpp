@@ -701,6 +701,24 @@ struct GameOptionsWindow : Window {
 			case WID_GO_VIDEO_POST_PROCESSING_TEXT:
 				return GetToggleString(STR_GAME_OPTIONS_POST_PROCESSING, WID_GO_VIDEO_POST_PROCESSING_BUTTON);
 
+			case WID_GO_VIDEO_FXAA_TEXT:
+				return GetToggleString(STR_GAME_OPTIONS_FXAA, WID_GO_VIDEO_FXAA_BUTTON);
+
+			case WID_GO_VIDEO_NIGHT_MODE_TEXT:
+				return GetToggleString(STR_GAME_OPTIONS_NIGHT_MODE, WID_GO_VIDEO_NIGHT_MODE_BUTTON);
+
+			case WID_GO_VIDEO_CRT_FILTER_TEXT:
+				return GetToggleString(STR_GAME_OPTIONS_CRT_FILTER, WID_GO_VIDEO_CRT_FILTER_BUTTON);
+
+			case WID_GO_VIDEO_VIGNETTE_TEXT:
+				return GetToggleString(STR_GAME_OPTIONS_VIGNETTE, WID_GO_VIDEO_VIGNETTE_BUTTON);
+
+			case WID_GO_VIDEO_TILTSHIFT_TEXT:
+				return GetToggleString(STR_GAME_OPTIONS_TILTSHIFT, WID_GO_VIDEO_TILTSHIFT_BUTTON);
+
+			case WID_GO_VIDEO_FILM_GRAIN_TEXT:
+				return GetToggleString(STR_GAME_OPTIONS_FILM_GRAIN, WID_GO_VIDEO_FILM_GRAIN_BUTTON);
+
 			case WID_GO_VIDEO_UPSCALE_DROPDOWN: {
 				static const StringID _upscale_names[] = {
 					STR_GAME_OPTIONS_UPSCALE_NONE,
@@ -753,6 +771,66 @@ struct GameOptionsWindow : Window {
 
 			case WID_GO_VIDEO_SHARPENING:
 				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 100, 5, _video_sharpening, nullptr);
+				break;
+
+			case WID_GO_VIDEO_BRIGHTNESS:
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, -50, 50, 5, _video_brightness, nullptr);
+				break;
+
+			case WID_GO_VIDEO_CONTRAST:
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 50, 200, 4, _video_contrast, nullptr);
+				break;
+
+			case WID_GO_VIDEO_SATURATION:
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 200, 5, _video_saturation, nullptr);
+				break;
+
+			case WID_GO_VIDEO_COLOR_TEMPERATURE:
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, -100, 100, 5, _video_color_temperature, nullptr);
+				break;
+
+			case WID_GO_VIDEO_NIGHT_INTENSITY:
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 20, 100, 5, _video_night_intensity, nullptr);
+				break;
+
+			case WID_GO_VIDEO_NIGHT_BLUE_SHIFT:
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 80, 5, _video_night_blue_shift, nullptr);
+				break;
+
+			case WID_GO_VIDEO_CRT_SCANLINES:
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 50, 6, _video_crt_scanlines, nullptr);
+				break;
+
+			case WID_GO_VIDEO_CRT_CURVATURE:
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 50, 6, _video_crt_curvature, nullptr);
+				break;
+
+			case WID_GO_VIDEO_CRT_ABERRATION:
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 30, 4, _video_crt_aberration, nullptr);
+				break;
+
+			case WID_GO_VIDEO_VIGNETTE_INTENSITY:
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 100, 5, _video_vignette_intensity, nullptr);
+				break;
+
+			case WID_GO_VIDEO_VIGNETTE_RADIUS:
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 50, 150, 5, _video_vignette_radius, nullptr);
+				break;
+
+			case WID_GO_VIDEO_TILTSHIFT_FOCUS_Y:
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 100, 5, _video_tiltshift_focus_y, nullptr);
+				break;
+
+			case WID_GO_VIDEO_TILTSHIFT_FOCUS_WIDTH:
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 5, 80, 4, _video_tiltshift_focus_width, nullptr);
+				break;
+
+			case WID_GO_VIDEO_TILTSHIFT_BLUR:
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 10, 60, 6, _video_tiltshift_blur, nullptr);
+				break;
+
+			case WID_GO_VIDEO_GRAIN_INTENSITY:
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 1, 20, 5, _video_grain_intensity, nullptr);
 				break;
 
 			case WID_GO_BASE_SFX_VOLUME:
@@ -1086,6 +1164,27 @@ struct GameOptionsWindow : Window {
 				this->SetWidgetDisabledState(WID_GO_VIDEO_UPSCALE_DROPDOWN, !_video_post_processing || !_video_hw_accel);
 				this->SetWidgetDisabledState(WID_GO_VIDEO_SHARPENING, !_video_post_processing || !_video_hw_accel);
 				this->SetWidgetDisabledState(WID_GO_VIDEO_TEXTURE_FILTER_DROPDOWN, !_video_post_processing || !_video_hw_accel);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_FXAA_BUTTON, !_video_post_processing || !_video_hw_accel);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_NIGHT_MODE_BUTTON, !_video_post_processing || !_video_hw_accel);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_CRT_FILTER_BUTTON, !_video_post_processing || !_video_hw_accel);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_BRIGHTNESS, !_video_post_processing || !_video_hw_accel);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_CONTRAST, !_video_post_processing || !_video_hw_accel);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_SATURATION, !_video_post_processing || !_video_hw_accel);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_COLOR_TEMPERATURE, !_video_post_processing || !_video_hw_accel);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_VIGNETTE_BUTTON, !_video_post_processing || !_video_hw_accel);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_VIGNETTE_INTENSITY, !_video_post_processing || !_video_hw_accel);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_VIGNETTE_RADIUS, !_video_post_processing || !_video_hw_accel);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_TILTSHIFT_BUTTON, !_video_post_processing || !_video_hw_accel);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_TILTSHIFT_FOCUS_Y, !_video_post_processing || !_video_hw_accel);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_TILTSHIFT_FOCUS_WIDTH, !_video_post_processing || !_video_hw_accel);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_TILTSHIFT_BLUR, !_video_post_processing || !_video_hw_accel);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_FILM_GRAIN_BUTTON, !_video_post_processing || !_video_hw_accel);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_GRAIN_INTENSITY, !_video_post_processing || !_video_hw_accel);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_NIGHT_INTENSITY, !_video_post_processing || !_video_hw_accel);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_NIGHT_BLUE_SHIFT, !_video_post_processing || !_video_hw_accel);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_CRT_SCANLINES, !_video_post_processing || !_video_hw_accel);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_CRT_CURVATURE, !_video_post_processing || !_video_hw_accel);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_CRT_ABERRATION, !_video_post_processing || !_video_hw_accel);
 				this->SetDirty();
 				break;
 
@@ -1113,6 +1212,75 @@ struct GameOptionsWindow : Window {
 				if (!list.empty()) ShowDropDownList(this, std::move(list), selected, widget);
 				break;
 			}
+
+			case WID_GO_VIDEO_FXAA_BUTTON:
+				_video_fxaa = !_video_fxaa;
+				this->SetWidgetLoweredState(WID_GO_VIDEO_FXAA_BUTTON, _video_fxaa);
+				this->SetWidgetDirty(WID_GO_VIDEO_FXAA_BUTTON);
+				this->SetWidgetDirty(WID_GO_VIDEO_FXAA_TEXT);
+				break;
+
+			case WID_GO_VIDEO_NIGHT_MODE_BUTTON:
+				_video_night_mode = !_video_night_mode;
+				this->SetWidgetLoweredState(WID_GO_VIDEO_NIGHT_MODE_BUTTON, _video_night_mode);
+				this->SetWidgetDirty(WID_GO_VIDEO_NIGHT_MODE_BUTTON);
+				this->SetWidgetDirty(WID_GO_VIDEO_NIGHT_MODE_TEXT);
+				break;
+
+			case WID_GO_VIDEO_CRT_FILTER_BUTTON:
+				_video_crt_filter = !_video_crt_filter;
+				this->SetWidgetLoweredState(WID_GO_VIDEO_CRT_FILTER_BUTTON, _video_crt_filter);
+				this->SetWidgetDirty(WID_GO_VIDEO_CRT_FILTER_BUTTON);
+				this->SetWidgetDirty(WID_GO_VIDEO_CRT_FILTER_TEXT);
+				break;
+
+			case WID_GO_VIDEO_VIGNETTE_BUTTON:
+				_video_vignette = !_video_vignette;
+				this->SetWidgetLoweredState(WID_GO_VIDEO_VIGNETTE_BUTTON, _video_vignette);
+				this->SetWidgetDirty(WID_GO_VIDEO_VIGNETTE_BUTTON);
+				this->SetWidgetDirty(WID_GO_VIDEO_VIGNETTE_TEXT);
+				break;
+
+			case WID_GO_VIDEO_TILTSHIFT_BUTTON:
+				_video_tiltshift = !_video_tiltshift;
+				this->SetWidgetLoweredState(WID_GO_VIDEO_TILTSHIFT_BUTTON, _video_tiltshift);
+				this->SetWidgetDirty(WID_GO_VIDEO_TILTSHIFT_BUTTON);
+				this->SetWidgetDirty(WID_GO_VIDEO_TILTSHIFT_TEXT);
+				break;
+
+			case WID_GO_VIDEO_FILM_GRAIN_BUTTON:
+				_video_film_grain = !_video_film_grain;
+				this->SetWidgetLoweredState(WID_GO_VIDEO_FILM_GRAIN_BUTTON, _video_film_grain);
+				this->SetWidgetDirty(WID_GO_VIDEO_FILM_GRAIN_BUTTON);
+				this->SetWidgetDirty(WID_GO_VIDEO_FILM_GRAIN_TEXT);
+				break;
+
+#define GPU_SLIDER_CLICK(wid, min_val, max_val, nmarks, var) \
+			case wid: \
+				if (!_video_post_processing || !_video_hw_accel) break; \
+				if (ClickSliderWidget(this->GetWidget<NWidgetBase>(widget)->GetCurrentRect(), pt, min_val, max_val, _ctrl_pressed ? 0 : nmarks, var)) { \
+					this->SetWidgetDirty(widget); \
+				} \
+				if (click_count > 0) this->mouse_capture_widget = widget; \
+				break;
+
+			GPU_SLIDER_CLICK(WID_GO_VIDEO_BRIGHTNESS, -50, 50, 5, _video_brightness)
+			GPU_SLIDER_CLICK(WID_GO_VIDEO_CONTRAST, 50, 200, 4, _video_contrast)
+			GPU_SLIDER_CLICK(WID_GO_VIDEO_SATURATION, 0, 200, 5, _video_saturation)
+			GPU_SLIDER_CLICK(WID_GO_VIDEO_COLOR_TEMPERATURE, -100, 100, 5, _video_color_temperature)
+			GPU_SLIDER_CLICK(WID_GO_VIDEO_NIGHT_INTENSITY, 20, 100, 5, _video_night_intensity)
+			GPU_SLIDER_CLICK(WID_GO_VIDEO_NIGHT_BLUE_SHIFT, 0, 80, 5, _video_night_blue_shift)
+			GPU_SLIDER_CLICK(WID_GO_VIDEO_CRT_SCANLINES, 0, 50, 6, _video_crt_scanlines)
+			GPU_SLIDER_CLICK(WID_GO_VIDEO_CRT_CURVATURE, 0, 50, 6, _video_crt_curvature)
+			GPU_SLIDER_CLICK(WID_GO_VIDEO_CRT_ABERRATION, 0, 30, 4, _video_crt_aberration)
+			GPU_SLIDER_CLICK(WID_GO_VIDEO_VIGNETTE_INTENSITY, 0, 100, 5, _video_vignette_intensity)
+			GPU_SLIDER_CLICK(WID_GO_VIDEO_VIGNETTE_RADIUS, 50, 150, 5, _video_vignette_radius)
+			GPU_SLIDER_CLICK(WID_GO_VIDEO_TILTSHIFT_FOCUS_Y, 0, 100, 5, _video_tiltshift_focus_y)
+			GPU_SLIDER_CLICK(WID_GO_VIDEO_TILTSHIFT_FOCUS_WIDTH, 5, 80, 4, _video_tiltshift_focus_width)
+			GPU_SLIDER_CLICK(WID_GO_VIDEO_TILTSHIFT_BLUR, 10, 60, 6, _video_tiltshift_blur)
+			GPU_SLIDER_CLICK(WID_GO_VIDEO_GRAIN_INTENSITY, 1, 20, 5, _video_grain_intensity)
+
+#undef GPU_SLIDER_CLICK
 
 			case WID_GO_GUI_SCALE_BEVEL_BUTTON: {
 				_settings_client.gui.scale_bevels = !_settings_client.gui.scale_bevels;
@@ -1654,11 +1822,38 @@ struct GameOptionsWindow : Window {
 
 		/* GPU rendering controls. */
 		this->SetWidgetLoweredState(WID_GO_VIDEO_POST_PROCESSING_BUTTON, _video_post_processing);
+		this->SetWidgetLoweredState(WID_GO_VIDEO_FXAA_BUTTON, _video_fxaa);
+		this->SetWidgetLoweredState(WID_GO_VIDEO_NIGHT_MODE_BUTTON, _video_night_mode);
+		this->SetWidgetLoweredState(WID_GO_VIDEO_CRT_FILTER_BUTTON, _video_crt_filter);
+		this->SetWidgetLoweredState(WID_GO_VIDEO_VIGNETTE_BUTTON, _video_vignette);
+		this->SetWidgetLoweredState(WID_GO_VIDEO_TILTSHIFT_BUTTON, _video_tiltshift);
+		this->SetWidgetLoweredState(WID_GO_VIDEO_FILM_GRAIN_BUTTON, _video_film_grain);
 		bool gpu_enabled = _video_hw_accel && _video_post_processing;
 		this->SetWidgetDisabledState(WID_GO_VIDEO_RENDER_SCALE, !gpu_enabled);
 		this->SetWidgetDisabledState(WID_GO_VIDEO_UPSCALE_DROPDOWN, !gpu_enabled);
 		this->SetWidgetDisabledState(WID_GO_VIDEO_SHARPENING, !gpu_enabled);
 		this->SetWidgetDisabledState(WID_GO_VIDEO_TEXTURE_FILTER_DROPDOWN, !gpu_enabled);
+		this->SetWidgetDisabledState(WID_GO_VIDEO_FXAA_BUTTON, !gpu_enabled);
+		this->SetWidgetDisabledState(WID_GO_VIDEO_NIGHT_MODE_BUTTON, !gpu_enabled);
+		this->SetWidgetDisabledState(WID_GO_VIDEO_CRT_FILTER_BUTTON, !gpu_enabled);
+		this->SetWidgetDisabledState(WID_GO_VIDEO_BRIGHTNESS, !gpu_enabled);
+		this->SetWidgetDisabledState(WID_GO_VIDEO_CONTRAST, !gpu_enabled);
+		this->SetWidgetDisabledState(WID_GO_VIDEO_SATURATION, !gpu_enabled);
+		this->SetWidgetDisabledState(WID_GO_VIDEO_COLOR_TEMPERATURE, !gpu_enabled);
+		this->SetWidgetDisabledState(WID_GO_VIDEO_VIGNETTE_BUTTON, !gpu_enabled);
+		this->SetWidgetDisabledState(WID_GO_VIDEO_VIGNETTE_INTENSITY, !gpu_enabled);
+		this->SetWidgetDisabledState(WID_GO_VIDEO_VIGNETTE_RADIUS, !gpu_enabled);
+		this->SetWidgetDisabledState(WID_GO_VIDEO_TILTSHIFT_BUTTON, !gpu_enabled);
+		this->SetWidgetDisabledState(WID_GO_VIDEO_TILTSHIFT_FOCUS_Y, !gpu_enabled);
+		this->SetWidgetDisabledState(WID_GO_VIDEO_TILTSHIFT_FOCUS_WIDTH, !gpu_enabled);
+		this->SetWidgetDisabledState(WID_GO_VIDEO_TILTSHIFT_BLUR, !gpu_enabled);
+		this->SetWidgetDisabledState(WID_GO_VIDEO_FILM_GRAIN_BUTTON, !gpu_enabled);
+		this->SetWidgetDisabledState(WID_GO_VIDEO_GRAIN_INTENSITY, !gpu_enabled);
+		this->SetWidgetDisabledState(WID_GO_VIDEO_NIGHT_INTENSITY, !gpu_enabled);
+		this->SetWidgetDisabledState(WID_GO_VIDEO_NIGHT_BLUE_SHIFT, !gpu_enabled);
+		this->SetWidgetDisabledState(WID_GO_VIDEO_CRT_SCANLINES, !gpu_enabled);
+		this->SetWidgetDisabledState(WID_GO_VIDEO_CRT_CURVATURE, !gpu_enabled);
+		this->SetWidgetDisabledState(WID_GO_VIDEO_CRT_ABERRATION, !gpu_enabled);
 
 		this->SetWidgetLoweredState(WID_GO_GUI_SCALE_AUTO, _gui_scale_cfg == -1);
 		this->SetWidgetLoweredState(WID_GO_GUI_SCALE_BEVEL_BUTTON, _settings_client.gui.scale_bevels);
@@ -1853,6 +2048,97 @@ static constexpr std::initializer_list<NWidgetPart> _nested_game_options_widgets
 							NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize), SetPIP(0, WidgetDimensions::unscaled.hsep_normal, 0),
 								NWidget(WWT_TEXT, INVALID_COLOUR), SetFill(1, 0), SetResize(1, 0), SetStringTip(STR_GAME_OPTIONS_TEXTURE_FILTER), SetTextStyle(GAME_OPTIONS_LABEL),
 								NWidget(WWT_DROPDOWN, GAME_OPTIONS_BUTTON, WID_GO_VIDEO_TEXTURE_FILTER_DROPDOWN), SetFill(1, 0), SetToolTip(STR_GAME_OPTIONS_TEXTURE_FILTER_TOOLTIP),
+							EndContainer(),
+							/* Anti-aliasing */
+							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+								NWidget(WWT_BOOLBTN, GAME_OPTIONS_BACKGROUND, WID_GO_VIDEO_FXAA_BUTTON), SetAlternateColourTip(GAME_OPTIONS_BUTTON, STR_GAME_OPTIONS_FXAA_TOOLTIP),
+								NWidget(WWT_TEXT, INVALID_COLOUR, WID_GO_VIDEO_FXAA_TEXT), SetFill(1, 0), SetResize(1, 0), SetTextStyle(GAME_OPTIONS_LABEL),
+							EndContainer(),
+							/* Brightness / Contrast / Saturation / Temperature */
+							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+								NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_BRIGHTNESS), SetTextStyle(GAME_OPTIONS_LABEL),
+								NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_BRIGHTNESS), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_BRIGHTNESS_TOOLTIP),
+							EndContainer(),
+							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+								NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_CONTRAST), SetTextStyle(GAME_OPTIONS_LABEL),
+								NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_CONTRAST), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_CONTRAST_TOOLTIP),
+							EndContainer(),
+							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+								NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_SATURATION), SetTextStyle(GAME_OPTIONS_LABEL),
+								NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_SATURATION), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_SATURATION_TOOLTIP),
+							EndContainer(),
+							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+								NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_COLOR_TEMPERATURE), SetTextStyle(GAME_OPTIONS_LABEL),
+								NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_COLOR_TEMPERATURE), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_COLOR_TEMPERATURE_TOOLTIP),
+							EndContainer(),
+							/* Night mode + sub-parameters */
+							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+								NWidget(WWT_BOOLBTN, GAME_OPTIONS_BACKGROUND, WID_GO_VIDEO_NIGHT_MODE_BUTTON), SetAlternateColourTip(GAME_OPTIONS_BUTTON, STR_GAME_OPTIONS_NIGHT_MODE_TOOLTIP),
+								NWidget(WWT_TEXT, INVALID_COLOUR, WID_GO_VIDEO_NIGHT_MODE_TEXT), SetFill(1, 0), SetResize(1, 0), SetTextStyle(GAME_OPTIONS_LABEL),
+							EndContainer(),
+							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+								NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_NIGHT_INTENSITY), SetTextStyle(GAME_OPTIONS_LABEL),
+								NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_NIGHT_INTENSITY), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_NIGHT_INTENSITY_TOOLTIP),
+							EndContainer(),
+							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+								NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_NIGHT_BLUE_SHIFT), SetTextStyle(GAME_OPTIONS_LABEL),
+								NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_NIGHT_BLUE_SHIFT), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_NIGHT_BLUE_SHIFT_TOOLTIP),
+							EndContainer(),
+							/* CRT filter + sub-parameters */
+							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+								NWidget(WWT_BOOLBTN, GAME_OPTIONS_BACKGROUND, WID_GO_VIDEO_CRT_FILTER_BUTTON), SetAlternateColourTip(GAME_OPTIONS_BUTTON, STR_GAME_OPTIONS_CRT_FILTER_TOOLTIP),
+								NWidget(WWT_TEXT, INVALID_COLOUR, WID_GO_VIDEO_CRT_FILTER_TEXT), SetFill(1, 0), SetResize(1, 0), SetTextStyle(GAME_OPTIONS_LABEL),
+							EndContainer(),
+							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+								NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_CRT_SCANLINES), SetTextStyle(GAME_OPTIONS_LABEL),
+								NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_CRT_SCANLINES), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_CRT_SCANLINES_TOOLTIP),
+							EndContainer(),
+							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+								NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_CRT_CURVATURE), SetTextStyle(GAME_OPTIONS_LABEL),
+								NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_CRT_CURVATURE), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_CRT_CURVATURE_TOOLTIP),
+							EndContainer(),
+							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+								NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_CRT_ABERRATION), SetTextStyle(GAME_OPTIONS_LABEL),
+								NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_CRT_ABERRATION), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_CRT_ABERRATION_TOOLTIP),
+							EndContainer(),
+							/* Vignette + sub-parameters */
+							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+								NWidget(WWT_BOOLBTN, GAME_OPTIONS_BACKGROUND, WID_GO_VIDEO_VIGNETTE_BUTTON), SetAlternateColourTip(GAME_OPTIONS_BUTTON, STR_GAME_OPTIONS_VIGNETTE_TOOLTIP),
+								NWidget(WWT_TEXT, INVALID_COLOUR, WID_GO_VIDEO_VIGNETTE_TEXT), SetFill(1, 0), SetResize(1, 0), SetTextStyle(GAME_OPTIONS_LABEL),
+							EndContainer(),
+							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+								NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_VIGNETTE_INTENSITY), SetTextStyle(GAME_OPTIONS_LABEL),
+								NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_VIGNETTE_INTENSITY), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_VIGNETTE_INTENSITY_TOOLTIP),
+							EndContainer(),
+							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+								NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_VIGNETTE_RADIUS), SetTextStyle(GAME_OPTIONS_LABEL),
+								NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_VIGNETTE_RADIUS), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_VIGNETTE_RADIUS_TOOLTIP),
+							EndContainer(),
+							/* Tilt-shift + sub-parameters */
+							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+								NWidget(WWT_BOOLBTN, GAME_OPTIONS_BACKGROUND, WID_GO_VIDEO_TILTSHIFT_BUTTON), SetAlternateColourTip(GAME_OPTIONS_BUTTON, STR_GAME_OPTIONS_TILTSHIFT_TOOLTIP),
+								NWidget(WWT_TEXT, INVALID_COLOUR, WID_GO_VIDEO_TILTSHIFT_TEXT), SetFill(1, 0), SetResize(1, 0), SetTextStyle(GAME_OPTIONS_LABEL),
+							EndContainer(),
+							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+								NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_TILTSHIFT_FOCUS_Y), SetTextStyle(GAME_OPTIONS_LABEL),
+								NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_TILTSHIFT_FOCUS_Y), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_TILTSHIFT_FOCUS_Y_TOOLTIP),
+							EndContainer(),
+							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+								NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_TILTSHIFT_FOCUS_WIDTH), SetTextStyle(GAME_OPTIONS_LABEL),
+								NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_TILTSHIFT_FOCUS_WIDTH), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_TILTSHIFT_FOCUS_WIDTH_TOOLTIP),
+							EndContainer(),
+							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+								NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_TILTSHIFT_BLUR), SetTextStyle(GAME_OPTIONS_LABEL),
+								NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_TILTSHIFT_BLUR), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_TILTSHIFT_BLUR_TOOLTIP),
+							EndContainer(),
+							/* Film grain + sub-parameter */
+							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+								NWidget(WWT_BOOLBTN, GAME_OPTIONS_BACKGROUND, WID_GO_VIDEO_FILM_GRAIN_BUTTON), SetAlternateColourTip(GAME_OPTIONS_BUTTON, STR_GAME_OPTIONS_FILM_GRAIN_TOOLTIP),
+								NWidget(WWT_TEXT, INVALID_COLOUR, WID_GO_VIDEO_FILM_GRAIN_TEXT), SetFill(1, 0), SetResize(1, 0), SetTextStyle(GAME_OPTIONS_LABEL),
+							EndContainer(),
+							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+								NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_GRAIN_INTENSITY), SetTextStyle(GAME_OPTIONS_LABEL),
+								NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_GRAIN_INTENSITY), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_GRAIN_INTENSITY_TOOLTIP),
 							EndContainer(),
 						EndContainer(),
 					EndContainer(),

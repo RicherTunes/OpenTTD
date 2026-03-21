@@ -1137,6 +1137,21 @@ STR_GAME_OPTIONS_CRT_CURVATURE                                  :Screen curvatur
 STR_GAME_OPTIONS_CRT_CURVATURE_TOOLTIP                          :{BLACK}Barrel distortion simulating a curved CRT screen
 STR_GAME_OPTIONS_CRT_ABERRATION                                 :Chromatic aberration
 STR_GAME_OPTIONS_CRT_ABERRATION_TOOLTIP                         :{BLACK}RGB colour fringing at screen edges
+STR_GAME_OPTIONS_DYNAMIC_LIGHTING                               :Dynamic lighting
+STR_GAME_OPTIONS_DYNAMIC_LIGHTING_TOOLTIP                       :{BLACK}Time-of-day lighting cycle. Warm sunlight at noon, cool blue moonlight at night
+STR_GAME_OPTIONS_BLOOM                                          :Bloom
+STR_GAME_OPTIONS_BLOOM_TOOLTIP                                  :{BLACK}Soft glow on bright pixels. Dramatic for night-time scenes with street lights
+STR_GAME_OPTIONS_BLOOM_THRESHOLD                                :Bloom threshold
+STR_GAME_OPTIONS_BLOOM_THRESHOLD_TOOLTIP                        :{BLACK}Minimum brightness for bloom glow. Lower = more glow
+STR_GAME_OPTIONS_BLOOM_INTENSITY                                :Bloom intensity
+STR_GAME_OPTIONS_BLOOM_INTENSITY_TOOLTIP                        :{BLACK}Strength of the bloom glow effect
+STR_GAME_OPTIONS_WEATHER_TYPE                                   :Weather overlay
+STR_GAME_OPTIONS_WEATHER_TYPE_TOOLTIP                           :{BLACK}Procedural weather particle overlay
+STR_GAME_OPTIONS_WEATHER_NONE                                   :None
+STR_GAME_OPTIONS_WEATHER_RAIN                                   :Rain
+STR_GAME_OPTIONS_WEATHER_SNOW                                   :Snow
+STR_GAME_OPTIONS_WEATHER_INTENSITY                              :Weather intensity
+STR_GAME_OPTIONS_WEATHER_INTENSITY_TOOLTIP                      :{BLACK}Strength of the weather particle effect
 
 STR_GAME_OPTIONS_INTERFACE                                      :Interface
 

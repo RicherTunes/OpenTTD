@@ -56,6 +56,12 @@ extern uint8_t _video_tiltshift_focus_y;
 extern uint8_t _video_tiltshift_focus_width;
 extern uint8_t _video_tiltshift_blur;
 extern uint8_t _video_grain_intensity;
+extern bool _video_dynamic_lighting;
+extern bool _video_bloom;
+extern uint8_t _video_bloom_threshold;
+extern uint8_t _video_bloom_intensity;
+extern uint8_t _video_weather_type;
+extern uint8_t _video_weather_intensity;
 
 /** The base of all video drivers. */
 class VideoDriver : public Driver {

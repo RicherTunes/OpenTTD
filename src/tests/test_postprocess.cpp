@@ -1412,3 +1412,116 @@ TEST_CASE("PostProcess - all features including new ones")
 	/* EASU(1)+RCAS(1)+FXAA(1)+tilt(2)+color(1)+night(1)+vig(1)+grain(1)+crt(1)+lighting(1)+bloom(3)+weather(1) = 15 */
 	CHECK(PostProcessPassCount(config) == 15);
 }
+
+/* --- Bicubic filtering tests --- */
+
+TEST_CASE("PostProcess - bicubic_filtering alone does not need FBO at 100%")
+{
+	PostProcessConfig config;
+	config.bicubic_filtering = true;
+	config.render_scale = 100;
+	/* Bicubic at 100% is a no-op -- no upscaling needed. */
+	CHECK_FALSE(PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("PostProcess - bicubic with render_scale below 100 needs FBO")
+{
+	PostProcessConfig config;
+	config.bicubic_filtering = true;
+	config.render_scale = 75;
+	config.upscale_mode = UpscaleMode::Bilinear;
+	CHECK(PostProcessNeedsFBO(config));
+	CHECK(PostProcessPassCount(config) == 1);
+}
+
+TEST_CASE("PostProcess - bicubic with FSR1 does not add extra pass")
+{
+	PostProcessConfig config;
+	config.bicubic_filtering = true;
+	config.render_scale = 75;
+	config.upscale_mode = UpscaleMode::FSR1;
+	/* FSR1 has its own upscale (EASU+RCAS), bicubic should not add a pass. */
+	CHECK(PostProcessPassCount(config) == 2);
+}
+
+TEST_CASE("PostProcess - bicubic default is false")
+{
+	PostProcessConfig config;
+	CHECK_FALSE(config.bicubic_filtering);
+}
+
+TEST_CASE("PostProcess - bicubic does not change pass count vs plain bilinear")
+{
+	PostProcessConfig bilinear_config;
+	bilinear_config.render_scale = 75;
+	bilinear_config.upscale_mode = UpscaleMode::Bilinear;
+	bilinear_config.bicubic_filtering = false;
+
+	PostProcessConfig bicubic_config;
+	bicubic_config.render_scale = 75;
+	bicubic_config.upscale_mode = UpscaleMode::Bilinear;
+	bicubic_config.bicubic_filtering = true;
+
+	/* Bicubic replaces bilinear blit -- same pass count. */
+	CHECK(PostProcessPassCount(bilinear_config) == PostProcessPassCount(bicubic_config));
+}
+
+TEST_CASE("PostProcess - bicubic with sharpening stacks correctly")
+{
+	PostProcessConfig config;
+	config.bicubic_filtering = true;
+	config.render_scale = 75;
+	config.upscale_mode = UpscaleMode::Bilinear;
+	config.sharpening = 50;
+	/* Bilinear/bicubic blit(1) + CAS(1) = 2. */
+	CHECK(PostProcessPassCount(config) == 2);
+	CHECK(PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("PostProcess - bicubic with bloom and dynamic lighting")
+{
+	PostProcessConfig config;
+	config.bicubic_filtering = true;
+	config.render_scale = 75;
+	config.upscale_mode = UpscaleMode::Bilinear;
+	config.dynamic_lighting = true;
+	config.bloom = true;
+	/* Bilinear/bicubic blit(1) + lighting(1) + bloom(3) = 5. */
+	CHECK(PostProcessPassCount(config) == 5);
+	CHECK(PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("PostProcess - bicubic at 50% render scale needs FBO")
+{
+	PostProcessConfig config;
+	config.bicubic_filtering = true;
+	config.render_scale = 50;
+	config.upscale_mode = UpscaleMode::Bilinear;
+	CHECK(PostProcessNeedsFBO(config));
+	CHECK(PostProcessPassCount(config) == 1);
+}
+
+TEST_CASE("PostProcess - bicubic with supersampling above 100%")
+{
+	PostProcessConfig config;
+	config.bicubic_filtering = true;
+	config.render_scale = 150;
+	/* render_scale > 100 triggers FBO for downsample. */
+	CHECK(PostProcessNeedsFBO(config));
+	/* Supersampling downsample pass = 1. */
+	CHECK(PostProcessPassCount(config) >= 1);
+}
+
+TEST_CASE("PostProcess - bicubic with weather and all new features")
+{
+	PostProcessConfig config;
+	config.bicubic_filtering = true;
+	config.render_scale = 75;
+	config.upscale_mode = UpscaleMode::Bilinear;
+	config.dynamic_lighting = true;
+	config.bloom = true;
+	config.weather_type = 1;
+	/* Bilinear/bicubic blit(1) + lighting(1) + bloom(3) + weather(1) = 6. */
+	CHECK(PostProcessPassCount(config) == 6);
+	CHECK(PostProcessNeedsFBO(config));
+}

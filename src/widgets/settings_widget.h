@@ -92,6 +92,14 @@ enum GameOptionsWidgets : WidgetID {
 	WID_GO_VIDEO_CRT_SCANLINES,          ///< CRT scanline intensity slider.
 	WID_GO_VIDEO_CRT_CURVATURE,          ///< CRT curvature slider.
 	WID_GO_VIDEO_CRT_ABERRATION,         ///< CRT chromatic aberration slider.
+	WID_GO_VIDEO_DYNAMIC_LIGHTING_BUTTON, ///< Toggle for dynamic lighting.
+	WID_GO_VIDEO_DYNAMIC_LIGHTING_TEXT,  ///< Text for dynamic lighting toggle.
+	WID_GO_VIDEO_BLOOM_BUTTON,           ///< Toggle for bloom.
+	WID_GO_VIDEO_BLOOM_TEXT,             ///< Text for bloom toggle.
+	WID_GO_VIDEO_BLOOM_THRESHOLD,        ///< Bloom threshold slider.
+	WID_GO_VIDEO_BLOOM_INTENSITY,        ///< Bloom intensity slider.
+	WID_GO_VIDEO_WEATHER_DROPDOWN,       ///< Weather type dropdown.
+	WID_GO_VIDEO_WEATHER_INTENSITY,      ///< Weather intensity slider.
 	WID_GO_REFRESH_RATE_DROPDOWN,  ///< Dropdown for all available refresh rates.
 	WID_GO_VIDEO_DRIVER_INFO,      ///< Label showing details about the current video driver.
 	WID_GO_SURVEY_SEL,             ///< Selection to hide survey if no JSON library is compiled in.

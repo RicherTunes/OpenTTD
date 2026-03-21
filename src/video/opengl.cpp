@@ -1200,6 +1200,7 @@ void OpenGLBackend::Paint()
 		PostProcessConfig new_config;
 		/* Bilinear filtering is independent of the PP toggle. */
 		new_config.bilinear_filtering = (_video_texture_filter >= 1);
+		new_config.bicubic_filtering = (_video_texture_filter == 2);
 
 		if (_video_post_processing) {
 			/* Core upscaling settings. */
@@ -1245,6 +1246,18 @@ void OpenGLBackend::Paint()
 
 			/* Film grain sub-parameter. */
 			new_config.grain_intensity = _video_grain_intensity;
+
+			/* Dynamic lighting. */
+			new_config.dynamic_lighting = _video_dynamic_lighting;
+
+			/* Bloom. */
+			new_config.bloom = _video_bloom;
+			new_config.bloom_threshold = _video_bloom_threshold;
+			new_config.bloom_intensity = _video_bloom_intensity;
+
+			/* Weather. */
+			new_config.weather_type = _video_weather_type;
+			new_config.weather_intensity = _video_weather_intensity;
 		}
 
 		/* Detect topology changes (effects on/off) and render scale changes.
@@ -1269,6 +1282,9 @@ void OpenGLBackend::Paint()
 			this->SetupPostProcessFBOs(disp_w, disp_h);
 		}
 	}
+
+	/* Activate motion vector recording when compute shader MV rasterization is available. */
+	_motion_vectors.active = _video_post_processing && this->mv_compute_supported;
 
 	/* Cache blitter properties to avoid repeated virtual calls per frame. */
 	Blitter *blitter = BlitterFactory::GetCurrentBlitter();
@@ -1608,7 +1624,11 @@ void OpenGLBackend::RenderPostProcess()
 		if (this->pp_fsr_easu_program != 0) total++;
 		if (this->pp_fsr_rcas_program != 0) total++;
 	} else if (this->pp_config.upscale_mode == UpscaleMode::Bilinear && this->pp_config.render_scale < 100) {
-		if (this->pp_blit_program != 0) total++;
+		if (this->pp_config.bicubic_filtering && this->pp_bicubic_program != 0) {
+			total++;
+		} else if (this->pp_blit_program != 0) {
+			total++;
+		}
 	}
 	if (this->pp_config.sharpening > 0 && this->pp_config.upscale_mode != UpscaleMode::FSR1 && this->pp_cas_program != 0) total++;
 	if (WillRun(this->pp_config.fxaa, this->pp_fxaa_program)) total++;
@@ -1667,9 +1687,19 @@ void OpenGLBackend::RenderPostProcess()
 			_glUniform1f(this->pp_rcas_con_loc, MapSharpeningToFsrRcas(this->pp_config.sharpening));
 			RunPass();
 		}
-	} else if (this->pp_config.upscale_mode == UpscaleMode::Bilinear && this->pp_config.render_scale < 100 && this->pp_blit_program != 0) {
-		_glUseProgram(this->pp_blit_program);
-		RunPass();
+	} else if (this->pp_config.upscale_mode == UpscaleMode::Bilinear && this->pp_config.render_scale < 100) {
+		if (this->pp_config.bicubic_filtering && this->pp_bicubic_program != 0) {
+			/* Bicubic (Catmull-Rom) upscale pass. texel_size is the input (render-resolution)
+			 * texel pitch in display-texture UV space. */
+			_glUseProgram(this->pp_bicubic_program);
+			float render_texel_w = 1.0f / std::max(1u, this->pp_render_size.width);
+			float render_texel_h = 1.0f / std::max(1u, this->pp_render_size.height);
+			_glUniform2f(this->pp_bicubic_texel_loc, render_texel_w, render_texel_h);
+			RunPass();
+		} else if (this->pp_blit_program != 0) {
+			_glUseProgram(this->pp_blit_program);
+			RunPass();
+		}
 	}
 
 	/* CAS standalone (not when FSR1 active). */
@@ -1736,8 +1766,8 @@ void OpenGLBackend::RenderPostProcess()
 	/* Film grain -- use wall-clock time wrapped to avoid float precision loss. */
 	if (this->pp_config.film_grain && this->pp_grain_program != 0) {
 		auto now = std::chrono::steady_clock::now();
-		static auto start_time = now;
-		float elapsed = std::fmod(std::chrono::duration<float>(now - start_time).count(), 1000.0f);
+		if (this->pp_grain_start_time == std::chrono::steady_clock::time_point{}) this->pp_grain_start_time = now;
+		float elapsed = std::fmod(std::chrono::duration<float>(now - this->pp_grain_start_time).count(), 1000.0f);
 		_glUseProgram(this->pp_grain_program);
 		_glUniform1f(this->pp_grain_int_loc, this->pp_config.grain_intensity / 100.0f);
 		_glUniform1f(this->pp_grain_time_loc, elapsed);

@@ -36,7 +36,7 @@ PostProcessDimensions CalculatePostProcessDimensions(int display_w, int display_
 	dims.display.width = display_w;
 	dims.display.height = display_h;
 
-	uint8_t clamped_scale = Clamp<uint8_t>(render_scale, 50, 100);
+	uint8_t clamped_scale = Clamp<uint8_t>(render_scale, 50, 200);
 
 	if (clamped_scale == 100) {
 		dims.render = dims.display;
@@ -86,6 +86,10 @@ bool PostProcessNeedsFBO(const PostProcessConfig &config)
 	if (config.night_mode) return true;
 	if (config.film_grain) return true;
 	if (config.crt_filter) return true;
+	if (config.dynamic_lighting) return true;
+	if (config.bloom) return true;
+	if (config.weather_type > 0) return true;
+	if (config.render_scale > 100) return true; /* Supersampling needs downsample pass. */
 	return false;
 }
 
@@ -104,7 +108,7 @@ int PostProcessPassCount(const PostProcessConfig &config)
 	if (config.upscale_mode == UpscaleMode::FSR1) {
 		passes += 2; /* EASU + RCAS */
 	} else if (config.upscale_mode == UpscaleMode::Bilinear && config.render_scale < 100) {
-		passes += 1;
+		passes += 1; /* Bilinear blit or bicubic Catmull-Rom upscale. */
 	}
 
 	/* CAS standalone (not when FSR1 is active, since RCAS already sharpens). */
@@ -120,6 +124,12 @@ int PostProcessPassCount(const PostProcessConfig &config)
 	if (config.vignette) passes += 1;
 	if (config.film_grain) passes += 1;
 	if (config.crt_filter) passes += 1;
+	if (config.dynamic_lighting) passes += 1;
+	if (config.bloom) passes += 3; /* Threshold + blur H + blur V + blend = 3 passes (blur is 2-pass, blend merges with final). */
+	if (config.weather_type > 0) passes += 1;
+
+	/* Supersampling downsample pass (render > display). */
+	if (config.render_scale > 100) passes += 1;
 
 	return passes;
 }
@@ -146,10 +156,10 @@ float MapSharpeningToCas(uint8_t user_value)
 
 /**
  * Compute FSR 1.0 EASU constants for a given resolution pair.
- * @param con0 Output: viewport-to-input scaling and offset.
- * @param con1 Output: reciprocal of input texture size.
- * @param con2 Output: bilinear gather offsets.
- * @param con3 Output: additional gather parameters.
+ * @param con0 Output: viewport-to-input scaling (xy) and offset (zw).
+ * @param con1 Output: reciprocal texel size (xy), input size in pixels (zw).
+ * @param con2 Output: reserved for future use.
+ * @param con3 Output: reserved for future use.
  */
 void ComputeFsrEasuConstants(
 	float con0[4], float con1[4], float con2[4], float con3[4],
@@ -170,18 +180,21 @@ void ComputeFsrEasuConstants(
 	con0[2] = 0.5f * input_viewport_w / output_w - 0.5f;
 	con0[3] = 0.5f * input_viewport_h / output_h - 0.5f;
 
+	/* con1.xy = reciprocal input texel size (for UV-space sampling offsets).
+	 * con1.zw = input size in pixels (for UV-to-texel-space conversion in shader). */
 	con1[0] = 1.0f / input_w;
 	con1[1] = 1.0f / input_h;
-	con1[2] = 1.0f / input_w;
-	con1[3] = -1.0f / input_h;
+	con1[2] = input_w;
+	con1[3] = input_h;
 
-	con2[0] = -1.0f / input_w;
-	con2[1] = 2.0f / input_h;
-	con2[2] = 1.0f / input_w;
-	con2[3] = 2.0f / input_h;
+	/* con2 and con3 are reserved for future use (e.g. gather-based EASU). */
+	con2[0] = 0.0f;
+	con2[1] = 0.0f;
+	con2[2] = 0.0f;
+	con2[3] = 0.0f;
 
 	con3[0] = 0.0f;
-	con3[1] = 4.0f / input_h;
+	con3[1] = 0.0f;
 	con3[2] = 0.0f;
 	con3[3] = 0.0f;
 }

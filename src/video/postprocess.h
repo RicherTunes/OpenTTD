@@ -25,6 +25,7 @@ struct PostProcessConfig {
 	UpscaleMode upscale_mode = UpscaleMode::None; ///< Upscaling algorithm.
 	uint8_t sharpening = 0;            ///< CAS sharpening intensity (0-100). 0 = off.
 	bool bilinear_filtering = false;   ///< Use GL_LINEAR instead of GL_NEAREST on framebuffer texture.
+	bool bicubic_filtering = false;    ///< Use bicubic (Catmull-Rom) instead of bilinear for upscale texture filtering.
 	bool fxaa = false;                 ///< Enable FXAA anti-aliasing.
 	bool color_grading = false;        ///< Enable color grading.
 	bool vignette = false;             ///< Enable vignette effect.
@@ -59,6 +60,19 @@ struct PostProcessConfig {
 	uint8_t crt_scanlines = 15;        ///< Scanline darkness (0-50, mapped to 0.0..0.5).
 	uint8_t crt_curvature = 0;         ///< Screen curvature (0-50).
 	uint8_t crt_aberration = 5;        ///< Chromatic aberration (0-30).
+
+	/* Dynamic lighting (time-of-day). */
+	bool dynamic_lighting = false;     ///< Enable time-of-day lighting cycle.
+	float time_of_day = 0.5f;          ///< Current time (0.0 = midnight, 0.5 = noon, 1.0 = midnight).
+
+	/* Bloom for lights. */
+	bool bloom = false;                ///< Enable bloom glow on bright pixels.
+	uint8_t bloom_threshold = 70;      ///< Luminance threshold (0-100, mapped to 0.0..1.0). Above this = bloom.
+	uint8_t bloom_intensity = 30;      ///< Bloom blend strength (0-100).
+
+	/* Weather effects. */
+	uint8_t weather_type = 0;          ///< Weather overlay: 0=none, 1=rain, 2=snow.
+	uint8_t weather_intensity = 30;    ///< Weather effect strength (0-100).
 };
 
 /** Computed dimensions for the post-processing pipeline. */

@@ -16,6 +16,8 @@
 #include "../misc/lrucache.hpp"
 #include "postprocess.h"
 
+#include <chrono>
+
 typedef void (*OGLProc)();
 typedef OGLProc (*GetOGLProcAddressProc)(const char *proc);
 
@@ -135,6 +137,8 @@ private:
 	GLint pp_crt_aberr_loc = -1;     ///< CRT chromatic_aberr uniform location.
 
 	PostProcessConfig pp_config;     ///< Current post-processing configuration.
+
+	std::chrono::steady_clock::time_point pp_grain_start_time{}; ///< Film grain time base for pseudo-random seed.
 
 	/* Benchmark GPU timer query state. */
 	GLuint benchmark_query[2] = {};      ///< Double-buffered GL_TIME_ELAPSED query objects.
