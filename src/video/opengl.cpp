@@ -31,6 +31,7 @@
 #include "video_driver.hpp"
 #include "motion_vector.h"
 #include "temporal_upscale.h"
+#include "pp_screenshot.h"
 #include "../benchmark.h"
 #include "../core/geometry_func.hpp"
 #include "../core/math_func.hpp"
@@ -137,6 +138,7 @@ GL(glBindImageTexture);
 GL(glBindBufferBase);
 GL(glUniform2i);
 GL(glCopyTexSubImage2D);
+GL(glReadPixels);
 
 GL(glGenQueries);
 GL(glDeleteQueries);
@@ -283,6 +285,7 @@ static bool BindBasicOpenGLProcs()
 	if (!BindGLProc(_glBlendFunc, "glBlendFunc")) return false;
 	if (!BindGLProc(_glDrawArrays, "glDrawArrays")) return false;
 	if (!BindGLProc(_glCopyTexSubImage2D, "glCopyTexSubImage2D")) return false;
+	if (!BindGLProc(_glReadPixels, "glReadPixels")) return false;
 
 	return true;
 }
@@ -1064,11 +1067,13 @@ bool OpenGLBackend::Resize(int w, int h, bool force)
 	if (!force && _screen.width == w && _screen.height == h) return false;
 
 	/* Determine render resolution: if post-processing with render scaling is active,
-	 * the CPU blitter renders at reduced resolution. The display is at full window size. */
+	 * the CPU blitter renders at reduced resolution. The display is at full window size.
+	 * When render_scale > 100 (supersampling), the CPU blitter renders at higher resolution
+	 * and the downsample shader reduces back to display size. */
 	int render_w = w;
 	int render_h = h;
 	Blitter *cur_blitter = BlitterFactory::GetCurrentBlitter();
-	bool pp_scaling = this->pp_fbo_supported && _video_post_processing && _video_render_scale < 100 &&
+	bool pp_scaling = this->pp_fbo_supported && _video_post_processing && _video_render_scale != 100 &&
 	                  cur_blitter != nullptr && cur_blitter->GetScreenDepth() != 8;
 	if (pp_scaling) {
 		auto dims = CalculatePostProcessDimensions(w, h, _video_render_scale);
@@ -1360,6 +1365,11 @@ void OpenGLBackend::Paint()
 	}
 
 	_glEnable(GL_BLEND);
+
+	/* Capture PP screenshot if one was requested (after all rendering is complete). */
+	int capture_w = this->pp_active ? (int)this->pp_display_size.width : _screen.width;
+	int capture_h = this->pp_active ? (int)this->pp_display_size.height : _screen.height;
+	CapturePPScreenshotIfPending(capture_w, capture_h);
 }
 
 /**
