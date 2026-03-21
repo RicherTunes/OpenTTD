@@ -25,4 +25,12 @@ inline bool ClickSliderWidget(Rect r, Point pt, int min_value, int max_value, in
 	return true;
 }
 
+inline bool ClickSliderWidget(Rect r, Point pt, int min_value, int max_value, int nmarks, int8_t &value)
+{
+	int tmp_value = value;
+	if (!ClickSliderWidget(r, pt, min_value, max_value, nmarks, tmp_value)) return false;
+	value = static_cast<int8_t>(tmp_value);
+	return true;
+}
+
 #endif /* SLIDER_TYPE_H */

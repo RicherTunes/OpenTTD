@@ -314,6 +314,29 @@ TEST_CASE("TileBin - Build sprite spanning multiple tiles")
 	CHECK(bin.data[(0 * tiles_x + 2) * stride] >= 0); /* May or may not depending on exact math */
 }
 
+TEST_CASE("TileBin - Build negative screen_x handled correctly")
+{
+	TileBin bin;
+	bin.Resize(320, 240);
+	std::vector<DrawCommand> cmds;
+	/* Sprite partially off-screen to the left. */
+	cmds.push_back({-8, 0, 16, 16, 0, 0, 100, 0});
+	bin.Build(cmds);
+	/* Should be binned into tile (0,0) since clamped. */
+	int stride = TileBin::MAX_CMDS_PER_TILE + 1;
+	CHECK(bin.data[0] >= 1);
+}
+
+TEST_CASE("TileBin - BufferSize is consistent with Resize")
+{
+	TileBin bin;
+	bin.Resize(1920, 1080);
+	CHECK(bin.tiles_x == 120);
+	CHECK(bin.tiles_y == 68);
+	CHECK(bin.BufferSize() == 120u * 68u * (TileBin::MAX_CMDS_PER_TILE + 1));
+	CHECK(bin.data.size() == bin.BufferSize());
+}
+
 TEST_CASE("TileBin - Build respects max commands per tile")
 {
 	TileBin bin;
@@ -327,4 +350,71 @@ TEST_CASE("TileBin - Build respects max commands per tile")
 
 	int stride = TileBin::MAX_CMDS_PER_TILE + 1;
 	CHECK(bin.data[0] == TileBin::MAX_CMDS_PER_TILE); /* Capped at max. */
+}
+
+/* --- Scroll delta at extreme zoom levels --- */
+
+TEST_CASE("MotionVector - UpdateScrollDelta at In4x zoom")
+{
+	MotionVectorState state;
+	state.prev_scroll_x = 1000;
+	state.prev_scroll_y = 500;
+	/* At In4x zoom (shift=0), 1 virtual unit = 1 pixel. Scroll by 4 units. */
+	state.UpdateScrollDelta(1004, 500, ZoomLevel::In4x);
+	/* prev - current = -4, unscale by zoom 0 = -4, * 8 = -32 */
+	CHECK(state.scroll_dx == -32);
+}
+
+TEST_CASE("MotionVector - UpdateScrollDelta at Out8x zoom")
+{
+	MotionVectorState state;
+	state.prev_scroll_x = 1000;
+	state.prev_scroll_y = 500;
+	/* At Out8x zoom (shift=5), 32 virtual units = 1 pixel. Scroll by 32. */
+	state.UpdateScrollDelta(1032, 500, ZoomLevel::Out8x);
+	/* prev - current = -32, unscale by zoom 5 = -1, * 8 = -8 */
+	CHECK(state.scroll_dx == -8);
+}
+
+TEST_CASE("MotionVector - UpdateScrollDelta large teleport clamps safely")
+{
+	MotionVectorState state;
+	state.prev_scroll_x = 0;
+	state.prev_scroll_y = 0;
+	/* Teleport to far position — should clamp to int16 range. */
+	state.UpdateScrollDelta(1000000, 1000000, ZoomLevel::Normal);
+	CHECK(state.scroll_dx >= -32768);
+	CHECK(state.scroll_dx <= 32767);
+	CHECK(state.scroll_dy >= -32768);
+	CHECK(state.scroll_dy <= 32767);
+}
+
+/* --- DrawCommand padding is always zero --- */
+
+TEST_CASE("MotionVector - RecordSprite sets padding to zero")
+{
+	MotionVectorState state;
+	state.BeginFrame();
+	state.RecordSprite(100, 200, 32, 32, 500, 300, 10);
+	REQUIRE(state.commands.size() == 1);
+	CHECK(state.commands[0].padding == 0);
+}
+
+/* --- Depth normalization with new MAX_WORLD_DIAGONAL --- */
+
+TEST_CASE("MotionVector - ComputeDepth mid-range world position")
+{
+	/* A sprite in the middle of a 2048x2048 map at ground level. */
+	uint16_t d = MotionVectorState::ComputeDepth(1024, 1024, 0);
+	CHECK(d > 0);
+	CHECK(d < 65535);
+}
+
+TEST_CASE("MotionVector - ComputeDepth Z=0 vs Z=max differs significantly")
+{
+	uint16_t d_ground = MotionVectorState::ComputeDepth(2048, 2048, 0);
+	uint16_t d_sky = MotionVectorState::ComputeDepth(2048, 2048, 2040);
+	CHECK(d_sky > d_ground);
+	/* The difference should be substantial (Z contributes 2*2040=4080). */
+	CHECK((d_sky - d_ground) > 1000);
 }

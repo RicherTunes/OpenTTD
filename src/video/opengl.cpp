@@ -29,6 +29,7 @@
 
 #include "opengl.h"
 #include "video_driver.hpp"
+#include "motion_vector.h"
 #include "../benchmark.h"
 #include "../core/geometry_func.hpp"
 #include "../core/math_func.hpp"
@@ -126,6 +127,14 @@ GL(glBindFramebuffer);
 GL(glFramebufferTexture2D);
 GL(glCheckFramebufferStatus);
 GL(glDrawBuffers);
+
+/* GL 4.3 compute shader functions. */
+GL(glDispatchCompute);
+GL(glMemoryBarrier);
+GL(glShaderStorageBlockBinding);
+GL(glBindImageTexture);
+GL(glBindBufferBase);
+GL(glUniform2i);
 
 GL(glGenQueries);
 GL(glDeleteQueries);
@@ -442,6 +451,22 @@ static bool BindPersistentBufferExtensions()
  * Bind FBO extension functions for post-processing pipeline.
  * @return \c true iff all extension procs could be bound.
  */
+/**
+ * Bind GL 4.3 compute shader extension functions.
+ * @return \c true iff all compute procs could be bound.
+ */
+static bool BindComputeExtensions()
+{
+	if (!IsOpenGLVersionAtLeast(4, 3)) return false;
+	if (!BindGLProc(_glDispatchCompute, "glDispatchCompute")) return false;
+	if (!BindGLProc(_glMemoryBarrier, "glMemoryBarrier")) return false;
+	if (!BindGLProc(_glShaderStorageBlockBinding, "glShaderStorageBlockBinding")) return false;
+	if (!BindGLProc(_glBindImageTexture, "glBindImageTexture")) return false;
+	if (!BindGLProc(_glBindBufferBase, "glBindBufferBase")) return false;
+	if (!BindGLProc(_glUniform2i, "glUniform2i")) return false;
+	return true;
+}
+
 static bool BindFBOExtensions()
 {
 	if (IsOpenGLVersionAtLeast(3, 0) || IsOpenGLExtensionSupported("GL_ARB_framebuffer_object")) {
@@ -571,6 +596,7 @@ OpenGLBackend::OpenGLBackend() : cursor_cache(MAX_CACHED_CURSORS)
 OpenGLBackend::~OpenGLBackend()
 {
 	this->DestroyPostProcessFBOs();
+	this->DestroyMVResources();
 	if (_glDeleteProgram != nullptr) {
 		_glDeleteProgram(this->remap_program);
 		_glDeleteProgram(this->vid_program);
@@ -587,6 +613,7 @@ OpenGLBackend::~OpenGLBackend()
 		if (this->pp_tiltshift_v_program != 0) _glDeleteProgram(this->pp_tiltshift_v_program);
 		if (this->pp_night_program != 0) _glDeleteProgram(this->pp_night_program);
 		if (this->pp_grain_program != 0) _glDeleteProgram(this->pp_grain_program);
+		if (this->pp_bicubic_program != 0) _glDeleteProgram(this->pp_bicubic_program);
 		if (this->pp_crt_program != 0) _glDeleteProgram(this->pp_crt_program);
 	}
 	if (_glDeleteVertexArrays != nullptr) _glDeleteVertexArrays(1, &this->vao_quad);
@@ -833,6 +860,9 @@ std::optional<std::string_view> OpenGLBackend::Init(const Dimension &screen_res)
 		Debug(driver, 1, "OpenGL: FBO extensions not available, post-processing disabled");
 	}
 
+	/* Initialize motion vector compute shader (optional, GL 4.3+). */
+	this->InitMVCompute();
+
 	/* Bind timer query functions for GPU benchmarking (optional). */
 	if (!BindTimerQueryProcs()) {
 		Debug(driver, 1, "OpenGL: Timer query extensions not available, GPU benchmarking will report 0");
@@ -1027,15 +1057,16 @@ bool OpenGLBackend::Resize(int w, int h, bool force)
 	 * the CPU blitter renders at reduced resolution. The display is at full window size. */
 	int render_w = w;
 	int render_h = h;
+	Blitter *cur_blitter = BlitterFactory::GetCurrentBlitter();
 	bool pp_scaling = this->pp_fbo_supported && _video_post_processing && _video_render_scale < 100 &&
-	                  BlitterFactory::GetCurrentBlitter()->GetScreenDepth() != 8;
+	                  cur_blitter != nullptr && cur_blitter->GetScreenDepth() != 8;
 	if (pp_scaling) {
 		auto dims = CalculatePostProcessDimensions(w, h, _video_render_scale);
 		render_w = dims.render.width;
 		render_h = dims.render.height;
 	}
 
-	int bpp = BlitterFactory::GetCurrentBlitter()->GetScreenDepth();
+	int bpp = cur_blitter != nullptr ? cur_blitter->GetScreenDepth() : 32;
 	int pitch = Align(render_w, 4);
 	size_t line_pixel_count = static_cast<size_t>(pitch) * render_h;
 
@@ -1082,7 +1113,7 @@ bool OpenGLBackend::Resize(int w, int h, bool force)
 	_glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
 	/* Does this blitter need a separate animation buffer? */
-	if (BlitterFactory::GetCurrentBlitter()->NeedsAnimationBuffer()) {
+	if (cur_blitter != nullptr && cur_blitter->NeedsAnimationBuffer()) {
 		this->anim_buffer = nullptr;
 		if (this->persistent_mapping_supported) {
 			_glDeleteBuffers(1, &this->anim_pbo);
@@ -1173,7 +1204,8 @@ void OpenGLBackend::Paint()
 		if (_video_post_processing) {
 			/* Core upscaling settings. */
 			new_config.render_scale = _video_render_scale;
-			new_config.upscale_mode = static_cast<UpscaleMode>(Clamp<uint8_t>(_video_upscale_mode, 0, 2));
+			uint8_t clamped_mode = Clamp<uint8_t>(_video_upscale_mode, 0, static_cast<uint8_t>(UpscaleMode::FSR1));
+			new_config.upscale_mode = static_cast<UpscaleMode>(clamped_mode);
 			new_config.sharpening = _video_sharpening;
 
 			/* Effect toggles from persistent settings. */
@@ -1215,19 +1247,37 @@ void OpenGLBackend::Paint()
 			new_config.grain_intensity = _video_grain_intensity;
 		}
 
-		/* Only rebuild FBOs when resolution or FBO-need changes. Uniform-only changes
-		 * (sharpening, color grading params, etc.) don't require FBO recreation. */
-		bool config_changed = (new_config.render_scale != this->pp_config.render_scale) ||
-		                      (PostProcessNeedsFBO(new_config) != PostProcessNeedsFBO(this->pp_config));
+		/* Detect topology changes (effects on/off) and render scale changes.
+		 * Render scale triggers a full Resize() to reallocate PBO at new dimensions.
+		 * We defer this by one frame to avoid resizing while the slider is being
+		 * dragged — only apply when the value stabilizes. */
+		bool fbo_need_changed = PostProcessNeedsFBO(new_config) != PostProcessNeedsFBO(this->pp_config);
+		bool scale_changed = (new_config.render_scale != this->pp_config.render_scale);
 		this->pp_config = new_config;
-		if (config_changed) {
+		if (fbo_need_changed) {
 			this->SetupPostProcessFBOs(this->pp_display_size.width > 0 ? this->pp_display_size.width : _screen.width,
 			                           this->pp_display_size.height > 0 ? this->pp_display_size.height : _screen.height);
 		}
+		if (scale_changed) {
+			this->pp_render_scale_pending = true;
+		} else if (this->pp_render_scale_pending) {
+			/* Scale stabilized (same value for 2 consecutive frames) — apply now. */
+			this->pp_render_scale_pending = false;
+			int disp_w = this->pp_display_size.width > 0 ? this->pp_display_size.width : _screen.width;
+			int disp_h = this->pp_display_size.height > 0 ? this->pp_display_size.height : _screen.height;
+			this->Resize(disp_w, disp_h, true);
+			this->SetupPostProcessFBOs(disp_w, disp_h);
+		}
 	}
 
+	/* Cache blitter properties to avoid repeated virtual calls per frame. */
+	Blitter *blitter = BlitterFactory::GetCurrentBlitter();
+	if (blitter == nullptr) return; /* No blitter available -- nothing to paint. */
+	int bpp = blitter->GetScreenDepth();
+	bool needs_anim = blitter->NeedsAnimationBuffer();
+
 	/* Post-processing requires 32bpp blitter -- 8bpp palette indices are not valid RGBA input. */
-	bool pp_this_frame = this->pp_active && BlitterFactory::GetCurrentBlitter()->GetScreenDepth() != 8;
+	bool pp_this_frame = this->pp_active && bpp != 8;
 
 	if (pp_this_frame) {
 		/* Render scene into post-processing FBO at render resolution. */
@@ -1245,8 +1295,7 @@ void OpenGLBackend::Paint()
 
 	/* Apply bilinear filtering setting (only when not in 8bpp palette mode).
 	 * Skip redundant GL state changes when PP is off and filter is nearest (default). */
-	if ((this->pp_config.bilinear_filtering || this->pp_config.upscale_mode == UpscaleMode::Bilinear) &&
-	    BlitterFactory::GetCurrentBlitter()->GetScreenDepth() != 8) {
+	if ((this->pp_config.bilinear_filtering || this->pp_config.upscale_mode == UpscaleMode::Bilinear) && bpp != 8) {
 		_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	} else if (this->pp_config.bilinear_filtering || pp_this_frame) {
@@ -1258,7 +1307,7 @@ void OpenGLBackend::Paint()
 	_glActiveTexture(GL_TEXTURE1);
 	_glBindTexture(GL_TEXTURE_1D, this->pal_texture);
 	/* Is the blitter relying on a separate animation buffer? */
-	if (BlitterFactory::GetCurrentBlitter()->NeedsAnimationBuffer()) {
+	if (needs_anim) {
 		_glActiveTexture(GL_TEXTURE2);
 		_glBindTexture(GL_TEXTURE_2D, this->anim_texture);
 		_glUseProgram(this->remap_program);
@@ -1267,10 +1316,15 @@ void OpenGLBackend::Paint()
 		_glUniform1f(this->remap_zoom_loc, 0);
 		_glUniform1i(this->remap_rgb_loc, 1);
 	} else {
-		_glUseProgram(BlitterFactory::GetCurrentBlitter()->GetScreenDepth() == 8 ? this->pal_program : this->vid_program);
+		_glUseProgram(bpp == 8 ? this->pal_program : this->vid_program);
 	}
 	_glBindVertexArray(this->vao_quad);
 	_glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+	/* Dispatch MV rasterization if active (generates MV + depth textures for FSR 2). */
+	if (_motion_vectors.active && this->mv_compute_supported) {
+		this->DispatchMVRasterization();
+	}
 
 	if (pp_this_frame) {
 		/* Run post-processing chain. Final pass renders to default framebuffer (screen). */
@@ -1353,6 +1407,7 @@ bool OpenGLBackend::InitPostProcessShaders()
 	this->pp_tiltshift_v_program = CompileAndLog("tiltshift-v", _frag_shader_pp_tiltshift_v, lengthof(_frag_shader_pp_tiltshift_v));
 	this->pp_night_program = CompileAndLog("night-mode", _frag_shader_pp_night, lengthof(_frag_shader_pp_night));
 	this->pp_grain_program = CompileAndLog("film-grain", _frag_shader_pp_grain, lengthof(_frag_shader_pp_grain));
+	this->pp_bicubic_program = CompileAndLog("bicubic", _frag_shader_pp_bicubic, lengthof(_frag_shader_pp_bicubic));
 	this->pp_crt_program = CompileAndLog("CRT", _frag_shader_pp_crt, lengthof(_frag_shader_pp_crt));
 
 	_glDeleteShader(pp_vert);
@@ -1375,6 +1430,7 @@ bool OpenGLBackend::InitPostProcessShaders()
 	BindSourceTex(this->pp_tiltshift_v_program);
 	BindSourceTex(this->pp_night_program);
 	BindSourceTex(this->pp_grain_program);
+	BindSourceTex(this->pp_bicubic_program);
 	BindSourceTex(this->pp_crt_program);
 
 	/* Cache ALL uniform locations at init time (not per-frame). */
@@ -1428,6 +1484,9 @@ bool OpenGLBackend::InitPostProcessShaders()
 	/* Film grain uniforms. */
 	this->pp_grain_int_loc = CacheLoc(this->pp_grain_program, "grain_strength");
 	this->pp_grain_time_loc = CacheLoc(this->pp_grain_program, "time");
+
+	/* Bicubic uniforms. */
+	this->pp_bicubic_texel_loc = CacheLoc(this->pp_bicubic_program, "texel_size");
 
 	/* CRT uniforms. */
 	this->pp_crt_texel_loc = CacheLoc(this->pp_crt_program, "texel_size");
@@ -1696,10 +1755,19 @@ void OpenGLBackend::RenderPostProcess()
 		RunPass();
 	}
 
-	/* Safety: ensure we end up on the default framebuffer. */
+	/* Safety: if no passes actually ran (e.g. all shader programs failed to compile),
+	 * blit the FBO content to screen to avoid a black frame. */
 	if (pass == 0) {
 		_glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		_glViewport(0, 0, this->pp_display_size.width, this->pp_display_size.height);
+		_glClear(GL_COLOR_BUFFER_BIT);
+		if (this->pp_blit_program != 0) {
+			_glActiveTexture(GL_TEXTURE0);
+			_glBindTexture(GL_TEXTURE_2D, this->pp_tex[0]);
+			_glUseProgram(this->pp_blit_program);
+			_glBindVertexArray(this->vao_quad);
+			_glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+		}
 	}
 }
 
@@ -1716,6 +1784,123 @@ void OpenGLBackend::SetPostProcessConfig(const PostProcessConfig &config)
 	if (needs_fbo_rebuild && this->pp_display_size.width > 0) {
 		this->SetupPostProcessFBOs(this->pp_display_size.width, this->pp_display_size.height);
 	}
+}
+
+/**
+ * Initialize motion vector compute shader and resources (GL 4.3+).
+ * @return True if initialization succeeded.
+ */
+bool OpenGLBackend::InitMVCompute()
+{
+	if (!BindComputeExtensions()) {
+		Debug(driver, 1, "OpenGL: Compute shaders not available (GL < 4.3), MV rasterization disabled");
+		return false;
+	}
+
+	GLuint shader = _glCreateShader(GL_COMPUTE_SHADER);
+	_glShaderSource(shader, lengthof(_compute_shader_mv_rasterize), _compute_shader_mv_rasterize, nullptr);
+	_glCompileShader(shader);
+	if (!VerifyShader(shader)) {
+		Debug(driver, 0, "OpenGL: MV compute shader failed to compile");
+		_glDeleteShader(shader);
+		return false;
+	}
+
+	this->mv_compute_program = _glCreateProgram();
+	_glAttachShader(this->mv_compute_program, shader);
+	_glLinkProgram(this->mv_compute_program);
+	_glDeleteShader(shader);
+	if (!VerifyProgram(this->mv_compute_program)) {
+		Debug(driver, 0, "OpenGL: MV compute program failed to link");
+		_glDeleteProgram(this->mv_compute_program);
+		this->mv_compute_program = 0;
+		return false;
+	}
+
+	this->mv_screen_size_loc = _glGetUniformLocation(this->mv_compute_program, "screen_size");
+	this->mv_tile_count_loc = _glGetUniformLocation(this->mv_compute_program, "tile_count");
+	this->mv_global_motion_loc = _glGetUniformLocation(this->mv_compute_program, "global_motion");
+	this->mv_max_cmds_loc = _glGetUniformLocation(this->mv_compute_program, "max_cmds_per_tile");
+
+	_glGenBuffers(1, &this->mv_cmd_ssbo);
+	_glGenBuffers(1, &this->mv_tile_ssbo);
+
+	_glGenTextures(1, &this->mv_texture);
+	_glBindTexture(GL_TEXTURE_2D, this->mv_texture);
+	_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+
+	_glGenTextures(1, &this->mv_depth_texture);
+	_glBindTexture(GL_TEXTURE_2D, this->mv_depth_texture);
+	_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+	_glBindTexture(GL_TEXTURE_2D, 0);
+
+	this->mv_compute_supported = true;
+	Debug(driver, 1, "OpenGL: Motion vector compute shader initialized");
+	return true;
+}
+
+/**
+ * Free motion vector GPU resources.
+ */
+void OpenGLBackend::DestroyMVResources()
+{
+	this->mv_compute_supported = false;
+	if (this->mv_compute_program != 0) { _glDeleteProgram(this->mv_compute_program); this->mv_compute_program = 0; }
+	if (this->mv_cmd_ssbo != 0) { _glDeleteBuffers(1, &this->mv_cmd_ssbo); this->mv_cmd_ssbo = 0; }
+	if (this->mv_tile_ssbo != 0) { _glDeleteBuffers(1, &this->mv_tile_ssbo); this->mv_tile_ssbo = 0; }
+	if (this->mv_texture != 0) { _glDeleteTextures(1, &this->mv_texture); this->mv_texture = 0; }
+	if (this->mv_depth_texture != 0) { _glDeleteTextures(1, &this->mv_depth_texture); this->mv_depth_texture = 0; }
+}
+
+/**
+ * Dispatch the MV rasterization compute shader.
+ * Uploads draw commands and tile bin data, dispatches one workgroup per 16x16 tile.
+ */
+void OpenGLBackend::DispatchMVRasterization()
+{
+	if (!this->mv_compute_supported || _motion_vectors.commands.empty()) return;
+
+	int screen_w = this->pp_active ? (int)this->pp_render_size.width : _screen.width;
+	int screen_h = this->pp_active ? (int)this->pp_render_size.height : _screen.height;
+	if (screen_w <= 0 || screen_h <= 0) return;
+
+	static TileBin tile_bin;
+	tile_bin.Resize(screen_w, screen_h);
+	tile_bin.Build(_motion_vectors.commands);
+
+	_glBindTexture(GL_TEXTURE_2D, this->mv_texture);
+	_glTexImage2D(GL_TEXTURE_2D, 0, GL_RG16F, screen_w, screen_h, 0, GL_RG, GL_FLOAT, nullptr);
+	_glBindTexture(GL_TEXTURE_2D, this->mv_depth_texture);
+	_glTexImage2D(GL_TEXTURE_2D, 0, GL_R16F, screen_w, screen_h, 0, GL_RED, GL_FLOAT, nullptr);
+	_glBindTexture(GL_TEXTURE_2D, 0);
+
+	_glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->mv_cmd_ssbo);
+	_glBufferData(GL_SHADER_STORAGE_BUFFER, _motion_vectors.commands.size() * sizeof(DrawCommand),
+		_motion_vectors.commands.data(), GL_DYNAMIC_DRAW);
+
+	_glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->mv_tile_ssbo);
+	_glBufferData(GL_SHADER_STORAGE_BUFFER, tile_bin.data.size() * sizeof(int32_t),
+		tile_bin.data.data(), GL_DYNAMIC_DRAW);
+	_glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+	_glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, this->mv_cmd_ssbo);
+	_glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, this->mv_tile_ssbo);
+
+	_glBindImageTexture(0, this->mv_texture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RG16F);
+	_glBindImageTexture(1, this->mv_depth_texture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R16F);
+
+	_glUseProgram(this->mv_compute_program);
+	_glUniform2i(this->mv_screen_size_loc, screen_w, screen_h);
+	_glUniform2i(this->mv_tile_count_loc, tile_bin.tiles_x, tile_bin.tiles_y);
+	_glUniform2i(this->mv_global_motion_loc, _motion_vectors.scroll_dx, _motion_vectors.scroll_dy);
+	_glUniform1i(this->mv_max_cmds_loc, TileBin::MAX_CMDS_PER_TILE);
+
+	_glDispatchCompute((screen_w + 15) / 16, (screen_h + 15) / 16, 1);
+	_glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 }
 
 class OpenGLSpriteAllocator : public SpriteAllocator {
@@ -1788,7 +1973,9 @@ void *OpenGLBackend::GetVideoBuffer()
 		this->vid_buffer = _glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_READ_WRITE);
 	} else if (this->vid_buffer == nullptr) {
 		_glBindBuffer(GL_PIXEL_UNPACK_BUFFER, this->vid_pbo);
-		this->vid_buffer = _glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, static_cast<GLsizeiptr>(_screen.pitch) * _screen.height * BlitterFactory::GetCurrentBlitter()->GetScreenDepth() / 8, GL_MAP_READ_BIT | GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
+		Blitter *map_blitter = BlitterFactory::GetCurrentBlitter();
+		int vid_bpp = map_blitter != nullptr ? map_blitter->GetScreenDepth() : 32;
+		this->vid_buffer = _glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, static_cast<GLsizeiptr>(_screen.pitch) * _screen.height * vid_bpp / 8, GL_MAP_READ_BIT | GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
 	}
 
 	return this->vid_buffer;
@@ -1843,7 +2030,8 @@ void OpenGLBackend::ReleaseVideoBuffer(const Rect &update_rect)
 		_glActiveTexture(GL_TEXTURE0);
 		_glBindTexture(GL_TEXTURE_2D, this->vid_texture);
 		_glPixelStorei(GL_UNPACK_ROW_LENGTH, _screen.pitch);
-		if (BlitterFactory::GetCurrentBlitter()->GetScreenDepth() == 8) {
+		Blitter *release_blitter = BlitterFactory::GetCurrentBlitter();
+		if (release_blitter != nullptr && release_blitter->GetScreenDepth() == 8) {
 			_glTexSubImage2D(GL_TEXTURE_2D, 0, update_rect.left, update_rect.top, update_rect.right - update_rect.left, update_rect.bottom - update_rect.top, GL_RED, GL_UNSIGNED_BYTE, (GLvoid*)(size_t)(update_rect.top * _screen.pitch + update_rect.left));
 		} else {
 			_glTexSubImage2D(GL_TEXTURE_2D, 0, update_rect.left, update_rect.top, update_rect.right - update_rect.left, update_rect.bottom - update_rect.top, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, (GLvoid*)(size_t)(update_rect.top * _screen.pitch * 4 + update_rect.left * 4));

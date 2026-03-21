@@ -68,6 +68,23 @@ private:
 	Dimension pp_display_size = {};  ///< Display/window resolution.
 	bool pp_active = false;          ///< Post-processing pipeline is currently active.
 	bool pp_fbo_supported = false;   ///< FBO extensions are available.
+	bool pp_render_scale_pending = false; ///< Deferred render scale resize waiting to be applied.
+
+	/* Motion vector rasterization resources (GL 4.3+ compute). */
+	bool mv_compute_supported = false; ///< GL 4.3+ compute shaders available.
+	GLuint mv_compute_program = 0;   ///< Compiled compute shader program.
+	GLuint mv_cmd_ssbo = 0;          ///< SSBO for draw command upload.
+	GLuint mv_tile_ssbo = 0;         ///< SSBO for tile bin data upload.
+	GLuint mv_texture = 0;           ///< RG16F motion vector output texture.
+	GLuint mv_depth_texture = 0;     ///< R16F depth output texture.
+	GLint mv_screen_size_loc = -1;   ///< Compute uniform: screen_size.
+	GLint mv_tile_count_loc = -1;    ///< Compute uniform: tile_count.
+	GLint mv_global_motion_loc = -1; ///< Compute uniform: global_motion.
+	GLint mv_max_cmds_loc = -1;      ///< Compute uniform: max_cmds_per_tile.
+
+	bool InitMVCompute();
+	void DestroyMVResources();
+	void DispatchMVRasterization();
 
 	GLuint pp_blit_program = 0;      ///< Simple blit shader program.
 	GLuint pp_cas_program = 0;       ///< CAS sharpening shader program.
@@ -80,6 +97,7 @@ private:
 	GLuint pp_tiltshift_v_program = 0; ///< Tilt-shift vertical blur shader program.
 	GLuint pp_night_program = 0;     ///< Night mode shader program.
 	GLuint pp_grain_program = 0;     ///< Film grain shader program.
+	GLuint pp_bicubic_program = 0;   ///< Bicubic texture filter shader program.
 	GLuint pp_crt_program = 0;       ///< CRT scanline filter shader program.
 
 	/* Cached uniform locations for all post-processing shaders. */
@@ -109,6 +127,7 @@ private:
 	GLint pp_night_blue_loc = -1;    ///< Night mode blue shift uniform location.
 	GLint pp_grain_int_loc = -1;     ///< Film grain intensity uniform location.
 	GLint pp_grain_time_loc = -1;    ///< Film grain time uniform location.
+	GLint pp_bicubic_texel_loc = -1; ///< Bicubic texel_size uniform location.
 	GLint pp_crt_texel_loc = -1;     ///< CRT texel_size uniform location.
 	GLint pp_crt_res_loc = -1;       ///< CRT resolution uniform location.
 	GLint pp_crt_scanline_loc = -1;  ///< CRT scanline_intensity uniform location.
