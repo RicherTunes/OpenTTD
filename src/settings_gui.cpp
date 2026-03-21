@@ -583,6 +583,19 @@ struct GameOptionsWindow : Window {
 				break;
 			}
 
+			case WID_GO_VIDEO_WEATHER_DROPDOWN: {
+				static const StringID _weather_items[] = {
+					STR_GAME_OPTIONS_WEATHER_NONE,
+					STR_GAME_OPTIONS_WEATHER_RAIN,
+					STR_GAME_OPTIONS_WEATHER_SNOW,
+				};
+				*selected_index = _video_weather_type;
+				for (int i = 0; i < 3; i++) {
+					list.push_back(MakeDropDownListStringItem(_weather_items[i], i));
+				}
+				break;
+			}
+
 			case WID_GO_BASE_GRF_DROPDOWN:
 				list = BuildSetDropDownList<BaseGraphics>(selected_index);
 				break;
@@ -719,6 +732,21 @@ struct GameOptionsWindow : Window {
 			case WID_GO_VIDEO_FILM_GRAIN_TEXT:
 				return GetToggleString(STR_GAME_OPTIONS_FILM_GRAIN, WID_GO_VIDEO_FILM_GRAIN_BUTTON);
 
+			case WID_GO_VIDEO_DYNAMIC_LIGHTING_TEXT:
+				return GetToggleString(STR_GAME_OPTIONS_DYNAMIC_LIGHTING, WID_GO_VIDEO_DYNAMIC_LIGHTING_BUTTON);
+
+			case WID_GO_VIDEO_BLOOM_TEXT:
+				return GetToggleString(STR_GAME_OPTIONS_BLOOM, WID_GO_VIDEO_BLOOM_BUTTON);
+
+			case WID_GO_VIDEO_WEATHER_DROPDOWN: {
+				static const StringID _weather_names[] = {
+					STR_GAME_OPTIONS_WEATHER_NONE,
+					STR_GAME_OPTIONS_WEATHER_RAIN,
+					STR_GAME_OPTIONS_WEATHER_SNOW,
+				};
+				return GetString(_weather_names[Clamp<uint8_t>(_video_weather_type, 0, 2)]);
+			}
+
 			case WID_GO_VIDEO_UPSCALE_DROPDOWN: {
 				static const StringID _upscale_names[] = {
 					STR_GAME_OPTIONS_UPSCALE_NONE,
@@ -831,6 +859,18 @@ struct GameOptionsWindow : Window {
 
 			case WID_GO_VIDEO_GRAIN_INTENSITY:
 				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 1, 20, 5, _video_grain_intensity, nullptr);
+				break;
+
+			case WID_GO_VIDEO_BLOOM_THRESHOLD:
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 100, 5, _video_bloom_threshold, nullptr);
+				break;
+
+			case WID_GO_VIDEO_BLOOM_INTENSITY:
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 100, 5, _video_bloom_intensity, nullptr);
+				break;
+
+			case WID_GO_VIDEO_WEATHER_INTENSITY:
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 100, 5, _video_weather_intensity, nullptr);
 				break;
 
 			case WID_GO_BASE_SFX_VOLUME:
@@ -1205,7 +1245,8 @@ struct GameOptionsWindow : Window {
 				break;
 
 			case WID_GO_VIDEO_UPSCALE_DROPDOWN:
-			case WID_GO_VIDEO_TEXTURE_FILTER_DROPDOWN: {
+			case WID_GO_VIDEO_TEXTURE_FILTER_DROPDOWN:
+			case WID_GO_VIDEO_WEATHER_DROPDOWN: {
 				if (!_video_post_processing || !_video_hw_accel) break;
 				int selected;
 				DropDownList list = this->BuildDropDownList(widget, &selected);
@@ -1255,6 +1296,20 @@ struct GameOptionsWindow : Window {
 				this->SetWidgetDirty(WID_GO_VIDEO_FILM_GRAIN_TEXT);
 				break;
 
+			case WID_GO_VIDEO_DYNAMIC_LIGHTING_BUTTON:
+				_video_dynamic_lighting = !_video_dynamic_lighting;
+				this->SetWidgetLoweredState(WID_GO_VIDEO_DYNAMIC_LIGHTING_BUTTON, _video_dynamic_lighting);
+				this->SetWidgetDirty(WID_GO_VIDEO_DYNAMIC_LIGHTING_BUTTON);
+				this->SetWidgetDirty(WID_GO_VIDEO_DYNAMIC_LIGHTING_TEXT);
+				break;
+
+			case WID_GO_VIDEO_BLOOM_BUTTON:
+				_video_bloom = !_video_bloom;
+				this->SetWidgetLoweredState(WID_GO_VIDEO_BLOOM_BUTTON, _video_bloom);
+				this->SetWidgetDirty(WID_GO_VIDEO_BLOOM_BUTTON);
+				this->SetWidgetDirty(WID_GO_VIDEO_BLOOM_TEXT);
+				break;
+
 #define GPU_SLIDER_CLICK(wid, min_val, max_val, nmarks, var) \
 			case wid: \
 				if (!_video_post_processing || !_video_hw_accel) break; \
@@ -1279,6 +1334,9 @@ struct GameOptionsWindow : Window {
 			GPU_SLIDER_CLICK(WID_GO_VIDEO_TILTSHIFT_FOCUS_WIDTH, 5, 80, 4, _video_tiltshift_focus_width)
 			GPU_SLIDER_CLICK(WID_GO_VIDEO_TILTSHIFT_BLUR, 10, 60, 6, _video_tiltshift_blur)
 			GPU_SLIDER_CLICK(WID_GO_VIDEO_GRAIN_INTENSITY, 1, 20, 5, _video_grain_intensity)
+			GPU_SLIDER_CLICK(WID_GO_VIDEO_BLOOM_THRESHOLD, 0, 100, 5, _video_bloom_threshold)
+			GPU_SLIDER_CLICK(WID_GO_VIDEO_BLOOM_INTENSITY, 0, 100, 5, _video_bloom_intensity)
+			GPU_SLIDER_CLICK(WID_GO_VIDEO_WEATHER_INTENSITY, 0, 100, 5, _video_weather_intensity)
 
 #undef GPU_SLIDER_CLICK
 
@@ -2140,10 +2198,37 @@ static constexpr std::initializer_list<NWidgetPart> _nested_game_options_widgets
 								NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_GRAIN_INTENSITY), SetTextStyle(GAME_OPTIONS_LABEL),
 								NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_GRAIN_INTENSITY), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_GRAIN_INTENSITY_TOOLTIP),
 							EndContainer(),
+							/* Dynamic lighting */
+							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+								NWidget(WWT_BOOLBTN, GAME_OPTIONS_BACKGROUND, WID_GO_VIDEO_DYNAMIC_LIGHTING_BUTTON), SetAlternateColourTip(GAME_OPTIONS_BUTTON, STR_GAME_OPTIONS_DYNAMIC_LIGHTING_TOOLTIP),
+								NWidget(WWT_TEXT, INVALID_COLOUR, WID_GO_VIDEO_DYNAMIC_LIGHTING_TEXT), SetFill(1, 0), SetResize(1, 0), SetTextStyle(GAME_OPTIONS_LABEL),
+							EndContainer(),
+							/* Bloom + sub-parameters */
+							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+								NWidget(WWT_BOOLBTN, GAME_OPTIONS_BACKGROUND, WID_GO_VIDEO_BLOOM_BUTTON), SetAlternateColourTip(GAME_OPTIONS_BUTTON, STR_GAME_OPTIONS_BLOOM_TOOLTIP),
+								NWidget(WWT_TEXT, INVALID_COLOUR, WID_GO_VIDEO_BLOOM_TEXT), SetFill(1, 0), SetResize(1, 0), SetTextStyle(GAME_OPTIONS_LABEL),
+							EndContainer(),
+							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+								NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_BLOOM_THRESHOLD), SetTextStyle(GAME_OPTIONS_LABEL),
+								NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_BLOOM_THRESHOLD), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_BLOOM_THRESHOLD_TOOLTIP),
+							EndContainer(),
+							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+								NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_BLOOM_INTENSITY), SetTextStyle(GAME_OPTIONS_LABEL),
+								NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_BLOOM_INTENSITY), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_BLOOM_INTENSITY_TOOLTIP),
+							EndContainer(),
+							/* Weather overlay */
+							NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize), SetPIP(0, WidgetDimensions::unscaled.hsep_normal, 0),
+								NWidget(WWT_TEXT, INVALID_COLOUR), SetFill(1, 0), SetResize(1, 0), SetStringTip(STR_GAME_OPTIONS_WEATHER_TYPE), SetTextStyle(GAME_OPTIONS_LABEL),
+								NWidget(WWT_DROPDOWN, GAME_OPTIONS_BUTTON, WID_GO_VIDEO_WEATHER_DROPDOWN), SetFill(1, 0), SetToolTip(STR_GAME_OPTIONS_WEATHER_TYPE_TOOLTIP),
+							EndContainer(),
+							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+								NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_WEATHER_INTENSITY), SetTextStyle(GAME_OPTIONS_LABEL),
+								NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_WEATHER_INTENSITY), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_WEATHER_INTENSITY_TOOLTIP),
+							EndContainer(),
 						EndContainer(),
 					EndContainer(),
 
-					NWidget(WWT_FRAME, GAME_OPTIONS_BACKGROUND), SetStringTip(STR_GAME_OPTIONS_BASE_GRF), SetTextStyle(GAME_OPTIONS_FRAME), SetPIP(0, WidgetDimensions::unscaled.vsep_sparse, 0), SetFill(1, 0),
+				NWidget(WWT_FRAME, GAME_OPTIONS_BACKGROUND), SetStringTip(STR_GAME_OPTIONS_BASE_GRF), SetTextStyle(GAME_OPTIONS_FRAME), SetPIP(0, WidgetDimensions::unscaled.vsep_sparse, 0), SetFill(1, 0),
 						NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
 							NWidget(WWT_DROPDOWN, GAME_OPTIONS_BUTTON, WID_GO_BASE_GRF_DROPDOWN), SetToolTip(STR_GAME_OPTIONS_BASE_GRF_TOOLTIP), SetFill(1, 0), SetResize(1, 0),
 							NWidget(WWT_PUSHTXTBTN, GAME_OPTIONS_BUTTON, WID_GO_BASE_GRF_PARAMETERS), SetStringTip(STR_NEWGRF_SETTINGS_SET_PARAMETERS),
