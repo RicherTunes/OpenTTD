@@ -30,6 +30,7 @@
 #include "opengl.h"
 #include "video_driver.hpp"
 #include "motion_vector.h"
+#include "temporal_upscale.h"
 #include "../benchmark.h"
 #include "../core/geometry_func.hpp"
 #include "../core/math_func.hpp"
@@ -1520,6 +1521,11 @@ bool OpenGLBackend::InitPostProcessShaders()
 	this->pp_crt_scanline_loc = CacheLoc(this->pp_crt_program, "scanline_strength");
 	this->pp_crt_curve_loc = CacheLoc(this->pp_crt_program, "curvature");
 	this->pp_crt_aberr_loc = CacheLoc(this->pp_crt_program, "chromatic_aberr");
+
+	/* Temporal accumulation uniforms. */
+	this->pp_temporal_texel_loc = CacheLoc(this->pp_temporal_program, "texel_size");
+	this->pp_temporal_jitter_loc = CacheLoc(this->pp_temporal_program, "jitter_offset");
+	this->pp_temporal_reset_loc = CacheLoc(this->pp_temporal_program, "reset");
 
 	(void)_glGetError(); /* Clear any errors from optional shader failures. */
 	return this->pp_blit_program != 0; /* At minimum the blit program must work. */
