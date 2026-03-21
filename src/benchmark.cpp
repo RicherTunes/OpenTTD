@@ -38,7 +38,7 @@ BenchmarkHarness _benchmark;
  */
 void BenchmarkHarness::Start(uint32_t target, uint32_t warmup, const std::string &lbl)
 {
-	if (this->active) {
+	if (this->active.load(std::memory_order_acquire)) {
 		IConsolePrint(CC_ERROR, "Benchmark already running. Use 'benchmark stop' or 'benchmark abort' first.");
 		return;
 	}
@@ -66,7 +66,7 @@ void BenchmarkHarness::Start(uint32_t target, uint32_t warmup, const std::string
 	/* Initialize GPU timer queries if OpenGL is available. */
 	BenchmarkGPUInit();
 
-	this->active = true;
+	this->active.store(true, std::memory_order_release);
 
 	if (target > 0) {
 		IConsolePrint(CC_INFO, "Benchmark started: {} frames ({} warmup). Game paused, vsync disabled.", target, warmup);
@@ -80,12 +80,12 @@ void BenchmarkHarness::Start(uint32_t target, uint32_t warmup, const std::string
  */
 void BenchmarkHarness::Stop()
 {
-	if (!this->active) {
+	if (!this->active.load(std::memory_order_acquire)) {
 		IConsolePrint(CC_ERROR, "No benchmark is running.");
 		return;
 	}
 
-	this->active = false;
+	this->active.store(false, std::memory_order_release);
 
 	if (this->samples.empty()) {
 		IConsolePrint(CC_WARNING, "Benchmark stopped: no frames captured (warmup may not have completed).");
@@ -102,12 +102,12 @@ void BenchmarkHarness::Stop()
  */
 void BenchmarkHarness::Abort()
 {
-	if (!this->active) {
+	if (!this->active.load(std::memory_order_acquire)) {
 		IConsolePrint(CC_ERROR, "No benchmark is running.");
 		return;
 	}
 
-	this->active = false;
+	this->active.store(false, std::memory_order_release);
 	this->samples.clear();
 	this->RestoreState();
 	IConsolePrint(CC_INFO, "Benchmark aborted. Data discarded.");
@@ -120,7 +120,7 @@ void BenchmarkHarness::Abort()
  */
 void BenchmarkHarness::RecordFrame(uint64_t gpu_postprocess_ns)
 {
-	if (!this->active) return;
+	if (!this->active.load(std::memory_order_acquire)) return;
 
 	this->frame_counter++;
 
@@ -141,14 +141,28 @@ void BenchmarkHarness::RecordFrame(uint64_t gpu_postprocess_ns)
 	sample.gpu_postprocess_ns = gpu_postprocess_ns;
 	this->samples.push_back(sample);
 
-	/* Auto-stop if target reached. */
+	/* Auto-stop if target reached. Defer WriteCSV/PrintStats/RestoreState
+	 * to the main thread via CheckAutoStop() to avoid cross-thread state mutation. */
 	if (this->target_frames > 0 && this->samples.size() >= this->target_frames) {
-		IConsolePrint(CC_INFO, "Benchmark auto-completing after {} frames.", this->target_frames);
-		this->active = false;
+		this->active.store(false, std::memory_order_release);
+		this->auto_stop_pending.store(true, std::memory_order_release);
+	}
+}
+
+/**
+ * Check if the draw thread requested an auto-stop and finalize the benchmark.
+ * Must be called from the main thread (e.g., from VideoDriver::Tick after RecordFrame).
+ */
+void BenchmarkHarness::CheckAutoStop()
+{
+	if (!this->auto_stop_pending.exchange(false)) return;
+
+	IConsolePrint(CC_INFO, "Benchmark auto-completing after {} frames.", this->target_frames);
+	if (!this->samples.empty()) {
 		this->WriteCSV();
 		this->PrintStats();
-		this->RestoreState();
 	}
+	this->RestoreState();
 }
 
 /** Restore vsync and pause state to what they were before the benchmark. */

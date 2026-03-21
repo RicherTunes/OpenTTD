@@ -193,6 +193,7 @@ void VideoDriver::Tick()
 		this->CheckPaletteAnim();
 		this->Paint();
 		BenchmarkRecordFrame();
+		_benchmark.CheckAutoStop();
 
 		this->UnlockVideoBuffer();
 

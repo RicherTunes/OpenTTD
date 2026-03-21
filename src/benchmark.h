@@ -12,6 +12,7 @@
 
 #include "framerate_type.h"
 
+#include <atomic>
 #include <string>
 #include <vector>
 
@@ -26,7 +27,8 @@ struct BenchmarkSample {
 
 /** Rendering benchmark harness that captures per-frame timing to CSV. */
 class BenchmarkHarness {
-	bool active = false;           ///< Currently recording.
+	std::atomic<bool> active{false};          ///< Currently recording (atomic: read by draw thread, written by main thread).
+	std::atomic<bool> auto_stop_pending{false}; ///< Deferred auto-stop flag (set by draw thread, consumed by main thread).
 	uint32_t target_frames = 0;    ///< Auto-stop after this many frames (0 = manual stop).
 	uint32_t warmup_frames = 300;  ///< Frames to skip before recording.
 	uint32_t frame_counter = 0;    ///< Total frames seen since Start().
@@ -46,7 +48,8 @@ public:
 	void Stop();
 	void Abort();
 	void RecordFrame(uint64_t gpu_postprocess_ns);
-	bool IsActive() const { return this->active; }
+	void CheckAutoStop();
+	bool IsActive() const { return this->active.load(std::memory_order_acquire); }
 	uint32_t GetFramesCaptured() const { return static_cast<uint32_t>(this->samples.size()); }
 	uint32_t GetTargetFrames() const { return this->target_frames; }
 	uint32_t GetWarmupFrames() const { return this->warmup_frames; }
