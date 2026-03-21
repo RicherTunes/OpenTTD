@@ -37,6 +37,8 @@ endif()
 add_files(
     dedicated_v.cpp
     dedicated_v.h
+    motion_vector.cpp
+    motion_vector.h
     null_v.cpp
     null_v.h
     postprocess.cpp

@@ -15,6 +15,7 @@ add_test_files(
     string_inplace.cpp
     string_func.cpp
     test_main.cpp
+    test_motion_vector.cpp
     test_network_crypto.cpp
     test_postprocess.cpp
     test_script_admin.cpp
