@@ -154,10 +154,11 @@ Always use a TDD (Test-Driven Development) approach: write tests first, then imp
 The GPU post-processing pipeline adds visual enhancement to OpenTTD's OpenGL backend.
 
 ### Current Status
-- **Phase 1 (Complete):** FBO pipeline, 12+ shader effects, render scaling, settings UI
-- **Phase 2a (Complete):** Motion vector recording, tile-based compute shader rasterization, temporal accumulation prototype, jitter sequence
-- **Phase 2b (Pending):** Production FSR 2 integration (gated on Quality Gate 2)
-- **Phase 3 (Pending):** Vulkan/DX11 backend + DLSS plugin (gated on Phase 2 success)
+- **Phase 1 (Complete):** FBO pipeline, 15+ shader effects, render scaling (50-200%), settings UI
+- **Phase 2a (Complete):** Motion vector recording, tile-based compute shader rasterization, jitter sequence
+- **Phase 2b (Complete):** Temporal accumulation shader, history buffer, full pipeline wiring
+- **Phase 3 (Complete):** RenderBackend abstraction, DLSS/FSR plugin C ABI, plugin auto-discovery, plugin dispatch in pipeline
+- **Quality Gate 2 (Pending):** Visual A/B comparison requires manual game testing
 
 ### Key Files
 - `src/video/postprocess.h/.cpp` -- Post-processing config, dimension math, FSR/CAS constants
@@ -169,6 +170,9 @@ The GPU post-processing pipeline adds visual enhancement to OpenTTD's OpenGL bac
 - `src/tests/test_postprocess.cpp` -- 100+ postprocess tests
 - `src/tests/test_motion_vector.cpp` -- 40+ motion vector tests
 - `src/tests/test_temporal_upscale.cpp` -- 12 temporal upscale tests
+- `src/video/render_backend.h` -- Abstract rendering backend interface (Vulkan/DX11 composition)
+- `src/video/upscale_plugin.h/.cpp` -- DLSS/FSR plugin C ABI + runtime loader
+- `src/tests/test_upscale_plugin.cpp` -- 10 plugin interface tests
 
 ### Console Commands
 - `benchmark start [N] [warmup=M] [label=X]` -- Capture N frames of GPU timing to CSV
