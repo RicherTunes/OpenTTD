@@ -754,3 +754,116 @@ TEST_CASE("PostProcess - color grading disabled means zero passes from it")
 	config.cg_brightness = 25; /* Non-identity but grading disabled */
 	CHECK(PostProcessPassCount(config) == 0);
 }
+
+/* --- Vignette settings --- */
+
+TEST_CASE("PostProcess - vignette toggle needs FBO and adds pass")
+{
+	PostProcessConfig config;
+	config.vignette = true;
+	CHECK(PostProcessNeedsFBO(config));
+	CHECK(PostProcessPassCount(config) == 1);
+}
+
+TEST_CASE("PostProcess - vignette defaults match struct")
+{
+	PostProcessConfig config;
+	CHECK(config.vignette_intensity == 30);
+	CHECK(config.vignette_radius == 85);
+}
+
+/* --- Tilt-shift settings --- */
+
+TEST_CASE("PostProcess - tiltshift toggle needs FBO and adds two passes")
+{
+	PostProcessConfig config;
+	config.tiltshift = true;
+	CHECK(PostProcessNeedsFBO(config));
+	CHECK(PostProcessPassCount(config) == 2); /* H + V blur */
+}
+
+TEST_CASE("PostProcess - tiltshift defaults match struct")
+{
+	PostProcessConfig config;
+	CHECK(config.tiltshift_focus_y == 45);
+	CHECK(config.tiltshift_focus_width == 25);
+	CHECK(config.tiltshift_blur == 30);
+}
+
+/* --- Film grain settings --- */
+
+TEST_CASE("PostProcess - film grain toggle needs FBO and adds pass")
+{
+	PostProcessConfig config;
+	config.film_grain = true;
+	CHECK(PostProcessNeedsFBO(config));
+	CHECK(PostProcessPassCount(config) == 1);
+}
+
+TEST_CASE("PostProcess - grain intensity default")
+{
+	PostProcessConfig config;
+	CHECK(config.grain_intensity == 4);
+}
+
+/* --- Night mode sub-parameters --- */
+
+TEST_CASE("PostProcess - night mode defaults match struct")
+{
+	PostProcessConfig config;
+	CHECK(config.night_intensity == 60);
+	CHECK(config.night_blue_shift == 30);
+}
+
+/* --- CRT sub-parameters --- */
+
+TEST_CASE("PostProcess - CRT defaults match struct")
+{
+	PostProcessConfig config;
+	CHECK(config.crt_scanlines == 15);
+	CHECK(config.crt_curvature == 0);
+	CHECK(config.crt_aberration == 5);
+}
+
+/* --- Color temperature --- */
+
+TEST_CASE("PostProcess - color temperature default is zero (neutral)")
+{
+	PostProcessConfig config;
+	CHECK(config.cg_temperature == 0);
+}
+
+/* --- Full pipeline pass count with all effects --- */
+
+TEST_CASE("PostProcess - all effects enabled gives correct total passes")
+{
+	PostProcessConfig config;
+	config.upscale_mode = UpscaleMode::FSR1;
+	config.render_scale = 75;
+	config.fxaa = true;
+	config.color_grading = true;
+	config.vignette = true;
+	config.tiltshift = true;
+	config.night_mode = true;
+	config.film_grain = true;
+	config.crt_filter = true;
+	/* EASU + RCAS + FXAA + tiltH + tiltV + color + night + vignette + grain + CRT = 10 */
+	CHECK(PostProcessPassCount(config) == 10);
+}
+
+TEST_CASE("PostProcess - all effects with bilinear gives correct total")
+{
+	PostProcessConfig config;
+	config.upscale_mode = UpscaleMode::Bilinear;
+	config.render_scale = 75;
+	config.sharpening = 50;
+	config.fxaa = true;
+	config.color_grading = true;
+	config.vignette = true;
+	config.tiltshift = true;
+	config.night_mode = true;
+	config.film_grain = true;
+	config.crt_filter = true;
+	/* bilinear + CAS + FXAA + tiltH + tiltV + color + night + vignette + grain + CRT = 10 */
+	CHECK(PostProcessPassCount(config) == 10);
+}
