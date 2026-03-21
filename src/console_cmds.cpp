@@ -2829,7 +2829,14 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		IConsolePrint(CC_HELP, "Usage: 'pp enable/disable <effect>' - Toggle an effect.");
 		IConsolePrint(CC_HELP, "  Effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather");
 		IConsolePrint(CC_HELP, "Usage: 'pp set <param> <value>' - Set a parameter.");
-		IConsolePrint(CC_HELP, "  Params: render_scale, sharpening, upscale, brightness, contrast, saturation, temperature");
+		IConsolePrint(CC_HELP, "  Core: render_scale (50-200), sharpening (0-100), upscale (0-2)");
+		IConsolePrint(CC_HELP, "  Color: brightness (-50..50), contrast (50-200), saturation (0-200), temperature (-100..100)");
+		IConsolePrint(CC_HELP, "  Night: night_intensity (20-100), night_blue_shift (0-80)");
+		IConsolePrint(CC_HELP, "  CRT: crt_scanlines (0-50), crt_curvature (0-50), crt_aberration (0-30)");
+		IConsolePrint(CC_HELP, "  Vignette: vignette_intensity (0-100), vignette_radius (50-150)");
+		IConsolePrint(CC_HELP, "  Tilt-shift: tiltshift_focus (0-100), tiltshift_width (5-80), tiltshift_blur (10-60)");
+		IConsolePrint(CC_HELP, "  Other: grain_intensity (1-20), bloom_threshold (0-100), bloom_intensity (0-100)");
+		IConsolePrint(CC_HELP, "  Weather: weather_type (0-2), weather_intensity (0-100)");
 		IConsolePrint(CC_HELP, "Usage: 'pp reset' - Restore all post-processing settings to defaults.");
 		IConsolePrint(CC_HELP, "Usage: 'pp preset <name>' - Apply a predefined configuration.");
 		IConsolePrint(CC_HELP, "  Presets: retro, cinematic, night, miniature, sharp, clean");
@@ -2907,8 +2914,14 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 	if (argv[1] == "set") {
 		if (argv.size() < 4) {
 			IConsolePrint(CC_ERROR, "Usage: 'pp set <param> <value>'");
-			IConsolePrint(CC_ERROR, "  Params: render_scale (50-200), sharpening (0-100), upscale (0-2),");
-			IConsolePrint(CC_ERROR, "          brightness (-50..50), contrast (50-200), saturation (0-200), temperature (-100..100)");
+			IConsolePrint(CC_ERROR, "  Core: render_scale (50-200), sharpening (0-100), upscale (0-2)");
+			IConsolePrint(CC_ERROR, "  Color: brightness (-50..50), contrast (50-200), saturation (0-200), temperature (-100..100)");
+			IConsolePrint(CC_ERROR, "  Night: night_intensity (20-100), night_blue_shift (0-80)");
+			IConsolePrint(CC_ERROR, "  CRT: crt_scanlines (0-50), crt_curvature (0-50), crt_aberration (0-30)");
+			IConsolePrint(CC_ERROR, "  Vignette: vignette_intensity (0-100), vignette_radius (50-150)");
+			IConsolePrint(CC_ERROR, "  Tilt-shift: tiltshift_focus (0-100), tiltshift_width (5-80), tiltshift_blur (10-60)");
+			IConsolePrint(CC_ERROR, "  Other: grain_intensity (1-20), bloom_threshold (0-100), bloom_intensity (0-100)");
+			IConsolePrint(CC_ERROR, "  Weather: weather_type (0-2), weather_intensity (0-100)");
 			return false;
 		}
 		std::string_view param = argv[2];
@@ -2940,8 +2953,59 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		} else if (param == "temperature") {
 			_video_color_temperature = static_cast<int8_t>(Clamp(value, -100, 100));
 			IConsolePrint(CC_INFO, "Color temperature set to {}.", _video_color_temperature);
+		} else if (param == "night_intensity") {
+			_video_night_intensity = static_cast<uint8_t>(Clamp(value, 20, 100));
+			IConsolePrint(CC_INFO, "Night intensity set to {}.", _video_night_intensity);
+		} else if (param == "night_blue_shift") {
+			_video_night_blue_shift = static_cast<uint8_t>(Clamp(value, 0, 80));
+			IConsolePrint(CC_INFO, "Night blue shift set to {}.", _video_night_blue_shift);
+		} else if (param == "crt_scanlines") {
+			_video_crt_scanlines = static_cast<uint8_t>(Clamp(value, 0, 50));
+			IConsolePrint(CC_INFO, "CRT scanlines set to {}.", _video_crt_scanlines);
+		} else if (param == "crt_curvature") {
+			_video_crt_curvature = static_cast<uint8_t>(Clamp(value, 0, 50));
+			IConsolePrint(CC_INFO, "CRT curvature set to {}.", _video_crt_curvature);
+		} else if (param == "crt_aberration") {
+			_video_crt_aberration = static_cast<uint8_t>(Clamp(value, 0, 30));
+			IConsolePrint(CC_INFO, "CRT aberration set to {}.", _video_crt_aberration);
+		} else if (param == "vignette_intensity") {
+			_video_vignette_intensity = static_cast<uint8_t>(Clamp(value, 0, 100));
+			IConsolePrint(CC_INFO, "Vignette intensity set to {}.", _video_vignette_intensity);
+		} else if (param == "vignette_radius") {
+			_video_vignette_radius = static_cast<uint8_t>(Clamp(value, 50, 150));
+			IConsolePrint(CC_INFO, "Vignette radius set to {}.", _video_vignette_radius);
+		} else if (param == "tiltshift_focus") {
+			_video_tiltshift_focus_y = static_cast<uint8_t>(Clamp(value, 0, 100));
+			IConsolePrint(CC_INFO, "Tilt-shift focus Y set to {}.", _video_tiltshift_focus_y);
+		} else if (param == "tiltshift_width") {
+			_video_tiltshift_focus_width = static_cast<uint8_t>(Clamp(value, 5, 80));
+			IConsolePrint(CC_INFO, "Tilt-shift focus width set to {}.", _video_tiltshift_focus_width);
+		} else if (param == "tiltshift_blur") {
+			_video_tiltshift_blur = static_cast<uint8_t>(Clamp(value, 10, 60));
+			IConsolePrint(CC_INFO, "Tilt-shift blur set to {}.", _video_tiltshift_blur);
+		} else if (param == "grain_intensity") {
+			_video_grain_intensity = static_cast<uint8_t>(Clamp(value, 1, 20));
+			IConsolePrint(CC_INFO, "Grain intensity set to {}.", _video_grain_intensity);
+		} else if (param == "bloom_threshold") {
+			_video_bloom_threshold = static_cast<uint8_t>(Clamp(value, 0, 100));
+			IConsolePrint(CC_INFO, "Bloom threshold set to {}.", _video_bloom_threshold);
+		} else if (param == "bloom_intensity") {
+			_video_bloom_intensity = static_cast<uint8_t>(Clamp(value, 0, 100));
+			IConsolePrint(CC_INFO, "Bloom intensity set to {}.", _video_bloom_intensity);
+		} else if (param == "weather_type") {
+			_video_weather_type = static_cast<uint8_t>(Clamp(value, 0, 2));
+			IConsolePrint(CC_INFO, "Weather type set to {}.", _video_weather_type);
+		} else if (param == "weather_intensity") {
+			_video_weather_intensity = static_cast<uint8_t>(Clamp(value, 0, 100));
+			IConsolePrint(CC_INFO, "Weather intensity set to {}.", _video_weather_intensity);
 		} else {
-			IConsolePrint(CC_ERROR, "Unknown parameter '{}'. Valid params: render_scale, sharpening, upscale, brightness, contrast, saturation, temperature", param);
+			IConsolePrint(CC_ERROR, "Unknown parameter '{}'.", param);
+			IConsolePrint(CC_ERROR, "  Core: render_scale, sharpening, upscale, brightness, contrast, saturation, temperature");
+			IConsolePrint(CC_ERROR, "  Night: night_intensity, night_blue_shift");
+			IConsolePrint(CC_ERROR, "  CRT: crt_scanlines, crt_curvature, crt_aberration");
+			IConsolePrint(CC_ERROR, "  Vignette: vignette_intensity, vignette_radius");
+			IConsolePrint(CC_ERROR, "  Tilt-shift: tiltshift_focus, tiltshift_width, tiltshift_blur");
+			IConsolePrint(CC_ERROR, "  Other: grain_intensity, bloom_threshold, bloom_intensity, weather_type, weather_intensity");
 			return false;
 		}
 		return true;
