@@ -39,6 +39,8 @@ add_files(
     dedicated_v.h
     motion_vector.cpp
     motion_vector.h
+    temporal_upscale.cpp
+    temporal_upscale.h
     null_v.cpp
     null_v.h
     postprocess.cpp
