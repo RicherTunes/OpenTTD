@@ -476,6 +476,56 @@ static const char *_frag_shader_pp_grain[] = {
 	"}",
 };
 
+/* ---- Bicubic (Catmull-Rom) texture filter ---- */
+
+/**
+ * Fragment shader implementing Catmull-Rom bicubic filtering.
+ *
+ * Uses 9 bilinear-hardware taps (instead of 16 point samples) by combining
+ * adjacent weight pairs and letting GL_LINEAR interpolate between them.
+ * This provides smoother upscaling than bilinear at a modest cost.
+ */
+static const char *_frag_shader_pp_bicubic[] = {
+	"#version 150\n",
+	"uniform sampler2D source_tex;",
+	"uniform vec2 texel_size;",
+	"in vec2 tex_coord;",
+	"out vec4 frag_colour;",
+	"void main() {",
+	"  vec2 pixel = tex_coord / texel_size - 0.5;",
+	"  vec2 f = fract(pixel);",
+	"  vec2 pixel_center = (pixel - f + 0.5) * texel_size;",
+	"",
+	"  /* Catmull-Rom spline weights. */",
+	"  vec2 w0 = f * (-0.5 + f * (1.0 - 0.5 * f));",
+	"  vec2 w1 = 1.0 + f * f * (-2.5 + 1.5 * f);",
+	"  vec2 w2 = f * (0.5 + f * (2.0 - 1.5 * f));",
+	"  vec2 w3 = f * f * (-0.5 + 0.5 * f);",
+	"",
+	"  /* Combine w1+w2 for bilinear filtering trick (9 taps instead of 16). */",
+	"  vec2 s12 = w1 + w2;",
+	"  vec2 f12 = w2 / s12;",
+	"",
+	"  vec2 tc0 = pixel_center + (f12 - 1.0) * texel_size;",
+	"  vec2 tc3 = pixel_center + (f12 + 1.0) * texel_size;",
+	"  vec2 tc12 = pixel_center + f12 * texel_size;",
+	"",
+	"  /* 9-tap Catmull-Rom bicubic sampling. */",
+	"  vec4 result = vec4(0.0);",
+	"  result += texture(source_tex, vec2(tc0.x,  tc0.y))  * w0.x  * w0.y;",
+	"  result += texture(source_tex, vec2(tc12.x, tc0.y))  * s12.x * w0.y;",
+	"  result += texture(source_tex, vec2(tc3.x,  tc0.y))  * w3.x  * w0.y;",
+	"  result += texture(source_tex, vec2(tc0.x,  tc12.y)) * w0.x  * s12.y;",
+	"  result += texture(source_tex, vec2(tc12.x, tc12.y)) * s12.x * s12.y;",
+	"  result += texture(source_tex, vec2(tc3.x,  tc12.y)) * w3.x  * s12.y;",
+	"  result += texture(source_tex, vec2(tc0.x,  tc3.y))  * w0.x  * w3.y;",
+	"  result += texture(source_tex, vec2(tc12.x, tc3.y))  * s12.x * w3.y;",
+	"  result += texture(source_tex, vec2(tc3.x,  tc3.y))  * w3.x  * w3.y;",
+	"",
+	"  frag_colour = result;",
+	"}",
+};
+
 /* ---- CRT scanline effect ---- */
 
 /** Fragment shader for CRT scanline and curvature effect. */
@@ -554,5 +604,210 @@ static const char *_compute_shader_mv_rasterize[] = {
 	"  }",
 	"  imageStore(mv_out, px, vec4(bm / vec2(screen_size), 0, 0));",
 	"  imageStore(depth_out, px, vec4(bd, 0, 0, 0));",
+	"}",
+};
+
+/* ---- Dynamic Lighting (Time-of-Day) ---- */
+
+/** Fragment shader for time-of-day lighting. Shifts color temperature and brightness
+ *  based on a 0-1 time value (0=midnight, 0.25=dawn, 0.5=noon, 0.75=dusk). */
+static const char *_frag_shader_pp_lighting[] = {
+	"#version 150\n",
+	"uniform sampler2D source_tex;",
+	"uniform float time_of_day;",
+	"in vec2 tex_coord;",
+	"out vec4 frag_colour;",
+	"void main() {",
+	"  vec4 src = texture(source_tex, tex_coord);",
+	"  /* Brightness cycle: peaks at noon (0.5), darkest at midnight (0.0/1.0). */",
+	"  float sun = clamp(sin(time_of_day * 6.28318530) * 0.5 + 0.5, 0.0, 1.0);",
+	"  float brightness = 0.45 + sun * 0.55;",
+	"  /* Color temperature: warm yellow at noon, cool blue at night, orange at dawn/dusk. */",
+	"  float dawn_dusk = pow(sin(time_of_day * 6.28318530 * 2.0) * 0.5 + 0.5, 3.0);",
+	"  vec3 noon_light  = vec3(1.00, 0.97, 0.90);",
+	"  vec3 night_light = vec3(0.60, 0.65, 0.85);",
+	"  vec3 dawn_light  = vec3(1.00, 0.80, 0.55);",
+	"  vec3 light_color = mix(night_light, noon_light, sun);",
+	"  light_color = mix(light_color, dawn_light, dawn_dusk * 0.6);",
+	"  vec3 result = src.rgb * light_color * brightness;",
+	"  frag_colour = vec4(clamp(result, 0.0, 1.0), src.a);",
+	"}",
+};
+
+/* ---- Bloom (Threshold Pass) ---- */
+
+/** Fragment shader for bloom threshold extraction. Outputs only pixels above luminance threshold. */
+static const char *_frag_shader_pp_bloom_threshold[] = {
+	"#version 150\n",
+	"uniform sampler2D source_tex;",
+	"uniform float bloom_threshold;",
+	"in vec2 tex_coord;",
+	"out vec4 frag_colour;",
+	"void main() {",
+	"  vec3 c = texture(source_tex, tex_coord).rgb;",
+	"  float luma = dot(c, vec3(0.2126, 0.7152, 0.0722));",
+	"  float contrib = max(0.0, luma - bloom_threshold) / max(1.0 - bloom_threshold, 0.001);",
+	"  frag_colour = vec4(c * contrib, 1.0);",
+	"}",
+};
+
+/** Fragment shader for bloom horizontal Gaussian blur (7-tap). */
+static const char *_frag_shader_pp_bloom_blur_h[] = {
+	"#version 150\n",
+	"uniform sampler2D source_tex;",
+	"uniform vec2 texel_size;",
+	"in vec2 tex_coord;",
+	"out vec4 frag_colour;",
+	"void main() {",
+	"  float w[4] = float[](0.3829, 0.2417, 0.0606, 0.0060);",
+	"  vec3 sum = texture(source_tex, tex_coord).rgb * w[0];",
+	"  for (int i = 1; i < 4; i++) {",
+	"    vec2 off = vec2(float(i) * texel_size.x * 1.5, 0.0);",
+	"    sum += texture(source_tex, tex_coord + off).rgb * w[i];",
+	"    sum += texture(source_tex, tex_coord - off).rgb * w[i];",
+	"  }",
+	"  frag_colour = vec4(sum, 1.0);",
+	"}",
+};
+
+/** Fragment shader for bloom vertical Gaussian blur (7-tap). */
+static const char *_frag_shader_pp_bloom_blur_v[] = {
+	"#version 150\n",
+	"uniform sampler2D source_tex;",
+	"uniform vec2 texel_size;",
+	"in vec2 tex_coord;",
+	"out vec4 frag_colour;",
+	"void main() {",
+	"  float w[4] = float[](0.3829, 0.2417, 0.0606, 0.0060);",
+	"  vec3 sum = texture(source_tex, tex_coord).rgb * w[0];",
+	"  for (int i = 1; i < 4; i++) {",
+	"    vec2 off = vec2(0.0, float(i) * texel_size.y * 1.5);",
+	"    sum += texture(source_tex, tex_coord + off).rgb * w[i];",
+	"    sum += texture(source_tex, tex_coord - off).rgb * w[i];",
+	"  }",
+	"  frag_colour = vec4(sum, 1.0);",
+	"}",
+};
+
+/* ---- Weather Effects (Rain / Snow Overlay) ---- */
+
+/** Fragment shader for procedural weather particle overlay. */
+static const char *_frag_shader_pp_weather[] = {
+	"#version 150\n",
+	"uniform sampler2D source_tex;",
+	"uniform float time;",
+	"uniform float weather_intensity;",
+	"uniform float weather_type;",
+	"in vec2 tex_coord;",
+	"out vec4 frag_colour;",
+	"",
+	"float WeatherHash(vec2 p) {",
+	"  vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));",
+	"  p3 += dot(p3, p3.yzx + 33.33);",
+	"  return fract((p3.x + p3.y) * p3.z);",
+	"}",
+	"",
+	"void main() {",
+	"  vec4 src = texture(source_tex, tex_coord);",
+	"  float particle = 0.0;",
+	"  /* Rain: thin vertical streaks, fast fall speed. */",
+	"  if (weather_type > 0.5 && weather_type < 1.5) {",
+	"    vec2 uv = tex_coord * vec2(120.0, 40.0);",
+	"    uv.y -= time * 8.0;",
+	"    vec2 cell = floor(uv);",
+	"    vec2 f = fract(uv);",
+	"    float h = WeatherHash(cell);",
+	"    float streak = step(0.92, h) * step(abs(f.x - 0.5), 0.08) * smoothstep(0.0, 0.3, f.y) * smoothstep(1.0, 0.5, f.y);",
+	"    particle = streak * 0.6;",
+	"  }",
+	"  /* Snow: larger slower diagonal drift. */",
+	"  if (weather_type > 1.5) {",
+	"    vec2 uv = tex_coord * vec2(60.0, 30.0);",
+	"    uv.y -= time * 2.0;",
+	"    uv.x += sin(time * 0.7 + tex_coord.y * 5.0) * 0.5;",
+	"    vec2 cell = floor(uv);",
+	"    vec2 f = fract(uv) - 0.5;",
+	"    float h = WeatherHash(cell);",
+	"    float flake = step(0.85, h) * (1.0 - smoothstep(0.0, 0.15, length(f)));",
+	"    particle = flake * 0.8;",
+	"  }",
+	"  vec3 result = src.rgb + vec3(particle * weather_intensity);",
+	"  frag_colour = vec4(clamp(result, 0.0, 1.0), src.a);",
+	"}",
+};
+
+/* ---- Temporal accumulation (TAA-style upscaling prototype) ---- */
+
+/**
+ * Fragment shader for temporal accumulation upscaling.
+ * Reprojects the previous frame using motion vectors and blends with
+ * the current frame. This is a simplified version of the core technique
+ * used by FSR 2 and DLSS, serving as a quality prototype (Gate 2).
+ *
+ * Inputs:
+ *   source_tex: current frame color (render resolution, jittered)
+ *   history_tex: previous frame accumulated output (display resolution)
+ *   mv_tex: per-pixel motion vectors (RG16F, normalized screen-space)
+ *   texel_size: 1.0 / display_size
+ *   jitter_offset: current frame jitter in pixels
+ *   reset: 1.0 to force history reset (scene cut)
+ */
+static const char *_frag_shader_pp_temporal_accum[] = {
+	"#version 150\n",
+	"uniform sampler2D source_tex;",
+	"uniform sampler2D history_tex;",
+	"uniform sampler2D mv_tex;",
+	"uniform vec2 texel_size;",
+	"uniform vec2 jitter_offset;",
+	"uniform float reset;",
+	"in vec2 tex_coord;",
+	"out vec4 frag_colour;",
+	"",
+	"float Luminance(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }",
+	"",
+	"void main() {",
+	"  /* Read current frame color (unjitter by subtracting jitter offset). */",
+	"  vec2 src_uv = tex_coord - jitter_offset * texel_size;",
+	"  vec4 current = texture(source_tex, src_uv);",
+	"",
+	"  /* If reset is requested, output current frame directly. */",
+	"  if (reset > 0.5) { frag_colour = current; return; }",
+	"",
+	"  /* Read motion vector and reproject to find history sample location. */",
+	"  vec2 mv = texture(mv_tex, tex_coord).rg;",
+	"  vec2 history_uv = tex_coord + mv;",
+	"",
+	"  /* Reject history if reprojected UV is out of bounds. */",
+	"  if (history_uv.x < 0.0 || history_uv.x > 1.0 || history_uv.y < 0.0 || history_uv.y > 1.0) {",
+	"    frag_colour = current;",
+	"    return;",
+	"  }",
+	"",
+	"  vec4 history = texture(history_tex, history_uv);",
+	"",
+	"  /* Neighborhood clamping: clamp history to the color range of current 3x3 neighborhood. */",
+	"  /* This prevents ghosting when the scene changes in ways not captured by motion vectors. */",
+	"  vec3 nmin = current.rgb;",
+	"  vec3 nmax = current.rgb;",
+	"  for (int y = -1; y <= 1; y++) {",
+	"    for (int x = -1; x <= 1; x++) {",
+	"      if (x == 0 && y == 0) continue;",
+	"      vec3 n = texture(source_tex, src_uv + vec2(x, y) * texel_size).rgb;",
+	"      nmin = min(nmin, n);",
+	"      nmax = max(nmax, n);",
+	"    }",
+	"  }",
+	"  history.rgb = clamp(history.rgb, nmin, nmax);",
+	"",
+	"  /* Blend: use higher weight for history (temporal stability) vs current (sharpness). */",
+	"  /* Typical TAA uses 0.9-0.95 history weight. For upscaling, use less history */",
+	"  /* to preserve current-frame detail at the cost of some temporal noise. */",
+	"  float blend = 0.85;",
+	"",
+	"  /* Reduce history weight when motion is large (moving objects). */",
+	"  float mv_magnitude = length(mv) * max(1.0 / texel_size.x, 1.0 / texel_size.y);",
+	"  blend *= 1.0 - clamp(mv_magnitude * 0.1, 0.0, 0.5);",
+	"",
+	"  frag_colour = vec4(mix(current.rgb, history.rgb, blend), current.a);",
 	"}",
 };
