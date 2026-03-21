@@ -90,6 +90,7 @@
 #include "network/network_func.h"
 #include "framerate_type.h"
 #include "viewport_cmd.h"
+#include "video/motion_vector.h"
 
 #include <forward_list>
 #include <stack>
@@ -1715,7 +1716,17 @@ static void ViewportSortParentSprites(ParentSpriteToSortVector *psdv)
 static void ViewportDrawParentSprites(const ParentSpriteToSortVector *psd, const ChildScreenSpriteToDrawVector *csstdv)
 {
 	for (const ParentSpriteToDraw *ps : *psd) {
-		if (ps->image != SPR_EMPTY_BOUNDING_BOX) DrawSpriteViewport(ps->image, ps->pal, ps->x, ps->y, ps->sub);
+		if (ps->image != SPR_EMPTY_BOUNDING_BOX) {
+			DrawSpriteViewport(ps->image, ps->pal, ps->x, ps->y, ps->sub);
+
+			/* Record draw command for motion vector generation (Phase 2a). */
+			if (_motion_vectors.active) {
+				int sprite_w = ps->xmax - ps->xmin + 1;
+				int sprite_h = ps->ymax - ps->ymin + 1;
+				_motion_vectors.RecordSprite(ps->left, ps->top, sprite_w > 0 ? sprite_w : 1, sprite_h > 0 ? sprite_h : 1,
+					ps->xmin, ps->ymin, ps->zmin);
+			}
+		}
 
 		int child_idx = ps->first_child;
 		while (child_idx >= 0) {
@@ -1809,6 +1820,12 @@ static void ViewportDrawStrings(ZoomLevel zoom, const StringSpriteToDrawVector *
 
 void ViewportDoDraw(const Viewport &vp, int left, int top, int right, int bottom)
 {
+	/* Update motion vector scroll delta for this viewport. */
+	if (_motion_vectors.active) {
+		_motion_vectors.BeginFrame();
+		_motion_vectors.UpdateScrollDelta(vp.virtual_left, vp.virtual_top, vp.zoom);
+	}
+
 	_vd.dpi.zoom = vp.zoom;
 	int mask = ScaleByZoom(-1, vp.zoom);
 
