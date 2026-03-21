@@ -14,6 +14,7 @@
 #include "../gfx_type.h"
 #include "../spriteloader/spriteloader.hpp"
 #include "../misc/lrucache.hpp"
+#include "postprocess.h"
 
 typedef void (*OGLProc)();
 typedef OGLProc (*GetOGLProcAddressProc)(const char *proc);
@@ -60,6 +61,74 @@ private:
 	GLint  sprite_rgb_loc = 0; ///< Uniform location for RGB mode flag.
 	GLint  sprite_crash_loc = 0; ///< Uniform location for crash remap mode flag.
 
+	/* Post-processing pipeline resources. */
+	GLuint pp_fbo[2] = {};           ///< Ping-pong framebuffer objects.
+	GLuint pp_tex[2] = {};           ///< Colour texture attachments for ping-pong FBOs.
+	Dimension pp_render_size = {};   ///< Internal render resolution.
+	Dimension pp_display_size = {};  ///< Display/window resolution.
+	bool pp_active = false;          ///< Post-processing pipeline is currently active.
+	bool pp_fbo_supported = false;   ///< FBO extensions are available.
+
+	GLuint pp_blit_program = 0;      ///< Simple blit shader program.
+	GLuint pp_cas_program = 0;       ///< CAS sharpening shader program.
+	GLuint pp_fsr_easu_program = 0;  ///< FSR 1.0 EASU (upscale) shader program.
+	GLuint pp_fsr_rcas_program = 0;  ///< FSR 1.0 RCAS (sharpen) shader program.
+	GLuint pp_fxaa_program = 0;      ///< FXAA anti-aliasing shader program.
+	GLuint pp_color_program = 0;     ///< Color grading shader program.
+	GLuint pp_vignette_program = 0;  ///< Vignette effect shader program.
+	GLuint pp_tiltshift_h_program = 0; ///< Tilt-shift horizontal blur shader program.
+	GLuint pp_tiltshift_v_program = 0; ///< Tilt-shift vertical blur shader program.
+	GLuint pp_night_program = 0;     ///< Night mode shader program.
+	GLuint pp_grain_program = 0;     ///< Film grain shader program.
+	GLuint pp_crt_program = 0;       ///< CRT scanline filter shader program.
+
+	/* Cached uniform locations for all post-processing shaders. */
+	GLint pp_cas_sharp_loc = -1;     ///< CAS sharpness uniform location.
+	GLint pp_cas_texel_loc = -1;     ///< CAS texel_size uniform location.
+	GLint pp_easu_con0_loc = -1;     ///< FSR EASU constant 0 uniform location.
+	GLint pp_easu_con1_loc = -1;     ///< FSR EASU constant 1 uniform location.
+	GLint pp_easu_con2_loc = -1;     ///< FSR EASU constant 2 uniform location.
+	GLint pp_easu_con3_loc = -1;     ///< FSR EASU constant 3 uniform location.
+	GLint pp_rcas_con_loc = -1;      ///< FSR RCAS strength uniform location.
+	GLint pp_rcas_texel_loc = -1;    ///< FSR RCAS texel_size uniform location.
+	GLint pp_fxaa_texel_loc = -1;    ///< FXAA texel_size uniform location.
+	GLint pp_fxaa_subpix_loc = -1;   ///< FXAA subpix_quality uniform location.
+	GLint pp_fxaa_edge_loc = -1;     ///< FXAA edge_threshold uniform location.
+	GLint pp_ts_texel_loc[2] = {-1, -1}; ///< Tilt-shift texel_size locations [h, v].
+	GLint pp_ts_focus_loc[2] = {-1, -1}; ///< Tilt-shift focus_position locations.
+	GLint pp_ts_width_loc[2] = {-1, -1}; ///< Tilt-shift focus_width locations.
+	GLint pp_ts_blur_loc[2] = {-1, -1};  ///< Tilt-shift blur_strength locations.
+	GLint pp_cg_brightness_loc = -1; ///< Color grading brightness uniform location.
+	GLint pp_cg_contrast_loc = -1;   ///< Color grading contrast uniform location.
+	GLint pp_cg_saturation_loc = -1; ///< Color grading saturation uniform location.
+	GLint pp_cg_temperature_loc = -1;///< Color grading temperature uniform location.
+	GLint pp_vig_intensity_loc = -1; ///< Vignette intensity uniform location.
+	GLint pp_vig_radius_loc = -1;    ///< Vignette radius uniform location.
+	GLint pp_vig_softness_loc = -1;  ///< Vignette softness uniform location.
+	GLint pp_night_int_loc = -1;     ///< Night mode intensity uniform location.
+	GLint pp_night_blue_loc = -1;    ///< Night mode blue shift uniform location.
+	GLint pp_grain_int_loc = -1;     ///< Film grain intensity uniform location.
+	GLint pp_grain_time_loc = -1;    ///< Film grain time uniform location.
+	GLint pp_crt_texel_loc = -1;     ///< CRT texel_size uniform location.
+	GLint pp_crt_res_loc = -1;       ///< CRT resolution uniform location.
+	GLint pp_crt_scanline_loc = -1;  ///< CRT scanline_intensity uniform location.
+	GLint pp_crt_curve_loc = -1;     ///< CRT curvature uniform location.
+	GLint pp_crt_aberr_loc = -1;     ///< CRT chromatic_aberr uniform location.
+
+	PostProcessConfig pp_config;     ///< Current post-processing configuration.
+
+	/* Benchmark GPU timer query state. */
+	GLuint benchmark_query[2] = {};      ///< Double-buffered GL_TIME_ELAPSED query objects.
+	int benchmark_query_idx = 0;         ///< Current ping-pong index for timer queries.
+	bool benchmark_query_active = false; ///< A timer query is currently in flight.
+	bool benchmark_query_pending = false;///< Previous frame's query result is available to read.
+	uint64_t benchmark_gpu_ns = 0;       ///< Last completed GPU post-process time in nanoseconds.
+
+	bool SetupPostProcessFBOs(int display_w, int display_h);
+	void DestroyPostProcessFBOs();
+	bool InitPostProcessShaders();
+	void RenderPostProcess();
+
 	OpenGLSpriteLRUCache cursor_cache; ///< Cache of encoded cursor sprites.
 	PaletteID last_sprite_pal = (PaletteID)-1; ///< Last uploaded remap palette.
 	bool clear_cursor_cache = false; ///< A clear of the cursor cache is pending.
@@ -102,6 +171,16 @@ public:
 	void DrawMouseCursor();
 	void PopulateCursorCache();
 	void ClearCursorCache();
+
+	void SetPostProcessConfig(const PostProcessConfig &config);
+	bool IsPostProcessSupported() const { return this->pp_fbo_supported; }
+	const PostProcessConfig &GetPostProcessConfig() const { return this->pp_config; }
+
+	void InitBenchmarkQueries();
+	void DestroyBenchmarkQueries();
+	void BeginBenchmarkQuery();
+	void EndBenchmarkQuery();
+	uint64_t ReadBackBenchmarkGPUTime();
 
 	void *GetVideoBuffer();
 	uint8_t *GetAnimBuffer();

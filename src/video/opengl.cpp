@@ -28,6 +28,8 @@
 #include "../3rdparty/opengl/glext.h"
 
 #include "opengl.h"
+#include "video_driver.hpp"
+#include "../benchmark.h"
 #include "../core/geometry_func.hpp"
 #include "../core/math_func.hpp"
 #include "../gfx_func.h"
@@ -37,6 +39,7 @@
 #include "../core/string_consumer.hpp"
 
 #include "../table/opengl_shader.h"
+#include "../table/postprocess_shader.h"
 #include "../table/sprites.h"
 
 
@@ -116,6 +119,19 @@ GL(glEnableVertexAttribArray);
 GL(glDisableVertexAttribArray);
 GL(glVertexAttribPointer);
 GL(glBindFragDataLocation);
+
+GL(glGenFramebuffers);
+GL(glDeleteFramebuffers);
+GL(glBindFramebuffer);
+GL(glFramebufferTexture2D);
+GL(glCheckFramebufferStatus);
+GL(glDrawBuffers);
+
+GL(glGenQueries);
+GL(glDeleteQueries);
+GL(glBeginQuery);
+GL(glEndQuery);
+GL(glGetQueryObjectui64v);
 
 #undef GL
 
@@ -423,6 +439,42 @@ static bool BindPersistentBufferExtensions()
 }
 
 /**
+ * Bind FBO extension functions for post-processing pipeline.
+ * @return \c true iff all extension procs could be bound.
+ */
+static bool BindFBOExtensions()
+{
+	if (IsOpenGLVersionAtLeast(3, 0) || IsOpenGLExtensionSupported("GL_ARB_framebuffer_object")) {
+		if (!BindGLProc(_glGenFramebuffers, "glGenFramebuffers")) return false;
+		if (!BindGLProc(_glDeleteFramebuffers, "glDeleteFramebuffers")) return false;
+		if (!BindGLProc(_glBindFramebuffer, "glBindFramebuffer")) return false;
+		if (!BindGLProc(_glFramebufferTexture2D, "glFramebufferTexture2D")) return false;
+		if (!BindGLProc(_glCheckFramebufferStatus, "glCheckFramebufferStatus")) return false;
+		if (!BindGLProc(_glDrawBuffers, "glDrawBuffers")) return false;
+		return true;
+	}
+	return false;
+}
+
+/**
+ * Bind GL timer query functions for GPU benchmarking.
+ * Requires OpenGL 3.3 or GL_ARB_timer_query.
+ * @return \c true iff all procs could be bound.
+ */
+static bool BindTimerQueryProcs()
+{
+	if (IsOpenGLVersionAtLeast(3, 3) || IsOpenGLExtensionSupported("GL_ARB_timer_query")) {
+		if (!BindGLProc(_glGenQueries, "glGenQueries")) return false;
+		if (!BindGLProc(_glDeleteQueries, "glDeleteQueries")) return false;
+		if (!BindGLProc(_glBeginQuery, "glBeginQuery")) return false;
+		if (!BindGLProc(_glEndQuery, "glEndQuery")) return false;
+		if (!BindGLProc(_glGetQueryObjectui64v, "glGetQueryObjectui64v")) return false;
+		return true;
+	}
+	return false;
+}
+
+/**
  * Callback to receive OpenGL debug messages.
  * @param type The type of message.
  * @param severity The severity of the issue.
@@ -518,11 +570,24 @@ OpenGLBackend::OpenGLBackend() : cursor_cache(MAX_CACHED_CURSORS)
  */
 OpenGLBackend::~OpenGLBackend()
 {
+	this->DestroyPostProcessFBOs();
 	if (_glDeleteProgram != nullptr) {
 		_glDeleteProgram(this->remap_program);
 		_glDeleteProgram(this->vid_program);
 		_glDeleteProgram(this->pal_program);
 		_glDeleteProgram(this->sprite_program);
+		if (this->pp_blit_program != 0) _glDeleteProgram(this->pp_blit_program);
+		if (this->pp_cas_program != 0) _glDeleteProgram(this->pp_cas_program);
+		if (this->pp_fsr_easu_program != 0) _glDeleteProgram(this->pp_fsr_easu_program);
+		if (this->pp_fsr_rcas_program != 0) _glDeleteProgram(this->pp_fsr_rcas_program);
+		if (this->pp_fxaa_program != 0) _glDeleteProgram(this->pp_fxaa_program);
+		if (this->pp_color_program != 0) _glDeleteProgram(this->pp_color_program);
+		if (this->pp_vignette_program != 0) _glDeleteProgram(this->pp_vignette_program);
+		if (this->pp_tiltshift_h_program != 0) _glDeleteProgram(this->pp_tiltshift_h_program);
+		if (this->pp_tiltshift_v_program != 0) _glDeleteProgram(this->pp_tiltshift_v_program);
+		if (this->pp_night_program != 0) _glDeleteProgram(this->pp_night_program);
+		if (this->pp_grain_program != 0) _glDeleteProgram(this->pp_grain_program);
+		if (this->pp_crt_program != 0) _glDeleteProgram(this->pp_crt_program);
 	}
 	if (_glDeleteVertexArrays != nullptr) _glDeleteVertexArrays(1, &this->vao_quad);
 	if (_glDeleteBuffers != nullptr) {
@@ -755,6 +820,24 @@ std::optional<std::string_view> OpenGLBackend::Init(const Dimension &screen_res)
 	/* Create resources for sprite rendering. */
 	if (!OpenGLSprite::Create()) return "Failed to create sprite rendering resources";
 
+	/* Initialize post-processing pipeline (optional -- gracefully disabled if not supported). */
+	this->pp_fbo_supported = BindFBOExtensions();
+	if (this->pp_fbo_supported) {
+		if (!this->InitPostProcessShaders()) {
+			Debug(driver, 0, "OpenGL: Failed to initialize post-processing shaders, disabling post-processing");
+			this->pp_fbo_supported = false;
+		} else {
+			Debug(driver, 1, "OpenGL: Post-processing pipeline available");
+		}
+	} else {
+		Debug(driver, 1, "OpenGL: FBO extensions not available, post-processing disabled");
+	}
+
+	/* Bind timer query functions for GPU benchmarking (optional). */
+	if (!BindTimerQueryProcs()) {
+		Debug(driver, 1, "OpenGL: Timer query extensions not available, GPU benchmarking will report 0");
+	}
+
 	this->PrepareContext();
 	(void)_glGetError(); // Clear errors.
 
@@ -940,9 +1023,21 @@ bool OpenGLBackend::Resize(int w, int h, bool force)
 {
 	if (!force && _screen.width == w && _screen.height == h) return false;
 
+	/* Determine render resolution: if post-processing with render scaling is active,
+	 * the CPU blitter renders at reduced resolution. The display is at full window size. */
+	int render_w = w;
+	int render_h = h;
+	bool pp_scaling = this->pp_fbo_supported && _video_post_processing && _video_render_scale < 100 &&
+	                  BlitterFactory::GetCurrentBlitter()->GetScreenDepth() != 8;
+	if (pp_scaling) {
+		auto dims = CalculatePostProcessDimensions(w, h, _video_render_scale);
+		render_w = dims.render.width;
+		render_h = dims.render.height;
+	}
+
 	int bpp = BlitterFactory::GetCurrentBlitter()->GetScreenDepth();
-	int pitch = Align(w, 4);
-	size_t line_pixel_count = static_cast<size_t>(pitch) * h;
+	int pitch = Align(render_w, 4);
+	size_t line_pixel_count = static_cast<size_t>(pitch) * render_h;
 
 	_glViewport(0, 0, w, h);
 
@@ -980,9 +1075,9 @@ bool OpenGLBackend::Resize(int w, int h, bool force)
 	_glActiveTexture(GL_TEXTURE0);
 	_glBindTexture(GL_TEXTURE_2D, this->vid_texture);
 	if (bpp == 8) {
-		_glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, w, h, 0, GL_RED, GL_UNSIGNED_BYTE, nullptr);
+		_glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, render_w, render_h, 0, GL_RED, GL_UNSIGNED_BYTE, nullptr);
 	} else {
-		_glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, nullptr);
+		_glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, render_w, render_h, 0, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, nullptr);
 	}
 	_glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
@@ -1008,7 +1103,7 @@ bool OpenGLBackend::Resize(int w, int h, bool force)
 		}
 
 		_glBindTexture(GL_TEXTURE_2D, this->anim_texture);
-		_glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, w, h, 0, GL_RED, GL_UNSIGNED_BYTE, nullptr);
+		_glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, render_w, render_h, 0, GL_RED, GL_UNSIGNED_BYTE, nullptr);
 		_glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 	} else {
 		if (this->anim_buffer != nullptr) {
@@ -1027,9 +1122,9 @@ bool OpenGLBackend::Resize(int w, int h, bool force)
 
 	_glBindTexture(GL_TEXTURE_2D, 0);
 
-	/* Set new viewport. */
-	_screen.height = h;
-	_screen.width = w;
+	/* Set screen dimensions to render resolution (this is what the CPU blitter sees). */
+	_screen.height = render_h;
+	_screen.width = render_w;
 	_screen.pitch = pitch;
 	_screen.dst_ptr = nullptr;
 
@@ -1038,6 +1133,11 @@ bool OpenGLBackend::Resize(int w, int h, bool force)
 	_glUniform2f(this->remap_screen_loc, (float)_screen.width, (float)_screen.height);
 
 	_glClear(GL_COLOR_BUFFER_BIT);
+
+	/* Store display size and setup post-processing FBOs. */
+	this->pp_display_size.width = w;
+	this->pp_display_size.height = h;
+	this->SetupPostProcessFBOs(w, h);
 
 	return true;
 }
@@ -1064,13 +1164,97 @@ void OpenGLBackend::UpdatePalette(const Colour *pal, uint first, uint length)
  */
 void OpenGLBackend::Paint()
 {
+	/* Sync post-processing config from global settings. */
+	if (this->pp_fbo_supported) {
+		PostProcessConfig new_config;
+		/* Bilinear filtering is independent of the PP toggle. */
+		new_config.bilinear_filtering = (_video_texture_filter >= 1);
+
+		if (_video_post_processing) {
+			/* Core upscaling settings. */
+			new_config.render_scale = _video_render_scale;
+			new_config.upscale_mode = static_cast<UpscaleMode>(Clamp<uint8_t>(_video_upscale_mode, 0, 2));
+			new_config.sharpening = _video_sharpening;
+
+			/* Effect toggles from persistent settings. */
+			new_config.fxaa = _video_fxaa;
+			new_config.night_mode = _video_night_mode;
+			new_config.crt_filter = _video_crt_filter;
+			new_config.vignette = _video_vignette;
+			new_config.tiltshift = _video_tiltshift;
+			new_config.film_grain = _video_film_grain;
+
+			/* Color grading: enable the pass when any parameter deviates from identity.
+			 * The shader is a visual no-op at identity values, so no flicker risk. */
+			new_config.cg_brightness = _video_brightness;
+			new_config.cg_contrast = _video_contrast;
+			new_config.cg_saturation = _video_saturation;
+			new_config.cg_temperature = _video_color_temperature;
+			new_config.color_grading = (_video_brightness != 0 || _video_contrast != 100 ||
+			                            _video_saturation != 100 || _video_color_temperature != 0);
+
+			/* Night mode sub-parameters. */
+			new_config.night_intensity = _video_night_intensity;
+			new_config.night_blue_shift = _video_night_blue_shift;
+
+			/* CRT sub-parameters. */
+			new_config.crt_scanlines = _video_crt_scanlines;
+			new_config.crt_curvature = _video_crt_curvature;
+			new_config.crt_aberration = _video_crt_aberration;
+
+			/* Vignette sub-parameters. */
+			new_config.vignette_intensity = _video_vignette_intensity;
+			new_config.vignette_radius = _video_vignette_radius;
+
+			/* Tilt-shift sub-parameters. */
+			new_config.tiltshift_focus_y = _video_tiltshift_focus_y;
+			new_config.tiltshift_focus_width = _video_tiltshift_focus_width;
+			new_config.tiltshift_blur = _video_tiltshift_blur;
+
+			/* Film grain sub-parameter. */
+			new_config.grain_intensity = _video_grain_intensity;
+		}
+
+		/* Only rebuild FBOs when resolution or FBO-need changes. Uniform-only changes
+		 * (sharpening, color grading params, etc.) don't require FBO recreation. */
+		bool config_changed = (new_config.render_scale != this->pp_config.render_scale) ||
+		                      (PostProcessNeedsFBO(new_config) != PostProcessNeedsFBO(this->pp_config));
+		this->pp_config = new_config;
+		if (config_changed) {
+			this->SetupPostProcessFBOs(this->pp_display_size.width > 0 ? this->pp_display_size.width : _screen.width,
+			                           this->pp_display_size.height > 0 ? this->pp_display_size.height : _screen.height);
+		}
+	}
+
+	/* Post-processing requires 32bpp blitter -- 8bpp palette indices are not valid RGBA input. */
+	bool pp_this_frame = this->pp_active && BlitterFactory::GetCurrentBlitter()->GetScreenDepth() != 8;
+
+	if (pp_this_frame) {
+		/* Render scene into post-processing FBO at render resolution. */
+		_glBindFramebuffer(GL_FRAMEBUFFER, this->pp_fbo[0]);
+		_glViewport(0, 0, this->pp_render_size.width, this->pp_render_size.height);
+	}
+
 	_glClear(GL_COLOR_BUFFER_BIT);
 
 	_glDisable(GL_BLEND);
 
-	/* Blit video buffer to screen. */
+	/* Blit video buffer to screen (or to FBO if post-processing is active). */
 	_glActiveTexture(GL_TEXTURE0);
 	_glBindTexture(GL_TEXTURE_2D, this->vid_texture);
+
+	/* Apply bilinear filtering setting (only when not in 8bpp palette mode).
+	 * Skip redundant GL state changes when PP is off and filter is nearest (default). */
+	if ((this->pp_config.bilinear_filtering || this->pp_config.upscale_mode == UpscaleMode::Bilinear) &&
+	    BlitterFactory::GetCurrentBlitter()->GetScreenDepth() != 8) {
+		_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	} else if (this->pp_config.bilinear_filtering || pp_this_frame) {
+		/* Only reset to NEAREST if we previously set LINEAR, to avoid per-frame state spam. */
+		_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	}
+
 	_glActiveTexture(GL_TEXTURE1);
 	_glBindTexture(GL_TEXTURE_1D, this->pal_texture);
 	/* Is the blitter relying on a separate animation buffer? */
@@ -1087,6 +1271,13 @@ void OpenGLBackend::Paint()
 	}
 	_glBindVertexArray(this->vao_quad);
 	_glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+	if (pp_this_frame) {
+		/* Run post-processing chain. Final pass renders to default framebuffer (screen). */
+		if (this->benchmark_query[0] != 0) this->BeginBenchmarkQuery();
+		this->RenderPostProcess();
+		if (this->benchmark_query_active) this->EndBenchmarkQuery();
+	}
 
 	_glEnable(GL_BLEND);
 }
@@ -1110,6 +1301,420 @@ void OpenGLBackend::DrawMouseCursor()
 					this->cursor_pos.y + cs.pos.y + UnScaleByZoom(spr->y_offs, _gui_zoom),
 					_gui_zoom);
 		}
+	}
+}
+
+/**
+ * Initialize post-processing shader programs.
+ * @return True if all shaders compiled and linked successfully.
+ */
+bool OpenGLBackend::InitPostProcessShaders()
+{
+	/* Post-processing requires GLSL 1.50 (OpenGL 3.2+). */
+	if (!IsOpenGLVersionAtLeast(3, 2)) return false;
+
+	GLuint pp_vert = _glCreateShader(GL_VERTEX_SHADER);
+	_glShaderSource(pp_vert, lengthof(_vertex_shader_pp), _vertex_shader_pp, nullptr);
+	_glCompileShader(pp_vert);
+	if (!VerifyShader(pp_vert)) { _glDeleteShader(pp_vert); return false; }
+
+	auto MakePPProgram = [&](const char **frag_src, int frag_count) -> GLuint {
+		GLuint frag = _glCreateShader(GL_FRAGMENT_SHADER);
+		_glShaderSource(frag, frag_count, frag_src, nullptr);
+		_glCompileShader(frag);
+		if (!VerifyShader(frag)) { _glDeleteShader(frag); return 0; }
+
+		GLuint prog = _glCreateProgram();
+		_glAttachShader(prog, pp_vert);
+		_glAttachShader(prog, frag);
+		if (_glBindFragDataLocation != nullptr) _glBindFragDataLocation(prog, 0, "frag_colour");
+		_glLinkProgram(prog);
+		_glDeleteShader(frag);
+
+		if (!VerifyProgram(prog)) { _glDeleteProgram(prog); return 0; }
+		return prog;
+	};
+
+	/* Compile all post-processing shader programs. Log failures individually. */
+	auto CompileAndLog = [&](const char *name, const char **src, int count) -> GLuint {
+		GLuint prog = MakePPProgram(src, count);
+		if (prog == 0) Debug(driver, 0, "OpenGL: Post-processing shader '{}' failed to compile", name);
+		return prog;
+	};
+
+	this->pp_blit_program = CompileAndLog("blit", _frag_shader_pp_blit, lengthof(_frag_shader_pp_blit));
+	this->pp_cas_program = CompileAndLog("CAS", _frag_shader_pp_cas, lengthof(_frag_shader_pp_cas));
+	this->pp_fsr_easu_program = CompileAndLog("upscale-EASU", _frag_shader_pp_fsr_easu, lengthof(_frag_shader_pp_fsr_easu));
+	this->pp_fsr_rcas_program = CompileAndLog("sharpen-RCAS", _frag_shader_pp_fsr_rcas, lengthof(_frag_shader_pp_fsr_rcas));
+	this->pp_fxaa_program = CompileAndLog("FXAA", _frag_shader_pp_fxaa, lengthof(_frag_shader_pp_fxaa));
+	this->pp_color_program = CompileAndLog("color-grading", _frag_shader_pp_color_grading, lengthof(_frag_shader_pp_color_grading));
+	this->pp_vignette_program = CompileAndLog("vignette", _frag_shader_pp_vignette, lengthof(_frag_shader_pp_vignette));
+	this->pp_tiltshift_h_program = CompileAndLog("tiltshift-h", _frag_shader_pp_tiltshift_h, lengthof(_frag_shader_pp_tiltshift_h));
+	this->pp_tiltshift_v_program = CompileAndLog("tiltshift-v", _frag_shader_pp_tiltshift_v, lengthof(_frag_shader_pp_tiltshift_v));
+	this->pp_night_program = CompileAndLog("night-mode", _frag_shader_pp_night, lengthof(_frag_shader_pp_night));
+	this->pp_grain_program = CompileAndLog("film-grain", _frag_shader_pp_grain, lengthof(_frag_shader_pp_grain));
+	this->pp_crt_program = CompileAndLog("CRT", _frag_shader_pp_crt, lengthof(_frag_shader_pp_crt));
+
+	_glDeleteShader(pp_vert);
+
+	/* Bind source_tex to texture unit 0 for all programs. */
+	auto BindSourceTex = [&](GLuint prog) {
+		if (prog == 0) return;
+		_glUseProgram(prog);
+		GLint loc = _glGetUniformLocation(prog, "source_tex");
+		if (loc >= 0) _glUniform1i(loc, 0);
+	};
+	BindSourceTex(this->pp_blit_program);
+	BindSourceTex(this->pp_cas_program);
+	BindSourceTex(this->pp_fsr_easu_program);
+	BindSourceTex(this->pp_fsr_rcas_program);
+	BindSourceTex(this->pp_fxaa_program);
+	BindSourceTex(this->pp_color_program);
+	BindSourceTex(this->pp_vignette_program);
+	BindSourceTex(this->pp_tiltshift_h_program);
+	BindSourceTex(this->pp_tiltshift_v_program);
+	BindSourceTex(this->pp_night_program);
+	BindSourceTex(this->pp_grain_program);
+	BindSourceTex(this->pp_crt_program);
+
+	/* Cache ALL uniform locations at init time (not per-frame). */
+	auto CacheLoc = [](GLuint prog, const char *name) -> GLint {
+		return prog != 0 ? _glGetUniformLocation(prog, name) : -1;
+	};
+
+	/* CAS uniforms. */
+	this->pp_cas_sharp_loc = CacheLoc(this->pp_cas_program, "sharpness");
+	this->pp_cas_texel_loc = CacheLoc(this->pp_cas_program, "texel_size");
+
+	/* FSR EASU uniforms. */
+	this->pp_easu_con0_loc = CacheLoc(this->pp_fsr_easu_program, "easu_con0");
+	this->pp_easu_con1_loc = CacheLoc(this->pp_fsr_easu_program, "easu_con1");
+	this->pp_easu_con2_loc = CacheLoc(this->pp_fsr_easu_program, "easu_con2");
+	this->pp_easu_con3_loc = CacheLoc(this->pp_fsr_easu_program, "easu_con3");
+
+	/* FSR RCAS uniforms. */
+	this->pp_rcas_con_loc = CacheLoc(this->pp_fsr_rcas_program, "rcas_strength");
+	this->pp_rcas_texel_loc = CacheLoc(this->pp_fsr_rcas_program, "texel_size");
+
+	/* FXAA uniforms. */
+	this->pp_fxaa_texel_loc = CacheLoc(this->pp_fxaa_program, "texel_size");
+	this->pp_fxaa_subpix_loc = CacheLoc(this->pp_fxaa_program, "subpix_quality");
+	this->pp_fxaa_edge_loc = CacheLoc(this->pp_fxaa_program, "edge_threshold");
+
+	/* Tilt-shift uniforms (H and V passes). */
+	GLuint ts_progs[2] = {this->pp_tiltshift_h_program, this->pp_tiltshift_v_program};
+	for (int i = 0; i < 2; i++) {
+		this->pp_ts_texel_loc[i] = CacheLoc(ts_progs[i], "texel_size");
+		this->pp_ts_focus_loc[i] = CacheLoc(ts_progs[i], "focus_y");
+		this->pp_ts_width_loc[i] = CacheLoc(ts_progs[i], "focus_spread");
+		this->pp_ts_blur_loc[i] = CacheLoc(ts_progs[i], "blur_strength");
+	}
+
+	/* Color grading uniforms. */
+	this->pp_cg_brightness_loc = CacheLoc(this->pp_color_program, "brightness");
+	this->pp_cg_contrast_loc = CacheLoc(this->pp_color_program, "contrast");
+	this->pp_cg_saturation_loc = CacheLoc(this->pp_color_program, "saturation");
+	this->pp_cg_temperature_loc = CacheLoc(this->pp_color_program, "temperature");
+
+	/* Vignette uniforms. */
+	this->pp_vig_intensity_loc = CacheLoc(this->pp_vignette_program, "vignette_strength");
+	this->pp_vig_radius_loc = CacheLoc(this->pp_vignette_program, "vignette_radius");
+	this->pp_vig_softness_loc = CacheLoc(this->pp_vignette_program, "vignette_softness");
+
+	/* Night mode uniforms. */
+	this->pp_night_int_loc = CacheLoc(this->pp_night_program, "night_amount");
+	this->pp_night_blue_loc = CacheLoc(this->pp_night_program, "night_blue_shift");
+
+	/* Film grain uniforms. */
+	this->pp_grain_int_loc = CacheLoc(this->pp_grain_program, "grain_strength");
+	this->pp_grain_time_loc = CacheLoc(this->pp_grain_program, "time");
+
+	/* CRT uniforms. */
+	this->pp_crt_texel_loc = CacheLoc(this->pp_crt_program, "texel_size");
+	this->pp_crt_res_loc = CacheLoc(this->pp_crt_program, "screen_size");
+	this->pp_crt_scanline_loc = CacheLoc(this->pp_crt_program, "scanline_strength");
+	this->pp_crt_curve_loc = CacheLoc(this->pp_crt_program, "curvature");
+	this->pp_crt_aberr_loc = CacheLoc(this->pp_crt_program, "chromatic_aberr");
+
+	(void)_glGetError(); /* Clear any errors from optional shader failures. */
+	return this->pp_blit_program != 0; /* At minimum the blit program must work. */
+}
+
+/**
+ * Setup post-processing FBOs at the given display resolution.
+ * @param display_w Display width in pixels.
+ * @param display_h Display height in pixels.
+ * @return True if FBOs were set up successfully.
+ */
+bool OpenGLBackend::SetupPostProcessFBOs(int display_w, int display_h)
+{
+	this->DestroyPostProcessFBOs();
+
+	if (!this->pp_fbo_supported || !PostProcessNeedsFBO(this->pp_config)) {
+		this->pp_active = false;
+		return true;
+	}
+
+	auto dims = CalculatePostProcessDimensions(display_w, display_h, this->pp_config.render_scale);
+	this->pp_render_size = dims.render;
+	this->pp_display_size = dims.display;
+
+	_glGenFramebuffers(2, this->pp_fbo);
+	_glGenTextures(2, this->pp_tex);
+
+	for (int i = 0; i < 2; i++) {
+		/* Both ping-pong FBOs are at display resolution. The scene is rendered from
+		 * the render-resolution vid_texture into FBO[0] at display size (the blit/upscale
+		 * shader handles the resolution mismatch). All subsequent passes operate at
+		 * display resolution, ping-ponging between FBO[0] and FBO[1]. */
+		_glBindTexture(GL_TEXTURE_2D, this->pp_tex[i]);
+		_glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
+			dims.display.width, dims.display.height,
+			0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+		_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+		_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+		_glBindFramebuffer(GL_FRAMEBUFFER, this->pp_fbo[i]);
+		_glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, this->pp_tex[i], 0);
+
+		GLenum draw_buf = GL_COLOR_ATTACHMENT0;
+		_glDrawBuffers(1, &draw_buf);
+
+		if (_glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+			Debug(driver, 0, "OpenGL: Post-processing FBO {} incomplete, disabling", i);
+			this->DestroyPostProcessFBOs();
+			_glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			return false;
+		}
+	}
+
+	_glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	_glBindTexture(GL_TEXTURE_2D, 0);
+
+	this->pp_active = true;
+	Debug(driver, 1, "OpenGL: Post-processing FBOs created (render {}x{}, display {}x{})",
+		dims.render.width, dims.render.height, dims.display.width, dims.display.height);
+	return true;
+}
+
+/**
+ * Destroy post-processing FBO resources.
+ */
+void OpenGLBackend::DestroyPostProcessFBOs()
+{
+	this->pp_active = false;
+	if (this->pp_fbo[0] != 0) {
+		_glDeleteFramebuffers(2, this->pp_fbo);
+		this->pp_fbo[0] = this->pp_fbo[1] = 0;
+	}
+	if (this->pp_tex[0] != 0) {
+		_glDeleteTextures(2, this->pp_tex);
+		this->pp_tex[0] = this->pp_tex[1] = 0;
+	}
+}
+
+/**
+ * Execute the post-processing shader chain using ping-pong FBOs.
+ * Called from Paint() after the scene has been rendered to pp_fbo[0].
+ */
+void OpenGLBackend::RenderPostProcess()
+{
+	int src = 0;
+	int pass = 0;
+	int total = PostProcessPassCount(this->pp_config);
+
+	if (total == 0) {
+		/* No passes but FBO was bound -- just blit to screen. */
+		_glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		_glViewport(0, 0, this->pp_display_size.width, this->pp_display_size.height);
+		_glClear(GL_COLOR_BUFFER_BIT);
+		_glActiveTexture(GL_TEXTURE0);
+		_glBindTexture(GL_TEXTURE_2D, this->pp_tex[0]);
+		_glUseProgram(this->pp_blit_program);
+		_glBindVertexArray(this->vao_quad);
+		_glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+		return;
+	}
+
+	/* Count actual passes (only those with valid shader programs). */
+	auto WillRun = [&](bool enabled, GLuint program) -> bool {
+		return enabled && program != 0;
+	};
+
+	total = 0;
+	if (this->pp_config.upscale_mode == UpscaleMode::FSR1) {
+		if (this->pp_fsr_easu_program != 0) total++;
+		if (this->pp_fsr_rcas_program != 0) total++;
+	} else if (this->pp_config.upscale_mode == UpscaleMode::Bilinear && this->pp_config.render_scale < 100) {
+		if (this->pp_blit_program != 0) total++;
+	}
+	if (this->pp_config.sharpening > 0 && this->pp_config.upscale_mode != UpscaleMode::FSR1 && this->pp_cas_program != 0) total++;
+	if (WillRun(this->pp_config.fxaa, this->pp_fxaa_program)) total++;
+	if (WillRun(this->pp_config.tiltshift, this->pp_tiltshift_h_program)) total++;
+	if (WillRun(this->pp_config.tiltshift, this->pp_tiltshift_v_program)) total++;
+	if (WillRun(this->pp_config.color_grading, this->pp_color_program)) total++;
+	if (WillRun(this->pp_config.night_mode, this->pp_night_program)) total++;
+	if (WillRun(this->pp_config.vignette, this->pp_vignette_program)) total++;
+	if (WillRun(this->pp_config.film_grain, this->pp_grain_program)) total++;
+	if (WillRun(this->pp_config.crt_filter, this->pp_crt_program)) total++;
+
+	/* RunPass: program must already be bound via _glUseProgram before calling. */
+	auto RunPass = [&]() {
+		bool is_last = (pass == total - 1);
+
+		if (is_last) {
+			_glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		} else {
+			_glBindFramebuffer(GL_FRAMEBUFFER, this->pp_fbo[1 - src]);
+		}
+		_glViewport(0, 0, this->pp_display_size.width, this->pp_display_size.height);
+		_glClear(GL_COLOR_BUFFER_BIT);
+
+		_glActiveTexture(GL_TEXTURE0);
+		_glBindTexture(GL_TEXTURE_2D, this->pp_tex[src]);
+
+		_glBindVertexArray(this->vao_quad);
+		_glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+		if (!is_last) src = 1 - src;
+		pass++;
+	};
+
+	float texel_w = 1.0f / std::max(1u, this->pp_display_size.width);
+	float texel_h = 1.0f / std::max(1u, this->pp_display_size.height);
+
+	/* Upscaling passes. */
+	if (this->pp_config.upscale_mode == UpscaleMode::FSR1 && this->pp_fsr_easu_program != 0) {
+		float con0[4], con1[4], con2[4], con3[4];
+		ComputeFsrEasuConstants(con0, con1, con2, con3,
+			(float)this->pp_render_size.width, (float)this->pp_render_size.height,
+			(float)this->pp_render_size.width, (float)this->pp_render_size.height,
+			(float)this->pp_display_size.width, (float)this->pp_display_size.height);
+		_glUseProgram(this->pp_fsr_easu_program);
+		_glUniform4f(this->pp_easu_con0_loc, con0[0], con0[1], con0[2], con0[3]);
+		_glUniform4f(this->pp_easu_con1_loc, con1[0], con1[1], con1[2], con1[3]);
+		_glUniform4f(this->pp_easu_con2_loc, con2[0], con2[1], con2[2], con2[3]);
+		_glUniform4f(this->pp_easu_con3_loc, con3[0], con3[1], con3[2], con3[3]);
+		RunPass();
+
+		if (this->pp_fsr_rcas_program != 0) {
+			/* RCAS sharpening: use user value directly. 0 maps to 2.0 (no sharpening),
+			 * which effectively makes this a passthrough. */
+			_glUseProgram(this->pp_fsr_rcas_program);
+			_glUniform2f(this->pp_rcas_texel_loc, texel_w, texel_h);
+			_glUniform1f(this->pp_rcas_con_loc, MapSharpeningToFsrRcas(this->pp_config.sharpening));
+			RunPass();
+		}
+	} else if (this->pp_config.upscale_mode == UpscaleMode::Bilinear && this->pp_config.render_scale < 100 && this->pp_blit_program != 0) {
+		_glUseProgram(this->pp_blit_program);
+		RunPass();
+	}
+
+	/* CAS standalone (not when FSR1 active). */
+	if (this->pp_config.sharpening > 0 && this->pp_config.upscale_mode != UpscaleMode::FSR1 && this->pp_cas_program != 0) {
+		_glUseProgram(this->pp_cas_program);
+		_glUniform2f(this->pp_cas_texel_loc, texel_w, texel_h);
+		_glUniform1f(this->pp_cas_sharp_loc, MapSharpeningToCas(this->pp_config.sharpening));
+		RunPass();
+	}
+
+	/* FXAA. */
+	if (this->pp_config.fxaa && this->pp_fxaa_program != 0) {
+		_glUseProgram(this->pp_fxaa_program);
+		_glUniform2f(this->pp_fxaa_texel_loc, texel_w, texel_h);
+		_glUniform1f(this->pp_fxaa_subpix_loc, 0.75f);
+		_glUniform1f(this->pp_fxaa_edge_loc, 0.125f);
+		RunPass();
+	}
+
+	/* Tilt-shift (two passes: horizontal then vertical blur). */
+	if (this->pp_config.tiltshift) {
+		float focus_y = this->pp_config.tiltshift_focus_y / 100.0f;
+		float focus_spread = this->pp_config.tiltshift_focus_width / 100.0f;
+		float blur_s = this->pp_config.tiltshift_blur / 10.0f;
+		for (int i = 0; i < 2; i++) {
+			GLuint prog = (i == 0) ? this->pp_tiltshift_h_program : this->pp_tiltshift_v_program;
+			if (prog == 0) continue;
+			_glUseProgram(prog);
+			_glUniform2f(this->pp_ts_texel_loc[i], texel_w, texel_h);
+			_glUniform1f(this->pp_ts_focus_loc[i], focus_y);
+			_glUniform1f(this->pp_ts_width_loc[i], focus_spread);
+			_glUniform1f(this->pp_ts_blur_loc[i], blur_s);
+			RunPass();
+		}
+	}
+
+	/* Color grading. */
+	if (this->pp_config.color_grading && this->pp_color_program != 0) {
+		_glUseProgram(this->pp_color_program);
+		_glUniform1f(this->pp_cg_brightness_loc, this->pp_config.cg_brightness / 100.0f);
+		_glUniform1f(this->pp_cg_contrast_loc, this->pp_config.cg_contrast / 100.0f);
+		_glUniform1f(this->pp_cg_saturation_loc, this->pp_config.cg_saturation / 100.0f);
+		_glUniform1f(this->pp_cg_temperature_loc, this->pp_config.cg_temperature / 100.0f);
+		RunPass();
+	}
+
+	/* Night mode. */
+	if (this->pp_config.night_mode && this->pp_night_program != 0) {
+		_glUseProgram(this->pp_night_program);
+		_glUniform1f(this->pp_night_int_loc, this->pp_config.night_intensity / 100.0f);
+		_glUniform1f(this->pp_night_blue_loc, this->pp_config.night_blue_shift / 100.0f);
+		RunPass();
+	}
+
+	/* Vignette. */
+	if (this->pp_config.vignette && this->pp_vignette_program != 0) {
+		_glUseProgram(this->pp_vignette_program);
+		_glUniform1f(this->pp_vig_intensity_loc, this->pp_config.vignette_intensity / 100.0f);
+		_glUniform1f(this->pp_vig_radius_loc, this->pp_config.vignette_radius / 100.0f);
+		_glUniform1f(this->pp_vig_softness_loc, 0.45f);
+		RunPass();
+	}
+
+	/* Film grain -- use wall-clock time wrapped to avoid float precision loss. */
+	if (this->pp_config.film_grain && this->pp_grain_program != 0) {
+		auto now = std::chrono::steady_clock::now();
+		static auto start_time = now;
+		float elapsed = std::fmod(std::chrono::duration<float>(now - start_time).count(), 1000.0f);
+		_glUseProgram(this->pp_grain_program);
+		_glUniform1f(this->pp_grain_int_loc, this->pp_config.grain_intensity / 100.0f);
+		_glUniform1f(this->pp_grain_time_loc, elapsed);
+		RunPass();
+	}
+
+	/* CRT scanline filter. */
+	if (this->pp_config.crt_filter && this->pp_crt_program != 0) {
+		_glUseProgram(this->pp_crt_program);
+		_glUniform2f(this->pp_crt_texel_loc, texel_w, texel_h);
+		_glUniform2f(this->pp_crt_res_loc, (float)this->pp_display_size.width, (float)this->pp_display_size.height);
+		_glUniform1f(this->pp_crt_scanline_loc, this->pp_config.crt_scanlines / 100.0f);
+		_glUniform1f(this->pp_crt_curve_loc, this->pp_config.crt_curvature / 100.0f);
+		_glUniform1f(this->pp_crt_aberr_loc, this->pp_config.crt_aberration / 10.0f);
+		RunPass();
+	}
+
+	/* Safety: ensure we end up on the default framebuffer. */
+	if (pass == 0) {
+		_glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		_glViewport(0, 0, this->pp_display_size.width, this->pp_display_size.height);
+	}
+}
+
+/**
+ * Update the post-processing configuration.
+ * Must be called from the draw thread (same thread as Paint()).
+ * @param config New post-processing configuration.
+ */
+void OpenGLBackend::SetPostProcessConfig(const PostProcessConfig &config)
+{
+	bool needs_fbo_rebuild = (this->pp_config.render_scale != config.render_scale) ||
+	                         (PostProcessNeedsFBO(this->pp_config) != PostProcessNeedsFBO(config));
+	this->pp_config = config;
+	if (needs_fbo_rebuild && this->pp_display_size.width > 0) {
+		this->SetupPostProcessFBOs(this->pp_display_size.width, this->pp_display_size.height);
 	}
 }
 
@@ -1328,12 +1933,15 @@ void OpenGLBackend::RenderOglSprite(const OpenGLSprite *gl_sprite, PaletteID pal
 		_glBindTexture(GL_TEXTURE_1D, OpenGLSprite::pal_identity);
 	}
 
-	/* Set up shader program. */
+	/* Set up shader program. Use display resolution for screen size when PP is active,
+	 * since the cursor is drawn after post-processing onto the default framebuffer. */
 	Dimension dim = gl_sprite->GetSize(zoom);
+	float screen_w = (this->pp_active && this->pp_display_size.width > 0) ? (float)this->pp_display_size.width : (float)_screen.width;
+	float screen_h = (this->pp_active && this->pp_display_size.height > 0) ? (float)this->pp_display_size.height : (float)_screen.height;
 	_glUseProgram(this->sprite_program);
 	_glUniform4f(this->sprite_sprite_loc, (float)x, (float)y, (float)dim.width, (float)dim.height);
 	_glUniform1f(this->sprite_zoom_loc, (float)zoom);
-	_glUniform2f(this->sprite_screen_loc, (float)_screen.width, (float)_screen.height);
+	_glUniform2f(this->sprite_screen_loc, screen_w, screen_h);
 	_glUniform1i(this->sprite_rgb_loc, rgb ? 1 : 0);
 	_glUniform1i(this->sprite_crash_loc, pal == PALETTE_CRASH ? 1 : 0);
 
@@ -1555,4 +2163,84 @@ bool OpenGLSprite::BindTextures() const
 	_glBindTexture(GL_TEXTURE_2D, this->tex[TEX_REMAP] != 0 ? this->tex[TEX_REMAP] : OpenGLSprite::dummy_tex[TEX_REMAP]);
 
 	return this->tex[TEX_RGBA] != 0;
+}
+
+/* Benchmark GPU timer query implementation. */
+
+void OpenGLBackend::InitBenchmarkQueries()
+{
+	if (_glGenQueries == nullptr) return;
+	_glGenQueries(2, this->benchmark_query);
+	this->benchmark_query_idx = 0;
+	this->benchmark_query_active = false;
+	this->benchmark_query_pending = false;
+	this->benchmark_gpu_ns = 0;
+}
+
+void OpenGLBackend::DestroyBenchmarkQueries()
+{
+	if (_glDeleteQueries == nullptr) return;
+	if (this->benchmark_query[0] != 0) {
+		_glDeleteQueries(2, this->benchmark_query);
+		this->benchmark_query[0] = 0;
+		this->benchmark_query[1] = 0;
+	}
+	this->benchmark_query_active = false;
+	this->benchmark_query_pending = false;
+}
+
+void OpenGLBackend::BeginBenchmarkQuery()
+{
+	if (_glBeginQuery == nullptr || this->benchmark_query[0] == 0) return;
+	_glBeginQuery(GL_TIME_ELAPSED, this->benchmark_query[this->benchmark_query_idx]);
+	this->benchmark_query_active = true;
+}
+
+void OpenGLBackend::EndBenchmarkQuery()
+{
+	if (!this->benchmark_query_active) return;
+	_glEndQuery(GL_TIME_ELAPSED);
+	this->benchmark_query_active = false;
+	this->benchmark_query_pending = true;
+	/* Flip to the other query object so next frame writes to the alternate slot,
+	 * and ReadBack reads the slot we just finished writing. */
+	this->benchmark_query_idx = 1 - this->benchmark_query_idx;
+}
+
+/**
+ * Read back the previous frame's GPU timer query result.
+ * Uses double-buffered queries: we read the query from the previous frame
+ * (the slot that is NOT currently being written to) to avoid stalling the GPU.
+ * @return GPU time in nanoseconds for the post-processing pass, or 0 if unavailable.
+ */
+uint64_t OpenGLBackend::ReadBackBenchmarkGPUTime()
+{
+	if (!this->benchmark_query_pending || _glGetQueryObjectui64v == nullptr) return 0;
+
+	/* Read the OTHER query (the one completed last frame, not the one in flight). */
+	int read_idx = 1 - this->benchmark_query_idx;
+	uint64_t ns = 0;
+	_glGetQueryObjectui64v(this->benchmark_query[read_idx], GL_QUERY_RESULT, &ns);
+	this->benchmark_gpu_ns = ns;
+	this->benchmark_query_pending = false;
+
+	return ns;
+}
+
+/* Bridge functions for benchmark.cpp (avoids exposing GL types outside the video layer). */
+
+void BenchmarkGPUInit()
+{
+	if (OpenGLBackend::Get() != nullptr) OpenGLBackend::Get()->InitBenchmarkQueries();
+}
+
+void BenchmarkGPUDestroy()
+{
+	if (OpenGLBackend::Get() != nullptr) OpenGLBackend::Get()->DestroyBenchmarkQueries();
+}
+
+uint64_t BenchmarkGPUReadBack()
+{
+	if (OpenGLBackend::Get() != nullptr) return OpenGLBackend::Get()->ReadBackBenchmarkGPUTime();
+	return 0;
 }
