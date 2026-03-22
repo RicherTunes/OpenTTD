@@ -125,6 +125,7 @@ int PostProcessPassCount(const PostProcessConfig &config)
 
 	/* Effect passes (order matches RenderPostProcess execution). */
 	if (config.pixel_smoothing) passes += 1;
+	if (config.water_reflections) passes += 1;
 	if (config.fxaa) passes += 1;
 	if (config.tiltshift) passes += 2; /* Horizontal + vertical blur */
 	if (config.color_grading) passes += 1;
@@ -136,7 +137,6 @@ int PostProcessPassCount(const PostProcessConfig &config)
 	if (config.crt_filter) passes += 1;
 	if (config.weather_type > 0) passes += 1;
 	if (config.fake_shadows) passes += 1;
-	if (config.water_reflections) passes += 1;
 
 	/* Supersampling downsample pass (render > display). */
 	if (config.render_scale > 100) passes += 1;

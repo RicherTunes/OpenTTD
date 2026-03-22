@@ -70,6 +70,9 @@ uint8_t _video_shadow_intensity = 40; ///< Shadow darkness (0-100).
 uint8_t _video_shadow_angle = 45; ///< Shadow angle in degrees (0-359).
 uint8_t _video_shadow_length = 8; ///< Shadow length in pixels (1-30).
 uint8_t _video_shadow_softness = 3; ///< Shadow edge softness (1-10).
+bool _video_water_reflections = false; ///< Whether screen-space water reflections are enabled.
+uint8_t _video_reflection_intensity = 30; ///< Water reflection strength (0-100).
+uint8_t _video_reflection_distortion = 5; ///< Water reflection wave distortion amplitude (0-20).
 
 void VideoDriver::GameLoop()
 {

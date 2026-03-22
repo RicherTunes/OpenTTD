@@ -636,6 +636,7 @@ OpenGLBackend::~OpenGLBackend()
 		if (this->pp_bloom_composite_program != 0) _glDeleteProgram(this->pp_bloom_composite_program);
 		if (this->pp_weather_program != 0) _glDeleteProgram(this->pp_weather_program);
 		if (this->pp_shadow_program != 0) _glDeleteProgram(this->pp_shadow_program);
+		if (this->pp_water_reflect_program != 0) _glDeleteProgram(this->pp_water_reflect_program);
 		if (this->pp_temporal_program != 0) _glDeleteProgram(this->pp_temporal_program);
 		if (this->pp_downsample_program != 0) _glDeleteProgram(this->pp_downsample_program);
 	}
@@ -1326,6 +1327,11 @@ void OpenGLBackend::Paint()
 			new_config.shadow_angle = _video_shadow_angle;
 			new_config.shadow_length = _video_shadow_length;
 			new_config.shadow_softness = _video_shadow_softness;
+
+			/* Water reflections. */
+			new_config.water_reflections = _video_water_reflections;
+			new_config.reflection_intensity = _video_reflection_intensity;
+			new_config.reflection_distortion = _video_reflection_distortion;
 		}
 
 		new_config.auto_supersample = _video_auto_supersample;
@@ -1667,6 +1673,12 @@ bool OpenGLBackend::InitPostProcessShaders()
 	this->pp_shadow_samples_loc = CacheLoc(this->pp_shadow_program, "shadow_samples");
 	this->pp_shadow_texel_loc = CacheLoc(this->pp_shadow_program, "texel_size");
 
+	/* Water reflection uniforms. */
+	this->pp_water_reflect_intensity_loc = CacheLoc(this->pp_water_reflect_program, "reflection_intensity");
+	this->pp_water_reflect_distortion_loc = CacheLoc(this->pp_water_reflect_program, "distortion_amount");
+	this->pp_water_reflect_time_loc = CacheLoc(this->pp_water_reflect_program, "time");
+	this->pp_water_reflect_texel_loc = CacheLoc(this->pp_water_reflect_program, "texel_size");
+
 	/* Downsample uniforms. */
 	this->pp_downsample_texel_loc = CacheLoc(this->pp_downsample_program, "texel_size");
 
@@ -1822,6 +1834,7 @@ void OpenGLBackend::RenderPostProcess()
 	if (this->pp_config.upscale_mode == UpscaleMode::Plugin && GetLoadedUpscalePlugin() != nullptr) total++;
 	if (this->pp_config.sharpening > 0 && this->pp_config.upscale_mode != UpscaleMode::FSR1 && this->pp_config.upscale_mode != UpscaleMode::Temporal && this->pp_config.upscale_mode != UpscaleMode::Plugin && this->pp_cas_program != 0) total++;
 	if (WillRun(this->pp_config.pixel_smoothing, this->pp_pixel_smooth_program)) total++;
+	if (WillRun(this->pp_config.water_reflections, this->pp_water_reflect_program)) total++;
 	if (WillRun(this->pp_config.fxaa, this->pp_fxaa_program)) total++;
 	if (WillRun(this->pp_config.tiltshift, this->pp_tiltshift_h_program)) total++;
 	if (WillRun(this->pp_config.tiltshift, this->pp_tiltshift_v_program)) total++;
@@ -2044,6 +2057,16 @@ void OpenGLBackend::RenderPostProcess()
 		_glUseProgram(this->pp_pixel_smooth_program);
 		_glUniform2f(this->pp_pixel_smooth_texel_loc, texel_w, texel_h);
 		_glUniform1f(this->pp_pixel_smooth_amount_loc, this->pp_config.pixel_smooth_amount / 100.0f);
+		RunPass();
+	}
+
+	/* Water reflections (screen-space). */
+	if (this->pp_config.water_reflections && this->pp_water_reflect_program != 0) {
+		_glUseProgram(this->pp_water_reflect_program);
+		_glUniform2f(this->pp_water_reflect_texel_loc, texel_w, texel_h);
+		_glUniform1f(this->pp_water_reflect_intensity_loc, this->pp_config.reflection_intensity / 100.0f);
+		_glUniform1f(this->pp_water_reflect_distortion_loc, (float)this->pp_config.reflection_distortion);
+		_glUniform1f(this->pp_water_reflect_time_loc, this->pp_config.time_of_day * 100.0f);
 		RunPass();
 	}
 

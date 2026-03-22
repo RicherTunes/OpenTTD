@@ -73,6 +73,9 @@ extern uint8_t _video_shadow_intensity;
 extern uint8_t _video_shadow_angle;
 extern uint8_t _video_shadow_length;
 extern uint8_t _video_shadow_softness;
+extern bool _video_water_reflections;
+extern uint8_t _video_reflection_intensity;
+extern uint8_t _video_reflection_distortion;
 
 /** The base of all video drivers. */
 class VideoDriver : public Driver {
