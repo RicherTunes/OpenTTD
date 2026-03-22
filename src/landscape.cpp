@@ -1677,8 +1677,8 @@ static void CalculateSnowLineWithBiomes()
 		uint noise_val = ((x * 374761393u + y * 668265263u) ^ (x * y * 1274126177u)) & 0xFF;
 		double noise = ((double)noise_val / 255.0 - 0.5) * 2.0; /* [-1, 1] */
 
-		double temperature = base_temp + noise_factor * noise;
-		int temp_idx = Clamp((int)(temperature * 255.0), 0, 255);
+		double temperature = Clamp(base_temp + noise_factor * noise, 0.0, 1.0);
+		int temp_idx = (int)(temperature * 255.0);
 		temp_histogram[temp_idx]++;
 	}
 
@@ -1744,7 +1744,7 @@ static void CreateDesertOrRainForestWithBiomes()
 		uint noise_val = ((x * 374761393u + y * 668265263u) ^ (x * y * 1274126177u)) & 0xFF;
 		double noise = ((double)noise_val / 255.0 - 0.5) * 2.0;
 
-		double temperature = 1.0 - base_temp + noise_factor * noise;
+		double temperature = Clamp(1.0 - base_temp + noise_factor * noise, 0.0, 1.0);
 		tile_temps.push_back({tile, temperature});
 	}
 
