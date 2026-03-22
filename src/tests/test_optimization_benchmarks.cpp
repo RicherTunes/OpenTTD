@@ -12,6 +12,7 @@
 #include "../3rdparty/catch2/catch.hpp"
 
 #include <chrono>
+#include <cmath>
 #include <vector>
 #include <forward_list>
 #include <unordered_set>
@@ -222,4 +223,181 @@ TEST_CASE("Benchmark - Cargo dedup: linear include is optimal for small N") {
 	/* For small N, linear is faster or comparable — documents the design decision
 	 * to keep include() instead of switching to unordered_set. */
 	CHECK(true); /* Informational benchmark — no performance assertion */
+}
+
+/*
+ * Benchmark 4: Sine LUT vs std::sin for HeightMapCurves interpolation
+ *
+ * HeightMapCurves calls sin() twice per tile during terrain generation.
+ * A precomputed lookup table avoids transcendental function overhead.
+ */
+
+TEST_CASE("Benchmark - Sine LUT vs std::sin for interpolation") {
+	const int ITERATIONS = 100000;
+
+	/* Baseline: std::sin() */
+	double sum_sin = 0;
+	auto t0 = std::chrono::steady_clock::now();
+	for (int i = 0; i < ITERATIONS; i++) {
+		double x = (double)(i % 1000) / 1000.0;
+		sum_sin += sin(x * M_PI_2);
+		sum_sin += sin(x * M_PI_2); /* Called twice per tile in HeightMapCurves */
+	}
+	auto t1 = std::chrono::steady_clock::now();
+	auto sin_us = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
+
+	/* Optimized: Precomputed LUT */
+	static constexpr int LUT_SIZE = 256;
+	static double lut[LUT_SIZE + 1];
+	for (int i = 0; i <= LUT_SIZE; i++) {
+		lut[i] = sin((double)i / LUT_SIZE * M_PI_2);
+	}
+
+	double sum_lut = 0;
+	auto t2 = std::chrono::steady_clock::now();
+	for (int i = 0; i < ITERATIONS; i++) {
+		double x = (double)(i % 1000) / 1000.0;
+		int idx = (int)(x * LUT_SIZE);
+		sum_lut += lut[idx];
+		sum_lut += lut[idx];
+	}
+	auto t3 = std::chrono::steady_clock::now();
+	auto lut_us = std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count();
+
+	INFO("std::sin():       " << sin_us << " us (sum=" << sum_sin << ")");
+	INFO("Sine LUT:         " << lut_us << " us (sum=" << sum_lut << ")");
+	INFO("Speedup:          " << (double)sin_us / std::max((int64_t)1, lut_us) << "x");
+	INFO("Max error:        " << fabs(sum_sin - sum_lut) / ITERATIONS);
+
+	CHECK(lut_us <= sin_us);
+}
+
+/*
+ * Benchmark 5: Bitset vs unordered_set for visited tile tracking
+ *
+ * River generation marks visited tiles. A dense vector<bool> with manual
+ * cleanup is faster than unordered_set for typical map sizes.
+ */
+
+TEST_CASE("Benchmark - Bitset vs unordered_set for visited tracking") {
+	const int MAP_SIZE = 262144; /* 512x512 */
+	const int NUM_RIVERS = 50;
+	const int RIVER_LENGTH = 200;
+
+	/* Generate random river paths */
+	std::vector<std::vector<int>> rivers(NUM_RIVERS);
+	std::srand(42);
+	for (auto &river : rivers) {
+		int pos = std::rand() % MAP_SIZE;
+		for (int step = 0; step < RIVER_LENGTH; step++) {
+			river.push_back(pos);
+			pos = (pos + 1 + std::rand() % 3) % MAP_SIZE;
+		}
+	}
+
+	/* Baseline: unordered_set (original approach) */
+	int baseline_visited = 0;
+	auto t0 = std::chrono::steady_clock::now();
+	for (auto &river : rivers) {
+		std::unordered_set<int> marks;
+		for (int tile : river) {
+			if (!marks.contains(tile)) {
+				marks.insert(tile);
+				baseline_visited++;
+			}
+		}
+	}
+	auto t1 = std::chrono::steady_clock::now();
+	auto uset_us = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
+
+	/* Optimized: vector<bool> with manual cleanup */
+	int optimized_visited = 0;
+	std::vector<bool> marks(MAP_SIZE, false);
+	auto t2 = std::chrono::steady_clock::now();
+	for (auto &river : rivers) {
+		std::vector<int> cleanup;
+		cleanup.reserve(RIVER_LENGTH);
+		for (int tile : river) {
+			if (!marks[tile]) {
+				marks[tile] = true;
+				cleanup.push_back(tile);
+				optimized_visited++;
+			}
+		}
+		for (int t : cleanup) marks[t] = false;
+	}
+	auto t3 = std::chrono::steady_clock::now();
+	auto bitset_us = std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count();
+
+	INFO("unordered_set:    " << uset_us << " us (" << baseline_visited << " unique)");
+	INFO("vector<bool>:     " << bitset_us << " us (" << optimized_visited << " unique)");
+	INFO("Speedup:          " << (double)uset_us / std::max((int64_t)1, bitset_us) << "x");
+
+	CHECK(optimized_visited == baseline_visited);
+	CHECK(bitset_us <= uset_us);
+}
+
+/*
+ * Benchmark 6: Early viewport culling (slope calc avoidance)
+ *
+ * Simulates viewport tile loop: some tiles are above viewport (rejected early),
+ * others need slope calculation. Measures the savings from checking visibility
+ * before computing slope.
+ */
+
+TEST_CASE("Benchmark - Early culling skips slope calculations") {
+	const int NUM_TILES = 5000;
+	const int CULLED_PERCENT = 40; /* 40% of tiles are above viewport */
+
+	struct FakeTile { int x, y, height; bool visible; };
+	std::vector<FakeTile> tiles(NUM_TILES);
+	std::srand(99);
+	for (auto &t : tiles) {
+		t.x = std::rand() % 4096;
+		t.y = std::rand() % 4096;
+		t.height = std::rand() % 15;
+		t.visible = (std::rand() % 100) >= CULLED_PERCENT;
+	}
+
+	/* Simulate slope calculation cost (4 memory lookups + arithmetic) */
+	auto fake_slope_calc = [](FakeTile &t) -> int {
+		volatile int h1 = t.height;
+		volatile int h2 = t.height + 1;
+		volatile int h3 = t.height - 1;
+		volatile int h4 = t.height;
+		return h1 + h2 + h3 + h4;
+	};
+
+	/* Baseline: calculate slope for ALL tiles, then check visibility */
+	int baseline_sum = 0;
+	auto t0 = std::chrono::steady_clock::now();
+	for (int frame = 0; frame < 200; frame++) {
+		for (auto &t : tiles) {
+			int slope = fake_slope_calc(t);
+			if (t.visible) baseline_sum += slope;
+		}
+	}
+	auto t1 = std::chrono::steady_clock::now();
+	auto baseline_us = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
+
+	/* Optimized: check visibility BEFORE slope calculation */
+	int optimized_sum = 0;
+	auto t2 = std::chrono::steady_clock::now();
+	for (int frame = 0; frame < 200; frame++) {
+		for (auto &t : tiles) {
+			if (!t.visible) continue; /* Skip slope calc */
+			int slope = fake_slope_calc(t);
+			optimized_sum += slope;
+		}
+	}
+	auto t3 = std::chrono::steady_clock::now();
+	auto optimized_us = std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count();
+
+	INFO("Baseline (all slopes): " << baseline_us << " us");
+	INFO("Optimized (cull first):" << optimized_us << " us");
+	INFO("Speedup:               " << (double)baseline_us / std::max((int64_t)1, optimized_us) << "x");
+	INFO("Tiles culled:          " << CULLED_PERCENT << "%");
+
+	CHECK(optimized_sum == baseline_sum);
+	CHECK(optimized_us < baseline_us);
 }
