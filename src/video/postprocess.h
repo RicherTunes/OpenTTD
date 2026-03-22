@@ -165,4 +165,31 @@ void ComputeFsrEasuConstants(
 void ComputeFsrRcasConstant(float con[4], float sharpness);
 void ComputeCasConstant(float con[4], float sharpening_pct, float input_w, float input_h);
 
+/** Effect category for the post-processing registry. */
+enum class EffectCategory : uint8_t {
+	Core,          ///< Essential quality features (FXAA, sharpening, grading).
+	Presentation,  ///< Ship-safe extras for High/Photo tier (bloom, lighting, weather).
+	Novelty,       ///< Ship-safe niche effects, Photo tier only (CRT, grain).
+	Lab,           ///< Quarantined heuristic effects, console-only access.
+	Research,      ///< Research-only paths (temporal, plugin upscaling).
+	PipelineMode,  ///< Rendering strategy, not aesthetic (cpu_scale).
+};
+
+/** Descriptor for a single post-processing effect in the registry. */
+struct PPEffectDescriptor {
+	std::string_view key;            ///< Internal key: "fxaa", "shadows", etc.
+	std::string_view console_name;   ///< User-facing console name.
+	EffectCategory category;         ///< Effect classification.
+	bool gui_visible;                ///< Whether shown in settings GUI.
+	bool preset_eligible;            ///< Whether presets may activate this effect.
+	bool requires_metadata;          ///< Whether this effect needs class_tex.
+	bool structurally_sound;         ///< Whether the algorithm is correct given proper input.
+	bool default_candidate;          ///< Whether this belongs in default presets.
+	uint8_t quality_tier_min;        ///< Minimum quality tier (0=Low, 1=Medium, 2=High, 3=Photo).
+};
+
+const PPEffectDescriptor *GetPPEffectDescriptor(std::string_view key);
+bool IsLabEffect(std::string_view key);
+bool IsPresetEligible(std::string_view key);
+
 #endif /* VIDEO_POSTPROCESS_H */

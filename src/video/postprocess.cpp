@@ -254,6 +254,79 @@ void ComputeCasConstant(float con[4], float sharpening_pct, float input_w, float
 	con[3] = 0.0f;
 }
 
+/** Central registry of all post-processing effects. */
+static const PPEffectDescriptor _pp_effect_registry[] = {
+	/* Core shipping (Medium+ tier, default candidates) */
+	{"fxaa",          "fxaa",          EffectCategory::Core,         true,  true,  false, true,  true,  1},
+	{"sharpening",    "sharpening",    EffectCategory::Core,         true,  true,  false, true,  true,  1},
+	{"color_grading", "color_grading", EffectCategory::Core,         true,  true,  false, true,  true,  1},
+	{"vignette",      "vignette",      EffectCategory::Core,         true,  true,  false, true,  true,  1},
+	{"pixel_smooth",  "smooth",        EffectCategory::Core,         true,  true,  false, true,  true,  1},
+	{"supersample",   "supersample",   EffectCategory::Core,         true,  true,  false, true,  true,  2},
+
+	/* Presentation extras (High/Photo tier) */
+	{"bloom",         "bloom",         EffectCategory::Presentation, true,  true,  false, true,  false, 2},
+	{"lighting",      "lighting",      EffectCategory::Presentation, true,  true,  false, true,  false, 2},
+	{"weather",       "weather",       EffectCategory::Presentation, true,  true,  false, true,  false, 2},
+	{"night",         "night",         EffectCategory::Presentation, true,  true,  false, true,  false, 2},
+	{"tiltshift",     "tiltshift",     EffectCategory::Presentation, true,  true,  false, true,  false, 2},
+
+	/* Novelty (Photo tier only) */
+	{"crt",           "crt",           EffectCategory::Novelty,      true,  true,  false, true,  false, 3},
+	{"grain",         "grain",         EffectCategory::Novelty,      true,  true,  false, true,  false, 3},
+
+	/* Lab effects (quarantined, console-only) */
+	{"shadows",       "shadows",       EffectCategory::Lab,          false, false, true,  true,  false, 3},
+	{"water",         "water",         EffectCategory::Lab,          false, false, true,  true,  false, 3},
+	{"ssao",          "ssao",          EffectCategory::Lab,          false, false, true,  false, false, 3},
+	{"terrain_smooth","terrain_smooth",EffectCategory::Lab,          false, false, true,  true,  false, 3},
+	{"tree_sway",     "tree_sway",     EffectCategory::Lab,          false, false, true,  true,  false, 3},
+	{"sky",           "sky",           EffectCategory::Lab,          false, false, false, true,  false, 3},
+	{"dof",           "dof",           EffectCategory::Lab,          false, false, true,  false, false, 3},
+
+	/* Research-only */
+	{"temporal",      "temporal",      EffectCategory::Research,     false, false, false, true,  false, 3},
+	{"plugin",        "plugin",        EffectCategory::Research,     false, false, false, true,  false, 3},
+
+	/* Pipeline mode */
+	{"cpu_scale",     "cpu_scale",     EffectCategory::PipelineMode, true,  false, false, true,  false, 0},
+};
+
+/**
+ * Look up a post-processing effect descriptor by key or console name.
+ * @param key Internal key or console name to search for.
+ * @return Pointer to the descriptor, or nullptr if not found.
+ */
+const PPEffectDescriptor *GetPPEffectDescriptor(std::string_view key)
+{
+	for (const auto &desc : _pp_effect_registry) {
+		if (desc.key == key || desc.console_name == key) return &desc;
+	}
+	return nullptr;
+}
+
+/**
+ * Check whether an effect is in the Lab category (quarantined heuristic effects).
+ * @param key Internal key or console name.
+ * @return True if the effect exists and is classified as Lab.
+ */
+bool IsLabEffect(std::string_view key)
+{
+	const PPEffectDescriptor *desc = GetPPEffectDescriptor(key);
+	return desc != nullptr && desc->category == EffectCategory::Lab;
+}
+
+/**
+ * Check whether an effect is eligible for inclusion in quality presets.
+ * @param key Internal key or console name.
+ * @return True if the effect exists and is preset-eligible.
+ */
+bool IsPresetEligible(std::string_view key)
+{
+	const PPEffectDescriptor *desc = GetPPEffectDescriptor(key);
+	return desc != nullptr && desc->preset_eligible;
+}
+
 /**
  * Calculate viewport scratch buffer dimensions for CPU-side render scaling.
  * Uses integer zoom steps: render_scale <= 50 gives zoom+1 (half-size),
