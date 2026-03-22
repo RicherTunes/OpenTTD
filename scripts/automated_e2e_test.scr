@@ -71,5 +71,5 @@ pp_screenshot e2e_12_combined
 pp off
 pp_screenshot e2e_13_restored
 
-; Done
-quit
+; Done - game continues running, screenshots dequeue one per frame
+echo "E2E test: 13 screenshots queued, capturing over next 13 frames..."
