@@ -284,6 +284,32 @@ void BenchmarkHarness::WriteCSV() const
 	fmt::print(*f, "# Sky Clouds: {}\n", _video_sky_clouds ? "on" : "off");
 	fmt::print(*f, "# Depth of Field: {}\n", _video_depth_of_field ? "on" : "off");
 
+	/* Sub-parameters for all effects. */
+	fmt::print(*f, "# FXAA Quality: {}\n", _video_fxaa_quality);
+	fmt::print(*f, "# FXAA Threshold: {}\n", _video_fxaa_threshold);
+	fmt::print(*f, "# Pixel Smooth Amount: {}\n", _video_pixel_smooth_amount);
+	fmt::print(*f, "# Vignette Softness: {}\n", _video_vignette_softness);
+	fmt::print(*f, "# Shadow Intensity: {}\n", _video_shadow_intensity);
+	fmt::print(*f, "# Shadow Angle: {}\n", _video_shadow_angle);
+	fmt::print(*f, "# Shadow Length: {}\n", _video_shadow_length);
+	fmt::print(*f, "# Shadow Softness: {}\n", _video_shadow_softness);
+	fmt::print(*f, "# Reflection Intensity: {}\n", _video_reflection_intensity);
+	fmt::print(*f, "# Reflection Distortion: {}\n", _video_reflection_distortion);
+	fmt::print(*f, "# SSAO Radius: {}\n", _video_ssao_radius);
+	fmt::print(*f, "# SSAO Intensity: {}\n", _video_ssao_intensity);
+	fmt::print(*f, "# SSAO Samples: {}\n", _video_ssao_samples);
+	fmt::print(*f, "# Terrain Smooth Radius: {}\n", _video_terrain_smooth_radius);
+	fmt::print(*f, "# Terrain Smooth Strength: {}\n", _video_terrain_smooth_strength);
+	fmt::print(*f, "# Tree Sway Amount: {}\n", _video_tree_sway_amount);
+	fmt::print(*f, "# Tree Sway Speed: {}\n", _video_tree_sway_speed);
+	fmt::print(*f, "# Cloud Density: {}\n", _video_cloud_density);
+	fmt::print(*f, "# Cloud Speed: {}\n", _video_cloud_speed);
+	fmt::print(*f, "# Sky Brightness: {}\n", _video_sky_brightness);
+	fmt::print(*f, "# DoF Focus: {}\n", _video_dof_focus_point);
+	fmt::print(*f, "# DoF Aperture: {}\n", _video_dof_aperture);
+	fmt::print(*f, "# DoF Range: {}\n", _video_dof_range);
+	fmt::print(*f, "# CPU Viewport Scaling: {}\n", _video_cpu_viewport_scaling ? "on" : "off");
+
 	fmt::print(*f, "# Vsync: forced off\n");
 	fmt::print(*f, "# Warmup: {} frames\n", this->warmup_frames);
 	if (!this->label.empty()) fmt::print(*f, "# Label: {}\n", this->label);
