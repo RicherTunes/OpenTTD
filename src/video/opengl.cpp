@@ -2833,16 +2833,22 @@ void OpenGLBackend::ReleaseVideoBuffer(const Rect &update_rect)
 	}
 #endif
 
-	/* Update changed rect of the video buffer texture. */
-	if (!IsEmptyRect(update_rect)) {
+	/* Update changed rect of the video buffer texture.
+	 * Wave 27: Clamp update rect to screen bounds to prevent OOB texSubImage. */
+	Rect clamped_rect = update_rect;
+	clamped_rect.left = std::max(0, clamped_rect.left);
+	clamped_rect.top = std::max(0, clamped_rect.top);
+	clamped_rect.right = std::min(_screen.width, clamped_rect.right);
+	clamped_rect.bottom = std::min(_screen.height, clamped_rect.bottom);
+	if (!IsEmptyRect(clamped_rect)) {
 		_glActiveTexture(GL_TEXTURE0);
 		_glBindTexture(GL_TEXTURE_2D, this->vid_texture);
 		_glPixelStorei(GL_UNPACK_ROW_LENGTH, _screen.pitch);
 		Blitter *release_blitter = BlitterFactory::GetCurrentBlitter();
 		if (release_blitter != nullptr && release_blitter->GetScreenDepth() == 8) {
-			_glTexSubImage2D(GL_TEXTURE_2D, 0, update_rect.left, update_rect.top, update_rect.right - update_rect.left, update_rect.bottom - update_rect.top, GL_RED, GL_UNSIGNED_BYTE, (GLvoid*)(size_t)(update_rect.top * _screen.pitch + update_rect.left));
+			_glTexSubImage2D(GL_TEXTURE_2D, 0, clamped_rect.left, clamped_rect.top, clamped_rect.right - clamped_rect.left, clamped_rect.bottom - clamped_rect.top, GL_RED, GL_UNSIGNED_BYTE, (GLvoid*)(size_t)(clamped_rect.top * _screen.pitch + clamped_rect.left));
 		} else {
-			_glTexSubImage2D(GL_TEXTURE_2D, 0, update_rect.left, update_rect.top, update_rect.right - update_rect.left, update_rect.bottom - update_rect.top, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, (GLvoid*)(size_t)(update_rect.top * _screen.pitch * 4 + update_rect.left * 4));
+			_glTexSubImage2D(GL_TEXTURE_2D, 0, clamped_rect.left, clamped_rect.top, clamped_rect.right - clamped_rect.left, clamped_rect.bottom - clamped_rect.top, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, (GLvoid*)(size_t)(clamped_rect.top * _screen.pitch * 4 + clamped_rect.left * 4));
 		}
 
 #ifndef NO_GL_BUFFER_SYNC
