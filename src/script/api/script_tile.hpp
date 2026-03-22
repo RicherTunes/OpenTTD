@@ -536,6 +536,18 @@ public:
 	 * @return The baseprice of building or removing the given object.
 	 */
 	static Money GetBuildCost(BuildType build_type);
+
+	/**
+	 * Get the harbor quality score for a tile.
+	 * The harbor score indicates how suitable a coastal tile is for port
+	 * construction, based on shelter from surrounding land and water depth.
+	 * Scores are computed during map generation and remain available until
+	 * the map is freed.
+	 * @param tile The tile to query.
+	 * @pre ScriptMap::IsValidTile(tile).
+	 * @return The harbor quality score in range [0, 255], or 0 if no score data is available.
+	 */
+	static SQInteger GetHarborScore(TileIndex tile);
 };
 
 #endif /* SCRIPT_TILE_HPP */

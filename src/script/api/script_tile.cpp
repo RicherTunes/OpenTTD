@@ -18,6 +18,7 @@
 #include "../../town.h"
 #include "../../landscape.h"
 #include "../../landscape_cmd.h"
+#include "../../harbor_gen.h"
 #include "../../terraform_cmd.h"
 #include "../../tree_cmd.h"
 
@@ -349,4 +350,11 @@
 		case BT_CLEAR_WATER:  return ::GetPrice(Price::ClearWater, 1, nullptr);
 		default: return -1;
 	}
+}
+
+/* static */ SQInteger ScriptTile::GetHarborScore(TileIndex tile)
+{
+	if (!::IsValidTile(tile)) return 0;
+
+	return ::GetHarborScore(tile);
 }
