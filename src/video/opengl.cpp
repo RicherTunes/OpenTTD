@@ -637,6 +637,11 @@ OpenGLBackend::~OpenGLBackend()
 		if (this->pp_weather_program != 0) _glDeleteProgram(this->pp_weather_program);
 		if (this->pp_shadow_program != 0) _glDeleteProgram(this->pp_shadow_program);
 		if (this->pp_water_reflect_program != 0) _glDeleteProgram(this->pp_water_reflect_program);
+		if (this->pp_ssao_program != 0) _glDeleteProgram(this->pp_ssao_program);
+		if (this->pp_terrain_smooth_program != 0) _glDeleteProgram(this->pp_terrain_smooth_program);
+		if (this->pp_tree_sway_program != 0) _glDeleteProgram(this->pp_tree_sway_program);
+		if (this->pp_sky_program != 0) _glDeleteProgram(this->pp_sky_program);
+		if (this->pp_dof_program != 0) _glDeleteProgram(this->pp_dof_program);
 		if (this->pp_temporal_program != 0) _glDeleteProgram(this->pp_temporal_program);
 		if (this->pp_downsample_program != 0) _glDeleteProgram(this->pp_downsample_program);
 	}
@@ -1559,6 +1564,11 @@ bool OpenGLBackend::InitPostProcessShaders()
 	this->pp_weather_program = CompileAndLog("weather", _frag_shader_pp_weather, lengthof(_frag_shader_pp_weather));
 	this->pp_shadow_program = CompileAndLog("shadow", _frag_shader_pp_shadow, lengthof(_frag_shader_pp_shadow));
 	this->pp_water_reflect_program = CompileAndLog("water-reflect", _frag_shader_pp_water_reflect, lengthof(_frag_shader_pp_water_reflect));
+	this->pp_ssao_program = CompileAndLog("ssao", _frag_shader_pp_ssao, lengthof(_frag_shader_pp_ssao));
+	this->pp_terrain_smooth_program = CompileAndLog("terrain-smooth", _frag_shader_pp_terrain_smooth, lengthof(_frag_shader_pp_terrain_smooth));
+	this->pp_tree_sway_program = CompileAndLog("tree-sway", _frag_shader_pp_tree_sway, lengthof(_frag_shader_pp_tree_sway));
+	this->pp_sky_program = CompileAndLog("sky", _frag_shader_pp_sky, lengthof(_frag_shader_pp_sky));
+	this->pp_dof_program = CompileAndLog("depth-of-field", _frag_shader_pp_dof, lengthof(_frag_shader_pp_dof));
 	this->pp_temporal_program = CompileAndLog("temporal-accum", _frag_shader_pp_temporal_accum, lengthof(_frag_shader_pp_temporal_accum));
 	this->pp_downsample_program = CompileAndLog("downsample", _frag_shader_pp_downsample, lengthof(_frag_shader_pp_downsample));
 
@@ -1599,6 +1609,11 @@ bool OpenGLBackend::InitPostProcessShaders()
 	BindSourceTex(this->pp_weather_program);
 	BindSourceTex(this->pp_shadow_program);
 	BindSourceTex(this->pp_water_reflect_program);
+	BindSourceTex(this->pp_ssao_program);
+	BindSourceTex(this->pp_terrain_smooth_program);
+	BindSourceTex(this->pp_tree_sway_program);
+	BindSourceTex(this->pp_sky_program);
+	BindSourceTex(this->pp_dof_program);
 	BindSourceTex(this->pp_temporal_program);
 	BindSourceTex(this->pp_downsample_program);
 	/* Temporal shader uses additional texture units for history and MV. */
