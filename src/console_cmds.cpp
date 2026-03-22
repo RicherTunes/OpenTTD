@@ -2938,6 +2938,12 @@ static void ResetPPDefaults()
 	_video_dof_focus_point = 50;
 	_video_dof_aperture = 30;
 	_video_dof_range = 40;
+	_video_toon_rendering = false;
+	_video_toon_edge_threshold = 10;
+	_video_toon_color_levels = 5;
+	_video_heat_haze = false;
+	_video_haze_intensity = 30;
+	_video_haze_distortion = 5;
 }
 
 static void SyncPPPresetCycleIndex(std::string_view name);
@@ -3186,6 +3192,8 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		IConsolePrint(CC_HELP, "  Sway: tree_sway_amount (1-10), tree_sway_speed (10-100)");
 		IConsolePrint(CC_HELP, "  Sky: cloud_density (0-100), cloud_speed (0-100), sky_brightness (0-100)");
 		IConsolePrint(CC_HELP, "  DOF: dof_focus (0-100), dof_aperture (0-100), dof_range (0-100)");
+		IConsolePrint(CC_HELP, "  Toon: toon_edge_threshold (1-50), toon_color_levels (2-16)");
+		IConsolePrint(CC_HELP, "  Haze: haze_intensity (0-100), haze_distortion (1-20)");
 		IConsolePrint(CC_HELP, "Usage: 'pp reset' - Restore all post-processing settings to defaults.");
 		IConsolePrint(CC_HELP, "Usage: 'pp preset <name>' - Apply a predefined configuration.");
 		IConsolePrint(CC_HELP, "  Presets: retro, cinematic, night, miniature, sharp, clean, ...");
@@ -3223,6 +3231,8 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		IConsolePrint(CC_INFO, "  Tree sway: {} (amount={}, speed={}) [LAB]", _video_tree_sway ? "ON" : "OFF", _video_tree_sway_amount, _video_tree_sway_speed);
 		IConsolePrint(CC_INFO, "  Sky clouds: {} (density={}, speed={}, brightness={}) [LAB]", _video_sky_clouds ? "ON" : "OFF", _video_cloud_density, _video_cloud_speed, _video_sky_brightness);
 		IConsolePrint(CC_INFO, "  Depth of field: {} (focus={}, aperture={}, range={}) [LAB]", _video_depth_of_field ? "ON" : "OFF", _video_dof_focus_point, _video_dof_aperture, _video_dof_range);
+		IConsolePrint(CC_INFO, "  Toon rendering: {} (edge={}, levels={}) [LAB]", _video_toon_rendering ? "ON" : "OFF", _video_toon_edge_threshold, _video_toon_color_levels);
+		IConsolePrint(CC_INFO, "  Heat haze: {} (intensity={}, distortion={}) [LAB]", _video_heat_haze ? "ON" : "OFF", _video_haze_intensity, _video_haze_distortion);
 		IConsolePrint(CC_INFO, "  Brightness: {}", _video_brightness);
 		IConsolePrint(CC_INFO, "  Contrast: {}", _video_contrast);
 		IConsolePrint(CC_INFO, "  Saturation: {}", _video_saturation);
@@ -3251,6 +3261,8 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		est_config.tree_sway = _video_tree_sway;
 		est_config.sky_clouds = _video_sky_clouds;
 		est_config.depth_of_field = _video_depth_of_field;
+		est_config.toon_rendering = _video_toon_rendering;
+		est_config.heat_haze = _video_heat_haze;
 		int est_passes = PostProcessPassCount(est_config);
 		IConsolePrint(CC_INFO, "  Estimated shader passes: {} ({})", est_passes,
 			est_passes == 0 ? "no overhead" : est_passes <= 3 ? "light" : est_passes <= 7 ? "moderate" : "heavy");
@@ -3309,6 +3321,8 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		budget_config.tree_sway = _video_tree_sway;
 		budget_config.sky_clouds = _video_sky_clouds;
 		budget_config.depth_of_field = _video_depth_of_field;
+		budget_config.toon_rendering = _video_toon_rendering;
+		budget_config.heat_haze = _video_heat_haze;
 		budget_config.debug_class = _video_debug_class;
 
 		int passes = PostProcessPassCount(budget_config);
@@ -3392,6 +3406,10 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			_video_sky_clouds = enable;
 		} else if (effect == "dof" || effect == "depth_of_field") {
 			_video_depth_of_field = enable;
+		} else if (effect == "toon" || effect == "toon_rendering" || effect == "cartoon") {
+			_video_toon_rendering = enable;
+		} else if (effect == "haze" || effect == "heat_haze") {
+			_video_heat_haze = enable;
 		} else if (effect == "cpu_scale" || effect == "cpu_viewport_scaling") {
 			_video_cpu_viewport_scaling = enable;
 		} else {
@@ -3434,6 +3452,8 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			IConsolePrint(CC_ERROR, "  Sway: tree_sway_amount (1-10), tree_sway_speed (10-100)");
 			IConsolePrint(CC_ERROR, "  Sky: cloud_density (0-100), cloud_speed (0-100), sky_brightness (0-100)");
 			IConsolePrint(CC_ERROR, "  DOF: dof_focus (0-100), dof_aperture (0-100), dof_range (0-100)");
+			IConsolePrint(CC_ERROR, "  Toon: toon_edge_threshold (1-50), toon_color_levels (2-16)");
+			IConsolePrint(CC_ERROR, "  Haze: haze_intensity (0-100), haze_distortion (1-20)");
 			return false;
 		}
 		std::string_view param = argv[2];
@@ -3585,6 +3605,18 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		} else if (param == "dof_range") {
 			_video_dof_range = static_cast<uint8_t>(Clamp(value, 0, 100));
 			IConsolePrint(CC_INFO, "DoF focus range set to {}.", _video_dof_range);
+		} else if (param == "toon_edge_threshold" || param == "toon_edge") {
+			_video_toon_edge_threshold = static_cast<uint8_t>(Clamp(value, 1, 50));
+			IConsolePrint(CC_INFO, "Toon edge threshold set to {}.", _video_toon_edge_threshold);
+		} else if (param == "toon_color_levels" || param == "toon_levels") {
+			_video_toon_color_levels = static_cast<uint8_t>(Clamp(value, 2, 16));
+			IConsolePrint(CC_INFO, "Toon color levels set to {}.", _video_toon_color_levels);
+		} else if (param == "haze_intensity") {
+			_video_haze_intensity = static_cast<uint8_t>(Clamp(value, 0, 100));
+			IConsolePrint(CC_INFO, "Haze intensity set to {}.", _video_haze_intensity);
+		} else if (param == "haze_distortion") {
+			_video_haze_distortion = static_cast<uint8_t>(Clamp(value, 1, 20));
+			IConsolePrint(CC_INFO, "Haze distortion set to {}.", _video_haze_distortion);
 		} else {
 			IConsolePrint(CC_ERROR, "Unknown parameter '{}'.", param);
 			IConsolePrint(CC_ERROR, "  Core: render_scale, sharpening, upscale, texture_filter, brightness, contrast, saturation, temperature");
@@ -3600,6 +3632,8 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			IConsolePrint(CC_ERROR, "  Sway: tree_sway_amount (1-10), tree_sway_speed (10-100)");
 			IConsolePrint(CC_ERROR, "  Sky: cloud_density (0-100), cloud_speed (0-100), sky_brightness (0-100)");
 			IConsolePrint(CC_ERROR, "  DOF: dof_focus (0-100), dof_aperture (0-100), dof_range (0-100)");
+			IConsolePrint(CC_ERROR, "  Toon: toon_edge_threshold (1-50), toon_color_levels (2-16)");
+			IConsolePrint(CC_ERROR, "  Haze: haze_intensity (0-100), haze_distortion (1-20)");
 			IConsolePrint(CC_ERROR, "  Other: grain_intensity, bloom_threshold, bloom_intensity, weather_type, weather_intensity");
 			return false;
 		}

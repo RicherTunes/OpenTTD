@@ -289,6 +289,8 @@ static const PPEffectDescriptor _pp_effect_registry[] = {
 	{"tree_sway",     "tree_sway",     true,  EffectCategory::Lab,          false, false, true,  true,  false, 3},
 	{"sky",           "sky",           true,  EffectCategory::Lab,          false, false, false, true,  false, 3},
 	{"dof",           "dof",           true,  EffectCategory::Lab,          false, false, true,  false, false, 3},
+	{"toon",          "toon",          true,  EffectCategory::Lab,          false, false, false, true,  false, 3},
+	{"haze",          "haze",          true,  EffectCategory::Lab,          false, false, false, true,  false, 3},
 
 	/* Research-only */
 	{"temporal",      "temporal",      false, EffectCategory::Research,     false, false, false, true,  false, 3},
@@ -308,6 +310,9 @@ static constexpr std::pair<std::string_view, std::string_view> _pp_effect_aliase
 	{"sway",               "tree_sway"},
 	{"sky_clouds",         "sky"},
 	{"depth_of_field",     "dof"},
+	{"toon_rendering",     "toon"},
+	{"cartoon",            "toon"},
+	{"heat_haze",          "haze"},
 };
 
 /**
@@ -428,6 +433,8 @@ QualityTier EstimateQualityTier(const PostProcessConfig &config)
 		{"tree_sway",      config.tree_sway},
 		{"sky",            config.sky_clouds},
 		{"dof",            config.depth_of_field},
+		{"toon",           config.toon_rendering},
+		{"haze",           config.heat_haze},
 	};
 
 	uint8_t max_tier = 0;
