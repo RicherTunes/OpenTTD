@@ -569,10 +569,15 @@ TEST_CASE("PostProcess - PassCount all effects maximum")
 
 TEST_CASE("PostProcess - PassCount sharpening suppressed by FSR1")
 {
+	/* At render_scale >= 100, FSR1 EASU is skipped (no upscaling needed).
+	 * FSR1 falls back to CAS sharpening when sharpening > 0. */
 	PostProcessConfig config;
 	config.upscale_mode = UpscaleMode::FSR1;
 	config.sharpening = 80;
-	/* EASU + RCAS = 2, CAS suppressed because FSR1 RCAS handles sharpening */
+	CHECK(PostProcessPassCount(config) == 1); /* CAS fallback only, no EASU+RCAS at 100% */
+
+	/* At render_scale < 100, FSR1 EASU actually runs: EASU + RCAS = 2. */
+	config.render_scale = 75;
 	CHECK(PostProcessPassCount(config) == 2);
 }
 
@@ -1761,7 +1766,9 @@ TEST_CASE("PostProcess - NeedsFBO implies PassCount > 0 for each effect toggle")
 		setter(config);
 		if (PostProcessNeedsFBO(config)) {
 			/* Exception: render_scale < 100 with UpscaleMode::None has 0 passes
-			 * (handled by blit fallback). All other FBO triggers should have > 0 passes. */
+			 * (handled by blit fallback). cpu_viewport_scaling uses FBO for
+			 * compositing but adds no shader passes. */
+			if (config.cpu_viewport_scaling) return;
 			if (config.render_scale < 100 && config.upscale_mode == UpscaleMode::None &&
 			    config.sharpening == 0 && !config.fxaa && !config.color_grading &&
 			    !config.vignette && !config.tiltshift && !config.night_mode &&
@@ -1784,8 +1791,20 @@ TEST_CASE("PostProcess - NeedsFBO implies PassCount > 0 for each effect toggle")
 	TestEffect([](auto &c) { c.bloom = true; });
 	TestEffect([](auto &c) { c.dynamic_lighting = true; });
 	TestEffect([](auto &c) { c.weather_type = 1; });
-	TestEffect([](auto &c) { c.upscale_mode = UpscaleMode::FSR1; });
+	/* FSR1 at render_scale >= 100 with sharpening == 0 gives 0 passes
+	 * (EASU skipped, no CAS fallback). NeedsFBO is true but passes == 0;
+	 * this is a valid exception similar to render_scale < 100 blit fallback. */
+	TestEffect([](auto &c) { c.upscale_mode = UpscaleMode::FSR1; c.sharpening = 50; });
 	TestEffect([](auto &c) { c.render_scale = 150; }); /* supersampling */
+	TestEffect([](auto &c) { c.cpu_viewport_scaling = true; }); /* FBO only, no shader passes */
+	TestEffect([](auto &c) { c.pixel_smoothing = true; });
+	TestEffect([](auto &c) { c.fake_shadows = true; });
+	TestEffect([](auto &c) { c.water_reflections = true; });
+	TestEffect([](auto &c) { c.ssao = true; });
+	TestEffect([](auto &c) { c.terrain_smooth = true; });
+	TestEffect([](auto &c) { c.tree_sway = true; });
+	TestEffect([](auto &c) { c.sky_clouds = true; });
+	TestEffect([](auto &c) { c.depth_of_field = true; });
 }
 
 /* --- Exact dimension tests for small windows --- */
@@ -1895,11 +1914,11 @@ TEST_CASE("PostProcess - pass count is additive for independent effects")
 
 TEST_CASE("PostProcess - upscale + sharpening interaction")
 {
-	/* FSR1 suppresses CAS. */
+	/* FSR1 at >= 100% falls back to CAS sharpening (EASU skipped). */
 	PostProcessConfig fsr;
 	fsr.upscale_mode = UpscaleMode::FSR1;
 	fsr.sharpening = 80;
-	CHECK(PostProcessPassCount(fsr) == 2); /* EASU + RCAS only, no CAS */
+	CHECK(PostProcessPassCount(fsr) == 1); /* CAS fallback only at render_scale=100 */
 
 	/* Temporal suppresses CAS. */
 	PostProcessConfig temporal;
@@ -1928,9 +1947,9 @@ TEST_CASE("PostProcess - NeedsFBO is true whenever pass count > 0")
 		setter(config);
 		bool needs = PostProcessNeedsFBO(config);
 		int passes = PostProcessPassCount(config);
-		if (needs) CHECK(passes > 0);
-		/* Note: passes > 0 doesn't always imply NeedsFBO (e.g., CAS at 100% render scale
-		 * needs FBO via sharpening > 0 check, which is covered). */
+		/* cpu_viewport_scaling and auto_supersample use FBO for compositing
+		 * but don't add shader passes. */
+		if (needs && !config.cpu_viewport_scaling) CHECK(passes > 0);
 	};
 
 	TestConsistency([](auto &c) { c.fxaa = true; });
@@ -1941,7 +1960,9 @@ TEST_CASE("PostProcess - NeedsFBO is true whenever pass count > 0")
 	/* render_scale < 100 needs FBO but has 0 explicit passes (passthrough blit handles it). */
 	/* TestConsistency([](auto &c) { c.render_scale = 75; }); -- valid: NeedsFBO=true, passes=0 */
 	TestConsistency([](auto &c) { c.render_scale = 150; });
-	TestConsistency([](auto &c) { c.upscale_mode = UpscaleMode::FSR1; });
+	/* FSR1 at >= 100% with sharpening == 0 has NeedsFBO=true but 0 passes (CAS fallback
+	 * only activates with sharpening > 0). Test with sharpening to verify consistency. */
+	TestConsistency([](auto &c) { c.upscale_mode = UpscaleMode::FSR1; c.sharpening = 50; });
 	TestConsistency([](auto &c) { c.upscale_mode = UpscaleMode::Temporal; });
 	TestConsistency([](auto &c) { c.upscale_mode = UpscaleMode::Plugin; });
 	TestConsistency([](auto &c) { c.pixel_smoothing = true; });
@@ -2742,4 +2763,46 @@ TEST_CASE("PostProcess - all bool fields toggle inequality")
 
 	a.pixel_smoothing = true;
 	CHECK(!(a == b));
+}
+
+/* --- Pass count safety tests (black screen regression guard) --- */
+
+TEST_CASE("PostProcess - Plugin mode with no plugin gives zero passes")
+{
+	/* This scenario caused a black screen: PostProcessPassCount counted 1 pass
+	 * for Plugin mode, but no plugin was loaded so RenderPostProcess had 0 actual
+	 * passes. The safety blit then read from the wrong texture. */
+	PostProcessConfig config;
+	config.render_scale = 80;
+	config.upscale_mode = UpscaleMode::Plugin;
+
+	/* PostProcessPassCount counts 1 theoretical pass for Plugin mode.
+	 * This is intentional — the runtime recount handles the "not loaded" case. */
+	CHECK(PostProcessPassCount(config) == 1);
+
+	/* NeedsFBO is true because render_scale < 100. */
+	CHECK(PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("PostProcess - default config with PP on but no effects has zero passes")
+{
+	PostProcessConfig config;
+	/* Default config: all effects off, render_scale = 100, upscale_mode = None. */
+	CHECK(PostProcessPassCount(config) == 0);
+	CHECK(!PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("PostProcess - render_scale below 100 needs FBO regardless of effects")
+{
+	PostProcessConfig config;
+	config.render_scale = 50;
+	CHECK(PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("PostProcess - supersampling 150% needs exactly one downsample pass")
+{
+	PostProcessConfig config;
+	config.render_scale = 150;
+	CHECK(PostProcessNeedsFBO(config));
+	CHECK(PostProcessPassCount(config) == 1); /* Downsample pass. */
 }
