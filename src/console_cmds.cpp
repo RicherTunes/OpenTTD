@@ -3231,6 +3231,39 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		} else if (param == "reflection_distortion") {
 			_video_reflection_distortion = static_cast<uint8_t>(Clamp(value, 0, 20));
 			IConsolePrint(CC_INFO, "Reflection distortion set to {}.", _video_reflection_distortion);
+		} else if (param == "ssao_radius") {
+			_video_ssao_radius = static_cast<uint8_t>(Clamp(value, 1, 15));
+			IConsolePrint(CC_INFO, "SSAO radius set to {}.", _video_ssao_radius);
+		} else if (param == "ssao_intensity") {
+			_video_ssao_intensity = static_cast<uint8_t>(Clamp(value, 0, 100));
+			IConsolePrint(CC_INFO, "SSAO intensity set to {}.", _video_ssao_intensity);
+		} else if (param == "ssao_samples") {
+			_video_ssao_samples = static_cast<uint8_t>(Clamp(value, 4, 16));
+			IConsolePrint(CC_INFO, "SSAO samples set to {}.", _video_ssao_samples);
+		} else if (param == "terrain_smooth_radius") {
+			_video_terrain_smooth_radius = static_cast<uint8_t>(Clamp(value, 1, 5));
+			IConsolePrint(CC_INFO, "Terrain smooth radius set to {}.", _video_terrain_smooth_radius);
+		} else if (param == "terrain_smooth_strength") {
+			_video_terrain_smooth_strength = static_cast<uint8_t>(Clamp(value, 0, 100));
+			IConsolePrint(CC_INFO, "Terrain smooth strength set to {}.", _video_terrain_smooth_strength);
+		} else if (param == "tree_sway_amount") {
+			_video_tree_sway_amount = static_cast<uint8_t>(Clamp(value, 1, 10));
+			IConsolePrint(CC_INFO, "Tree sway amount set to {}.", _video_tree_sway_amount);
+		} else if (param == "tree_sway_speed") {
+			_video_tree_sway_speed = static_cast<uint8_t>(Clamp(value, 10, 100));
+			IConsolePrint(CC_INFO, "Tree sway speed set to {}.", _video_tree_sway_speed);
+		} else if (param == "sky_brightness") {
+			_video_sky_brightness = static_cast<uint8_t>(Clamp(value, 0, 100));
+			IConsolePrint(CC_INFO, "Sky brightness set to {}.", _video_sky_brightness);
+		} else if (param == "dof_focus") {
+			_video_dof_focus_point = static_cast<uint8_t>(Clamp(value, 0, 100));
+			IConsolePrint(CC_INFO, "DoF focus point set to {}.", _video_dof_focus_point);
+		} else if (param == "dof_aperture") {
+			_video_dof_aperture = static_cast<uint8_t>(Clamp(value, 0, 100));
+			IConsolePrint(CC_INFO, "DoF aperture set to {}.", _video_dof_aperture);
+		} else if (param == "dof_range") {
+			_video_dof_range = static_cast<uint8_t>(Clamp(value, 0, 100));
+			IConsolePrint(CC_INFO, "DoF focus range set to {}.", _video_dof_range);
 		} else {
 			IConsolePrint(CC_ERROR, "Unknown parameter '{}'.", param);
 			IConsolePrint(CC_ERROR, "  Core: render_scale, sharpening, upscale, texture_filter, brightness, contrast, saturation, temperature");
