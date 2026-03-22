@@ -2988,6 +2988,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		IConsolePrint(CC_INFO, "  Weather: {} (type={}, intensity={})", _video_weather_type > 0 ? "ON" : "OFF", _video_weather_type, _video_weather_intensity);
 		IConsolePrint(CC_INFO, "  Pixel smooth: {} (amount={})", _video_pixel_smoothing ? "ON" : "OFF", _video_pixel_smooth_amount);
 		IConsolePrint(CC_INFO, "  Auto-supersample: {}", _video_auto_supersample ? "ON" : "OFF");
+		IConsolePrint(CC_INFO, "  CPU viewport scaling: {}", _video_cpu_viewport_scaling ? "ON" : "OFF");
 		IConsolePrint(CC_INFO, "  Fake shadows: {} (intensity={}, angle={}°, length={}px, softness={})", _video_fake_shadows ? "ON" : "OFF", _video_shadow_intensity, _video_shadow_angle, _video_shadow_length, _video_shadow_softness);
 		IConsolePrint(CC_INFO, "  Water reflections: {} (intensity={}, distortion={})", _video_water_reflections ? "ON" : "OFF", _video_reflection_intensity, _video_reflection_distortion);
 		IConsolePrint(CC_INFO, "  SSAO: {} (radius={}, intensity={}, samples={})", _video_ssao ? "ON" : "OFF", _video_ssao_radius, _video_ssao_intensity, _video_ssao_samples);
