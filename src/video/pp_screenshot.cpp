@@ -317,6 +317,18 @@ size_t GetPendingPPScreenshotCount()
 	return _pending_pp_screenshots.size();
 }
 
+int GetNextPPActiveFrameCount(bool pp_this_frame, int previous_frames)
+{
+	return pp_this_frame ? (previous_frames + 1) : 0;
+}
+
+bool ShouldCapturePPScreenshotThisFrame(bool has_pending, bool pp_this_frame, int pp_active_frames)
+{
+	if (!has_pending) return false;
+	if (!pp_this_frame) return true;
+	return pp_active_frames >= 2;
+}
+
 /**
  * Write a BMP file from raw RGBA pixel data.
  * @param filename Output path.

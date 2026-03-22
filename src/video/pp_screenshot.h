@@ -64,6 +64,27 @@ bool HasPendingPPScreenshots();
 size_t GetPendingPPScreenshotCount();
 
 /**
+ * Advance the PP-active frame counter used for screenshot warmup gating.
+ * When PP is inactive the counter resets to zero.
+ * @param pp_this_frame Whether PP rendered this frame.
+ * @param previous_frames Previous consecutive PP-active frame count.
+ * @return Updated consecutive PP-active frame count.
+ */
+int GetNextPPActiveFrameCount(bool pp_this_frame, int previous_frames);
+
+/**
+ * Decide whether a queued PP screenshot can be captured this frame.
+ * PP-on captures intentionally wait until the second consecutive active frame
+ * so the FBO topology has had one full render cycle to populate.
+ * PP-off captures can happen immediately.
+ * @param has_pending Whether the screenshot queue is non-empty.
+ * @param pp_this_frame Whether PP rendered this frame.
+ * @param pp_active_frames Current consecutive PP-active frame count.
+ * @return True if a capture should proceed this frame.
+ */
+bool ShouldCapturePPScreenshotThisFrame(bool has_pending, bool pp_this_frame, int pp_active_frames);
+
+/**
  * If screenshots are queued, restore the next screenshot's settings.
  * Call this at the START of Paint() before config sync.
  * This ensures the PP pipeline renders with the correct settings

@@ -56,6 +56,8 @@
 
 #include "../safeguards.h"
 
+int _pp_active_frames = 0; ///< Frame count since PP activated/config changed. Screenshot capture skips frame 0.
+
 
 /* Define function pointers of all OpenGL functions that we load dynamically. */
 
@@ -1514,6 +1516,10 @@ void OpenGLBackend::Paint()
 				this->pp_history_fbo = 0;
 			}
 		}
+		/* Reset PP screenshot frame counter on any config change so captures
+		 * skip the first frame after the change (FBO needs repopulating). */
+		extern int _pp_active_frames;
+		if (!(this->pp_config == new_config)) _pp_active_frames = 0;
 		this->pp_config = new_config;
 		if (fbo_need_changed || scale_changed) {
 			this->SetupPostProcessFBOs(this->pp_display_size.width > 0 ? this->pp_display_size.width : _screen.width,
@@ -1670,10 +1676,19 @@ void OpenGLBackend::Paint()
 
 	_glEnable(GL_BLEND);
 
-	/* Capture PP screenshot if one was requested (after all rendering is complete). */
-	int capture_w = this->pp_active ? (int)this->pp_display_size.width : _screen.width;
-	int capture_h = this->pp_active ? (int)this->pp_display_size.height : _screen.height;
-	CapturePPScreenshotIfPending(capture_w, capture_h);
+	/* Capture PP screenshot if one was requested (after all rendering is complete).
+	 * Track PP-active frame count: skip capture on first frame after PP activates
+	 * or after any topology change, because the FBO needs one full render cycle
+	 * to populate before glReadPixels can read valid content. */
+	extern int _pp_active_frames;
+	_pp_active_frames = GetNextPPActiveFrameCount(pp_this_frame, _pp_active_frames);
+
+	if (ShouldCapturePPScreenshotThisFrame(HasPendingPPScreenshots(), pp_this_frame, _pp_active_frames)) {
+		int capture_w = pp_this_frame ? (int)this->pp_display_size.width : _screen.width;
+		int capture_h = pp_this_frame ? (int)this->pp_display_size.height : _screen.height;
+		CapturePPScreenshotIfPending(capture_w, capture_h);
+	}
+	/* else: skip (PP just activated this frame or last frame, FBO not fully populated yet) */
 
 	/* If exit was deferred for screenshot queue drain, check if done. */
 	CheckDeferredExit();
