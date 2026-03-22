@@ -478,6 +478,16 @@ CommandCost CmdBuildLock(DoCommandFlags flags, TileIndex tile)
  */
 void MakeRiverAndModifyDesertZoneAround(TileIndex tile)
 {
+	/* Guard: don't create river if any cardinal neighbour is flat water at a lower
+	 * height. This would cause coast flooding to produce SLOPE_FLAT shore tiles,
+	 * crashing DrawShoreTile which asserts tileh != SLOPE_FLAT. */
+	for (DiagDirection d = DIAGDIR_BEGIN; d < DIAGDIR_END; d++) {
+		TileIndex nb = tile + TileOffsByDiagDir(d);
+		if (IsValidTile(nb) && IsTileType(nb, TileType::Water) && IsTileFlat(nb) && TileHeight(nb) < TileHeight(tile)) {
+			return;
+		}
+	}
+
 	MakeRiver(tile, Random());
 	MarkTileDirtyByTile(tile);
 
