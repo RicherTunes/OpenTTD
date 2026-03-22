@@ -2913,6 +2913,22 @@ static void ResetPPDefaults()
 	_video_water_reflections = false;
 	_video_reflection_intensity = 30;
 	_video_reflection_distortion = 5;
+	_video_ssao = false;
+	_video_ssao_radius = 4;
+	_video_ssao_intensity = 50;
+	_video_ssao_samples = 8;
+	_video_terrain_smooth = false;
+	_video_terrain_smooth_radius = 2;
+	_video_terrain_smooth_strength = 50;
+	_video_tree_sway = false;
+	_video_tree_sway_amount = 3;
+	_video_tree_sway_speed = 50;
+	_video_sky_clouds = false;
+	_video_sky_brightness = 70;
+	_video_depth_of_field = false;
+	_video_dof_focus_point = 50;
+	_video_dof_aperture = 30;
+	_video_dof_range = 40;
 }
 
 /** GPU post-processing control. @copydoc IConsoleCmdProc */
@@ -2964,6 +2980,11 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		IConsolePrint(CC_INFO, "  Auto-supersample: {}", _video_auto_supersample ? "ON" : "OFF");
 		IConsolePrint(CC_INFO, "  Fake shadows: {} (intensity={}, angle={}°, length={}px, softness={})", _video_fake_shadows ? "ON" : "OFF", _video_shadow_intensity, _video_shadow_angle, _video_shadow_length, _video_shadow_softness);
 		IConsolePrint(CC_INFO, "  Water reflections: {} (intensity={}, distortion={})", _video_water_reflections ? "ON" : "OFF", _video_reflection_intensity, _video_reflection_distortion);
+		IConsolePrint(CC_INFO, "  SSAO: {} (radius={}, intensity={}, samples={})", _video_ssao ? "ON" : "OFF", _video_ssao_radius, _video_ssao_intensity, _video_ssao_samples);
+		IConsolePrint(CC_INFO, "  Terrain smooth: {} (radius={}, strength={})", _video_terrain_smooth ? "ON" : "OFF", _video_terrain_smooth_radius, _video_terrain_smooth_strength);
+		IConsolePrint(CC_INFO, "  Tree sway: {} (amount={}, speed={})", _video_tree_sway ? "ON" : "OFF", _video_tree_sway_amount, _video_tree_sway_speed);
+		IConsolePrint(CC_INFO, "  Sky clouds: {} (brightness={})", _video_sky_clouds ? "ON" : "OFF", _video_sky_brightness);
+		IConsolePrint(CC_INFO, "  Depth of field: {} (focus={}, aperture={}, range={})", _video_depth_of_field ? "ON" : "OFF", _video_dof_focus_point, _video_dof_aperture, _video_dof_range);
 		IConsolePrint(CC_INFO, "  Brightness: {}", _video_brightness);
 		IConsolePrint(CC_INFO, "  Contrast: {}", _video_contrast);
 		IConsolePrint(CC_INFO, "  Saturation: {}", _video_saturation);
@@ -2987,6 +3008,11 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		est_config.pixel_smoothing = _video_pixel_smoothing;
 		est_config.fake_shadows = _video_fake_shadows;
 		est_config.water_reflections = _video_water_reflections;
+		est_config.ssao = _video_ssao;
+		est_config.terrain_smooth = _video_terrain_smooth;
+		est_config.tree_sway = _video_tree_sway;
+		est_config.sky_clouds = _video_sky_clouds;
+		est_config.depth_of_field = _video_depth_of_field;
 		int est_passes = PostProcessPassCount(est_config);
 		IConsolePrint(CC_INFO, "  Estimated shader passes: {} ({})", est_passes,
 			est_passes == 0 ? "no overhead" : est_passes <= 3 ? "light" : est_passes <= 7 ? "moderate" : "heavy");
@@ -3061,8 +3087,18 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			_video_fake_shadows = enable;
 		} else if (effect == "water" || effect == "water_reflections") {
 			_video_water_reflections = enable;
+		} else if (effect == "ssao") {
+			_video_ssao = enable;
+		} else if (effect == "terrain_smooth") {
+			_video_terrain_smooth = enable;
+		} else if (effect == "tree_sway") {
+			_video_tree_sway = enable;
+		} else if (effect == "sky" || effect == "sky_clouds") {
+			_video_sky_clouds = enable;
+		} else if (effect == "dof" || effect == "depth_of_field") {
+			_video_depth_of_field = enable;
 		} else {
-			IConsolePrint(CC_ERROR, "Unknown effect '{}'. Valid effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather, smooth, supersample, shadows, water", effect);
+			IConsolePrint(CC_ERROR, "Unknown effect '{}'. Valid effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather, smooth, supersample, shadows, water, ssao, terrain_smooth, tree_sway, sky, dof", effect);
 			return false;
 		}
 
