@@ -50,4 +50,6 @@ void IConsoleCmdExec(std::string_view command_string, const uint recurse_count =
 
 bool IsValidConsoleColour(TextColour c);
 
+void CheckDeferredExit();
+
 #endif /* CONSOLE_FUNC_H */

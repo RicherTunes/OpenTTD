@@ -1232,15 +1232,18 @@ TEST_CASE("Heightmap preview - GenerateHeightmapPreview downscales correctly") {
 }
 
 TEST_CASE("Heightmap preview - GenerateHeightmapPreview keeps water distinct") {
+	/* Source 2x2: row0={0,255} row1={0,255}.
+	 * Counter-clockwise rotation mirrors X: pixel (dx=0) samples sx=1 (value 255),
+	 * pixel (dx=1) samples sx=0 (value 0). So output is {land, water, land, water}. */
 	std::vector<uint8_t> src = {0, 255, 0, 255};
 	MapPreviewData preview;
 
 	CHECK(GenerateHeightmapPreview(preview, src, 2, 2, 2, 2));
 	CHECK(preview.pixels.size() == 4);
-	CHECK(preview.pixels[0] == 0xCA);
-	CHECK(preview.pixels[1] != 0xCA);
-	CHECK(preview.pixels[2] == 0xCA);
-	CHECK(preview.pixels[3] != 0xCA);
+	CHECK(preview.pixels[0] != 0xCA); /* Source 255 -> land */
+	CHECK(preview.pixels[1] == 0xCA); /* Source 0 -> water */
+	CHECK(preview.pixels[2] != 0xCA); /* Source 255 -> land */
+	CHECK(preview.pixels[3] == 0xCA); /* Source 0 -> water */
 }
 
 TEST_CASE("Heightmap preview - GenerateHeightmapPreview rejects undersized buffers") {

@@ -107,16 +107,29 @@ void ComputeHarborScores()
 			}
 		}
 
-		/* Score: more surrounding land + deeper water access = better harbor.
-		 * Normalize to [0, 255] using theoretical max (8 land rays * 16 avg depth). */
-		if (land_rays > 0 && water_rays > 0) {
-			int avg_depth = total_water_depth / water_rays;
-			int raw_score = land_rays * avg_depth;
-			int max_possible = 8 * max_ray_length;
-			int normalized = (raw_score * 255) / std::max(1, max_possible);
-			_harbor_scores[(uint)tile] = static_cast<uint8_t>(Clamp(normalized, 0, 255));
-		}
+		_harbor_scores[(uint)tile] = NormalizeHarborScore(land_rays, water_rays, total_water_depth, max_ray_length);
 	}
+}
+
+/**
+ * Normalize harbor shelter/depth measurements into a score in [0, 255].
+ * Uses full ray-depth precision instead of truncating average depth early.
+ *
+ * @param land_rays Number of rays that hit land (0-8).
+ * @param water_rays Number of rays that traversed water (0-8).
+ * @param total_water_depth Sum of water ray lengths.
+ * @param max_ray_length Maximum ray cast distance (default 16).
+ * @return Normalized score in [0, 255].
+ */
+uint8_t NormalizeHarborScore(int land_rays, int water_rays, int total_water_depth, int max_ray_length)
+{
+	if (land_rays <= 0 || water_rays <= 0) return 0;
+
+	/* Use full precision: (land_rays * total_water_depth * 255) / (water_rays * 8 * max_ray_length)
+	 * This avoids truncating avg_depth before multiplication. */
+	int max_possible = water_rays * 8 * max_ray_length;
+	int normalized = (land_rays * total_water_depth * 255) / std::max(1, max_possible);
+	return static_cast<uint8_t>(Clamp(normalized, 0, 255));
 }
 
 /**
