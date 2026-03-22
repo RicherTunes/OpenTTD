@@ -45,6 +45,8 @@
         lifecycle_endurance
         lifecycle_with_ai lifecycle_water_world lifecycle_voronoi_towns
         lifecycle_max_everything lifecycle_minimum lifecycle_toyland_large
+        lifecycle_no_freeform lifecycle_alpine_arctic lifecycle_tropic_rivers
+        lifecycle_shape_island_arctic lifecycle_marathon
     )
     foreach(CFG ${LIFECYCLE_CFGS})
         add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${CFG}.cfg
@@ -160,6 +162,21 @@
 
     # With AI player configured (exercises AI startup)
     add_lifecycle_test(with_ai            -g -G 1 -c regression/lifecycle_with_ai.cfg)
+
+    # Freeform edges disabled (changes tile 0,0 handling)
+    add_lifecycle_test(no_freeform        -g -G 1 -c regression/lifecycle_no_freeform.cfg)
+
+    # Alpine arctic with biome model (high terrain + snow line calculation)
+    add_lifecycle_test(alpine_arctic      -g -G 1 -c regression/lifecycle_alpine_arctic.cfg)
+
+    # Tropic with max rivers + biome (delta generation + desert zones)
+    add_lifecycle_test(tropic_rivers      -g -G 1 -c regression/lifecycle_tropic_rivers.cfg)
+
+    # Island shape on arctic with biome (shape mask + temperature-based snow)
+    add_lifecycle_test(shape_island_arctic -g -G 1 -c regression/lifecycle_shape_island_arctic.cfg)
+
+    # Marathon endurance: 10000 ticks (~5 min game time)
+    add_lifecycle_test_ticks(marathon_10000 10000 -g -G 1 -c regression/lifecycle_marathon.cfg)
 
     # Load the existing regression test savegame (verifies save/load path)
     add_lifecycle_test(load_save -g ai/regression/test.sav -c regression/lifecycle.cfg)
