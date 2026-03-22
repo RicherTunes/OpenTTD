@@ -3071,3 +3071,56 @@ TEST_CASE("PostProcess - dynamic lighting does not change pass count")
 	config.dynamic_lighting = true;
 	CHECK(PostProcessPassCount(config) == 1);
 }
+
+/* --- Quality tier tests (M3) --- */
+
+TEST_CASE("PostProcess - QualityTier enum values are ordered")
+{
+	CHECK(static_cast<int>(QualityTier::Low) == 0);
+	CHECK(static_cast<int>(QualityTier::Medium) == 1);
+	CHECK(static_cast<int>(QualityTier::High) == 2);
+	CHECK(static_cast<int>(QualityTier::Photo) == 3);
+}
+
+TEST_CASE("PostProcess - default config is Low tier")
+{
+	PostProcessConfig config;
+	CHECK(EstimateQualityTier(config) == QualityTier::Low);
+}
+
+TEST_CASE("PostProcess - FXAA only is Medium tier")
+{
+	PostProcessConfig config;
+	config.fxaa = true;
+	CHECK(EstimateQualityTier(config) == QualityTier::Medium);
+}
+
+TEST_CASE("PostProcess - bloom pushes to High tier")
+{
+	PostProcessConfig config;
+	config.bloom = true;
+	CHECK(EstimateQualityTier(config) == QualityTier::High);
+}
+
+TEST_CASE("PostProcess - CRT pushes to Photo tier")
+{
+	PostProcessConfig config;
+	config.crt_filter = true;
+	CHECK(EstimateQualityTier(config) == QualityTier::Photo);
+}
+
+TEST_CASE("PostProcess - GetTierPassBudget returns expected limits")
+{
+	CHECK(GetTierPassBudget(QualityTier::Low) == 0);
+	CHECK(GetTierPassBudget(QualityTier::Medium) == 4);
+	CHECK(GetTierPassBudget(QualityTier::High) == 10);
+	CHECK(GetTierPassBudget(QualityTier::Photo) == 999); /* Unlimited */
+}
+
+TEST_CASE("PostProcess - GetTierName returns readable strings")
+{
+	CHECK(GetTierName(QualityTier::Low) == "Low");
+	CHECK(GetTierName(QualityTier::Medium) == "Medium");
+	CHECK(GetTierName(QualityTier::High) == "High");
+	CHECK(GetTierName(QualityTier::Photo) == "Photo");
+}
