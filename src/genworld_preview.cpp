@@ -73,7 +73,7 @@ static double PreviewPerlinNoise(double x, double y, int octaves, double persist
 
 /** Simple height-to-palette-colour mapping for terrain preview.
  * Uses a gradient from deep blue (water) through green (lowland) to brown/white (mountains). */
-static uint8_t HeightToPreviewColour(int height, int max_height, bool is_water)
+uint8_t HeightToPreviewColour(int height, int max_height, bool is_water)
 {
 	if (is_water) return 0xCA; /* Deep blue water colour (palette index) */
 

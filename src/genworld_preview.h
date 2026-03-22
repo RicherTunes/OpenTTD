@@ -32,5 +32,6 @@ bool GenerateHeightmapPreview(MapPreviewData &out, const std::vector<uint8_t> &g
 	uint src_w, uint src_h, uint16_t preview_w, uint16_t preview_h, HeightmapRotation rotation = HM_COUNTER_CLOCKWISE);
 
 uint8_t HarborScoreToColour(uint8_t score);
+uint8_t HeightToPreviewColour(int height, int max_height, bool is_water);
 
 #endif /* GENWORLD_PREVIEW_H */

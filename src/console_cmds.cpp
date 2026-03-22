@@ -69,6 +69,7 @@
 #endif
 #include "video/upscale_plugin.h"
 #include "video/pp_screenshot.h"
+#include "save_thumbnail.h"
 
 #if defined(WITH_ZLIB)
 #include "network/network_content.h"
@@ -1881,6 +1882,38 @@ static bool ConScreenShot(std::span<std::string_view> argv)
 	}
 
 	MakeScreenshot(type, std::move(name), width, height);
+	return true;
+}
+
+/** Generate a map thumbnail and save as BMP. @copydoc IConsoleCmdProc */
+static bool ConSaveThumbnail(std::span<std::string_view> argv)
+{
+	if (argv.empty()) {
+		IConsolePrint(CC_HELP, "Generate a thumbnail preview of the current map and save as BMP. Usage: 'save_thumbnail [filename]'.");
+		IConsolePrint(CC_HELP, "  The default filename is 'thumbnail.bmp'.");
+		return true;
+	}
+
+	std::string filename = "thumbnail.bmp";
+	if (argv.size() > 1) {
+		filename = std::string(argv[1]);
+		if (filename.find('.') == std::string::npos) {
+			filename += ".bmp";
+		}
+	}
+
+	MapPreviewData preview;
+	if (!GenerateSaveThumbnail(preview)) {
+		IConsolePrint(CC_ERROR, "Failed to generate thumbnail (is a map loaded?).");
+		return true;
+	}
+
+	if (!WriteThumbnailBMP(preview, filename)) {
+		IConsolePrint(CC_ERROR, "Failed to write thumbnail to '{}'.", filename);
+		return true;
+	}
+
+	IConsolePrint(CC_INFO, "Thumbnail saved to '{}' ({}x{}).", filename, preview.width, preview.height);
 	return true;
 }
 
@@ -4038,6 +4071,7 @@ void IConsoleStdLibRegister()
 	IConsole::CmdRegister("reset_enginepool",        ConResetEnginePool,  ConHookNoNetwork);
 	IConsole::CmdRegister("return",                  ConReturn);
 	IConsole::CmdRegister("screenshot",              ConScreenShot);
+	IConsole::CmdRegister("save_thumbnail",          ConSaveThumbnail);
 	IConsole::CmdRegister("script",                  ConScript);
 	IConsole::CmdRegister("zoomto",                  ConZoomToLevel);
 	IConsole::CmdRegister("scrollto",                ConScrollToTile);
