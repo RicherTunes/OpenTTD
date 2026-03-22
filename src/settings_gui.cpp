@@ -1274,36 +1274,36 @@ struct GameOptionsWindow : Window {
 			case WID_GO_VIDEO_NIGHT_MODE_BUTTON:
 				_video_night_mode = !_video_night_mode;
 				this->SetWidgetLoweredState(WID_GO_VIDEO_NIGHT_MODE_BUTTON, _video_night_mode);
-				this->SetWidgetDirty(WID_GO_VIDEO_NIGHT_MODE_BUTTON);
-				this->SetWidgetDirty(WID_GO_VIDEO_NIGHT_MODE_TEXT);
+				this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_NIGHT_PARAMS_SEL)->SetDisplayedPlane(_video_night_mode ? 0 : SZSP_NONE);
+				this->ReInit();
 				break;
 
 			case WID_GO_VIDEO_CRT_FILTER_BUTTON:
 				_video_crt_filter = !_video_crt_filter;
 				this->SetWidgetLoweredState(WID_GO_VIDEO_CRT_FILTER_BUTTON, _video_crt_filter);
-				this->SetWidgetDirty(WID_GO_VIDEO_CRT_FILTER_BUTTON);
-				this->SetWidgetDirty(WID_GO_VIDEO_CRT_FILTER_TEXT);
+				this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_CRT_PARAMS_SEL)->SetDisplayedPlane(_video_crt_filter ? 0 : SZSP_NONE);
+				this->ReInit();
 				break;
 
 			case WID_GO_VIDEO_VIGNETTE_BUTTON:
 				_video_vignette = !_video_vignette;
 				this->SetWidgetLoweredState(WID_GO_VIDEO_VIGNETTE_BUTTON, _video_vignette);
-				this->SetWidgetDirty(WID_GO_VIDEO_VIGNETTE_BUTTON);
-				this->SetWidgetDirty(WID_GO_VIDEO_VIGNETTE_TEXT);
+				this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_VIGNETTE_PARAMS_SEL)->SetDisplayedPlane(_video_vignette ? 0 : SZSP_NONE);
+				this->ReInit();
 				break;
 
 			case WID_GO_VIDEO_TILTSHIFT_BUTTON:
 				_video_tiltshift = !_video_tiltshift;
 				this->SetWidgetLoweredState(WID_GO_VIDEO_TILTSHIFT_BUTTON, _video_tiltshift);
-				this->SetWidgetDirty(WID_GO_VIDEO_TILTSHIFT_BUTTON);
-				this->SetWidgetDirty(WID_GO_VIDEO_TILTSHIFT_TEXT);
+				this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_TILTSHIFT_PARAMS_SEL)->SetDisplayedPlane(_video_tiltshift ? 0 : SZSP_NONE);
+				this->ReInit();
 				break;
 
 			case WID_GO_VIDEO_FILM_GRAIN_BUTTON:
 				_video_film_grain = !_video_film_grain;
 				this->SetWidgetLoweredState(WID_GO_VIDEO_FILM_GRAIN_BUTTON, _video_film_grain);
-				this->SetWidgetDirty(WID_GO_VIDEO_FILM_GRAIN_BUTTON);
-				this->SetWidgetDirty(WID_GO_VIDEO_FILM_GRAIN_TEXT);
+				this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_GRAIN_PARAMS_SEL)->SetDisplayedPlane(_video_film_grain ? 0 : SZSP_NONE);
+				this->ReInit();
 				break;
 
 			case WID_GO_VIDEO_DYNAMIC_LIGHTING_BUTTON:
@@ -1316,8 +1316,8 @@ struct GameOptionsWindow : Window {
 			case WID_GO_VIDEO_BLOOM_BUTTON:
 				_video_bloom = !_video_bloom;
 				this->SetWidgetLoweredState(WID_GO_VIDEO_BLOOM_BUTTON, _video_bloom);
-				this->SetWidgetDirty(WID_GO_VIDEO_BLOOM_BUTTON);
-				this->SetWidgetDirty(WID_GO_VIDEO_BLOOM_TEXT);
+				this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_BLOOM_PARAMS_SEL)->SetDisplayedPlane(_video_bloom ? 0 : SZSP_NONE);
+				this->ReInit();
 				break;
 
 #define GPU_SLIDER_CLICK(wid, min_val, max_val, nmarks, var) \
@@ -1801,7 +1801,8 @@ struct GameOptionsWindow : Window {
 
 			case WID_GO_VIDEO_WEATHER_DROPDOWN:
 				_video_weather_type = Clamp(index, 0, 2);
-				this->SetDirty();
+				this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_WEATHER_PARAMS_SEL)->SetDisplayedPlane(_video_weather_type > 0 ? 0 : SZSP_NONE);
+				this->ReInit();
 				break;
 
 			case WID_GO_BASE_GRF_DROPDOWN:

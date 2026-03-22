@@ -1282,14 +1282,8 @@ static void ViewportAddLandscape()
 				tile_type = TileType::Void;
 			}
 
-			if (tile_type != TileType::Void) {
-				/* We are inside the map => paint landscape. */
-				std::tie(_cur_ti.tileh, _cur_ti.z) = GetTilePixelSlopeCached(_cur_ti.tile);
-			} else {
-				/* We are outside the map => paint black. */
-				std::tie(_cur_ti.tileh, _cur_ti.z) = GetTilePixelSlopeOutsideMap(tilecoord.x, tilecoord.y);
-			}
-
+			/* Early reject tiles that are above the viewport before expensive slope calc.
+			 * GetViewportY is cheap (1 height lookup) vs GetTilePixelSlope (4 lookups). */
 			int viewport_y = GetViewportY(tilecoord);
 
 			if (viewport_y + MAX_TILE_EXTENT_BOTTOM < _vd.dpi.top) {
@@ -1297,6 +1291,14 @@ static void ViewportAddLandscape()
 				 * Tiles in other columns may be visible, but we need more rows in any case. */
 				last_row = false;
 				continue;
+			}
+
+			if (tile_type != TileType::Void) {
+				/* We are inside the map => paint landscape. */
+				std::tie(_cur_ti.tileh, _cur_ti.z) = GetTilePixelSlopeCached(_cur_ti.tile);
+			} else {
+				/* We are outside the map => paint black. */
+				std::tie(_cur_ti.tileh, _cur_ti.z) = GetTilePixelSlopeOutsideMap(tilecoord.x, tilecoord.y);
 			}
 
 			int min_visible_height = viewport_y - (_vd.dpi.top + _vd.dpi.height);
