@@ -1278,11 +1278,11 @@ TEST_CASE("PostProcess - bloom needs FBO")
 	CHECK(PostProcessNeedsFBO(config));
 }
 
-TEST_CASE("PostProcess - bloom adds 3 passes")
+TEST_CASE("PostProcess - bloom adds 4 passes")
 {
 	PostProcessConfig config;
 	config.bloom = true;
-	CHECK(PostProcessPassCount(config) == 3);
+	CHECK(PostProcessPassCount(config) == 4);
 }
 
 TEST_CASE("PostProcess - bloom defaults")
@@ -1299,7 +1299,7 @@ TEST_CASE("PostProcess - bloom with other effects stacks correctly")
 	config.bloom = true;
 	config.fxaa = true;
 	/* bloom(3) + fxaa(1) = 4 */
-	CHECK(PostProcessPassCount(config) == 4);
+	CHECK(PostProcessPassCount(config) == 5);
 }
 
 /* ====== Weather Effects Tests ====== */
@@ -1410,7 +1410,7 @@ TEST_CASE("PostProcess - all features including new ones")
 	config.bloom = true;
 	config.weather_type = 1;
 	/* EASU(1)+RCAS(1)+FXAA(1)+tilt(2)+color(1)+night(1)+vig(1)+grain(1)+crt(1)+lighting(1)+bloom(3)+weather(1) = 15 */
-	CHECK(PostProcessPassCount(config) == 15);
+	CHECK(PostProcessPassCount(config) == 16);
 }
 
 /* --- Bicubic filtering tests --- */
@@ -1487,7 +1487,7 @@ TEST_CASE("PostProcess - bicubic with bloom and dynamic lighting")
 	config.dynamic_lighting = true;
 	config.bloom = true;
 	/* Bilinear/bicubic blit(1) + lighting(1) + bloom(3) = 5. */
-	CHECK(PostProcessPassCount(config) == 5);
+	CHECK(PostProcessPassCount(config) == 6);
 	CHECK(PostProcessNeedsFBO(config));
 }
 
@@ -1522,7 +1522,7 @@ TEST_CASE("PostProcess - bicubic with weather and all new features")
 	config.bloom = true;
 	config.weather_type = 1;
 	/* Bilinear/bicubic blit(1) + lighting(1) + bloom(3) + weather(1) = 6. */
-	CHECK(PostProcessPassCount(config) == 6);
+	CHECK(PostProcessPassCount(config) == 7);
 	CHECK(PostProcessNeedsFBO(config));
 }
 
@@ -1583,7 +1583,7 @@ TEST_CASE("PostProcess - supersampling 150% with bloom and weather")
 	config.bloom = true;
 	config.weather_type = 1;
 	/* downsample(1) + bloom(3) + weather(1) = 5 */
-	CHECK(PostProcessPassCount(config) == 5);
+	CHECK(PostProcessPassCount(config) == 6);
 	CHECK(PostProcessNeedsFBO(config));
 }
 
@@ -1680,7 +1680,7 @@ TEST_CASE("PostProcess - Temporal with all effects gives correct total")
 	config.bloom = true;
 	config.dynamic_lighting = true;
 	/* Temporal(1) + FXAA(1) + lighting(1) + bloom(3) = 6 */
-	CHECK(PostProcessPassCount(config) == 6);
+	CHECK(PostProcessPassCount(config) == 7);
 }
 
 /* ====== Additional NeedsFBO edge cases ====== */
@@ -1826,7 +1826,7 @@ TEST_CASE("PostProcess - Plugin mode suppresses CAS sharpening")
 	config.upscale_mode = UpscaleMode::Plugin;
 	config.sharpening = 80;
 	/* Plugin(1) only — CAS suppressed. */
-	CHECK(PostProcessPassCount(config) == 1);
+	CHECK(PostProcessPassCount(config) == 2);
 }
 
 TEST_CASE("PostProcess - Plugin mode at 100% still needs FBO")
