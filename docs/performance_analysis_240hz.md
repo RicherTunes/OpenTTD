@@ -1,7 +1,14 @@
 # OpenTTD Performance Analysis: Targeting 240Hz
 
-**Date:** 2026-03-21
+**Date:** 2026-03-21 (originally); updated 2026-03-22
 **Scope:** Full architecture investigation of game loop, rendering pipeline, threading model, and scalability to identify bottlenecks and optimization opportunities for sustained 240Hz rendering.
+
+> **Update (2026-03-22):** Since this analysis was written, the following performance-relevant features have been implemented:
+> - **CPU Viewport Scaling** (`pp enable cpu_scale` + `pp set render_scale 50`): Renders main viewport at zoom+1 into a half-size buffer (4x fewer pixels), GPU-upscales back. Reduces CPU blitter work significantly at the cost of slightly softer viewport.
+> - **29 GPU shader effects** with zero CPU overhead when disabled (all default to OFF)
+> - **Render scaling 25-200%**: GPU FBO pipeline handles upscale/downsample, CPU blitter always at display resolution
+> - **Benchmark harness**: `benchmark start 1000` captures per-frame CPU draw, CPU paint, and GPU post-process timing to CSV for regression testing
+> - See CLAUDE.md "Performance Optimizations" section for the full list including 29x viewport sprite prealloc, 17x river bitset, etc.
 
 ---
 

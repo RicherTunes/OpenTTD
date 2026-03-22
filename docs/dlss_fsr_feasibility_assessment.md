@@ -1,7 +1,9 @@
 # DLSS 5 & FSR Integration Feasibility Assessment
 
-**Date:** 2026-03-21
+**Date:** 2026-03-21 (originally); updated 2026-03-22
 **Conclusion:** Native DLSS 5 / FSR 4 integration is **not feasible** without a fundamental rewrite of the rendering backend. However, several alternative paths exist that range from practical (shader-based post-processing) to ambitious (new Vulkan/DX12 rendering backend).
+
+> **Status (2026-03-22):** The "practical" path (shader-based post-processing) has been fully implemented: 29 shader effects, FSR 1 spatial upscaling, temporal accumulation, CPU viewport scaling, and a DLSS/FSR plugin C ABI for future native integration. The "alternative paths" section below led directly to the current implementation. See `gpu_migration_plan_v2.md` for phase completion status and CLAUDE.md for implementation reference.
 
 ---
 

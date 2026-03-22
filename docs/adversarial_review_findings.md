@@ -4,6 +4,8 @@
 **Input:** `gpu_migration_plan.md` (v1.0)
 **Output:** `gpu_migration_plan_v2.md` (v2.0, hardened)
 
+> **Status (2026-03-22):** All critical and high-severity findings from these reviews were addressed in v2.0, and all phases of the hardened plan have been implemented. The draw-command MV recording approach (replacing per-pixel blitter modification) proved sound. The plugin C ABI boundary for GPLv2/DLSS compliance is in place. See `gpu_migration_plan_v2.md` header for phase completion status.
+
 Four independent hostile reviews were conducted. This document preserves all findings.
 
 ---

@@ -1,35 +1,30 @@
 # Post-Processing Integration Architecture
 
-**Date:** 2026-03-21
-**Purpose:** Technical architecture for adding shader-based post-processing to OpenTTD's OpenGL backend -- the recommended alternative to DLSS/FSR for visual enhancement.
+**Date:** 2026-03-21 (originally); updated 2026-03-22
+**Purpose:** Technical architecture for shader-based post-processing in OpenTTD's OpenGL backend.
 
-## 1. Current Rendering Flow
+> **Status (2026-03-22):** This architecture has been fully implemented. The "proposed" flow below is now the **actual** flow. 29 shader programs, FBO ping-pong pipeline, CPU viewport scaling, 66+ configurable globals, 14 presets. See CLAUDE.md for the complete implementation reference.
 
-```
-CPU Blitter -> PBO (CPU-mapped) -> vid_texture (GPU) -> Fullscreen Quad -> Default FBO -> Screen
-```
-
-The `OpenGLBackend::Paint()` method (src/video/opengl.cpp:1065):
-1. Clears the screen
-2. Binds `vid_texture` (the CPU-rendered framebuffer)
-3. Selects the appropriate shader (direct RGBA, palette lookup, or remap)
-4. Draws a fullscreen quad (`vao_quad`) with 4 vertices
-5. The SDL2/Win32 driver then swaps buffers
-
-## 2. Proposed Rendering Flow
+## 1. Rendering Flow (Implemented)
 
 ```
-CPU Blitter -> PBO -> vid_texture -> Fullscreen Quad -> Scene FBO (off-screen)
-    -> Post-Process Pass 1 -> PP FBO 1
-    -> Post-Process Pass 2 -> PP FBO 2
-    -> ...
-    -> Final Pass -> Default FBO -> Screen
+Without PP (vanilla):
+  CPU Blitter -> PBO -> vid_texture -> VBO Quad (GL_TRIANGLE_STRIP, 4 verts) -> Screen
+
+With PP enabled:
+  CPU Blitter -> PBO -> vid_texture -> VBO Quad -> FBO[0] (render resolution)
+      -> [Optional: CPU VP scaling composites vp_texture over viewport area]
+      -> Upscale pass (FSR EASU/bilinear/temporal/plugin) -> FBO ping-pong
+      -> Effect passes (up to 29 shaders) -> FBO ping-pong (GL_TRIANGLES, 3 verts via gl_VertexID)
+      -> Final pass -> Default FBO (display resolution) -> Screen
+      -> [Cursor drawn at display resolution after all PP]
 ```
 
-### Key Changes:
-1. **Scene FBO:** Instead of rendering the framebuffer quad to the default framebuffer, render it to an off-screen FBO
-2. **Post-process chain:** Apply shader passes sequentially, ping-ponging between two FBOs
-3. **Final output:** The last pass renders to the default framebuffer (screen)
+### Architecture:
+1. **FBO[0]:** Scene is rendered to FBO[0] at render resolution (25-200% of display)
+2. **Ping-pong chain:** Effect passes alternate between FBO[0] and FBO[1], each reading from source and writing to destination
+3. **Final output:** The last pass renders to the default framebuffer (screen) at display resolution
+4. **CPU viewport scaling:** Optional -- viewport rendered to half-size scratch buffer at zoom+1, GPU-upscaled and composited before PP chain
 
 ## 3. Required OpenGL Resources
 
@@ -255,25 +250,40 @@ CPU Blitter (at reduced resolution) -> PBO -> vid_texture (small)
 - The upscale shader is the first post-processing pass, expanding to full resolution
 - Subsequent passes operate at full resolution
 
-## 8. Files to Modify
+## 8. Files Modified (Implementation Status)
 
-| File | Changes |
-|------|---------|
-| `src/video/opengl.h` | Add PP member variables and methods |
-| `src/video/opengl.cpp` | Add PP init, resize, apply, destroy; modify Paint() |
-| `src/table/opengl_shader.h` | Add post-processing shader source strings |
-| `src/video/sdl2_opengl_v.cpp` | Potentially adjust AllocateBackingStore for render scaling |
-| `src/video/win32_v.cpp` | Same for Win32 OpenGL driver |
-| `src/settings_type.h` | Add PP setting fields |
-| `src/table/settings/gui_settings.ini` | Add PP setting definitions |
-| `src/widgets/game_settings_widget.h` | Add PP settings UI widgets |
+All files below have been modified. The actual implementation differs from the original proposal in some details (e.g., shader source is in `postprocess_shader.h` not `opengl_shader.h`, settings use `misc_settings.ini` not `gui_settings.ini`).
 
-## 9. Risk Assessment
+| File | Status | What was done |
+|------|--------|---------------|
+| `src/video/opengl.h` | Done | 29 shader programs, FBO members, benchmark queries, CPU VP scaling members |
+| `src/video/opengl.cpp` | Done | Paint() with FBO pipeline, RenderPostProcess(), CPU VP compositing, 2000+ lines added |
+| `src/video/postprocess.h/.cpp` | New | PostProcessConfig (40+ fields), dimension math, FSR/CAS constants |
+| `src/table/postprocess_shader.h` | New | 29 fragment shaders + vertex shader + compute shader as GLSL source arrays |
+| `src/video/viewport_cpu_scale.h` | New | GL-free interface for CPU viewport scaling |
+| `src/video/motion_vector.h/.cpp` | New | Draw-command recording, tile-based spatial binning |
+| `src/video/temporal_upscale.h/.cpp` | New | Halton jitter sequence, temporal upscale interface |
+| `src/video/pp_screenshot.h/.cpp` | New | Post-processed framebuffer capture to BMP |
+| `src/video/upscale_plugin.h/.cpp` | New | DLSS/FSR plugin C ABI + runtime DLL/SO loader |
+| `src/video/render_backend.h` | New | Abstract backend interface for future Vulkan/DX11 |
+| `src/video/video_driver.cpp/.hpp` | Done | 66+ global variables for all PP settings |
+| `src/table/settings/misc_settings.ini` | Done | INI entries for all PP settings |
+| `src/settings_gui.cpp` | Done | GUI sliders/toggles for PP settings |
+| `src/console_cmds.cpp` | Done | pp status/info/on/off/enable/disable/set/reset/preset commands |
+| `src/benchmark.h/.cpp` | New | GPU benchmark harness with CSV export |
+| `src/viewport.cpp` | Done | DrawViewportCPUScaled(), CPU VP scaling interception |
+| `src/window_gui.h` | Done | DrawViewportCPUScaled() declaration |
+| `src/tests/test_postprocess.cpp` | New | 271 tests, 558 assertions |
+| `src/tests/test_motion_vector.cpp` | New | 38 tests |
+| `src/tests/test_temporal_upscale.cpp` | New | 14 tests |
+| `src/tests/test_upscale_plugin.cpp` | New | 14 tests |
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|------------|--------|------------|
-| FBO not supported on old GPU | Very Low | Medium | OpenGL 3.0+ already required; FBOs are core |
-| Performance regression from extra pass | Low | Low | Effects are optional; trivial full-screen quad cost |
-| Visual artifacts from upscaling | Medium | Low | Provide disable option; test with multiple zoom levels |
-| Maintenance burden | Low | Low | Self-contained in OpenGL backend; no blitter changes |
-| Breaks palette animation | Medium | Medium | Ensure PP operates after palette resolve in remap shader |
+## 9. Risk Assessment (Retrospective)
+
+| Risk | Occurred? | Resolution |
+|------|-----------|------------|
+| FBO not supported on old GPU | No | OpenGL 3.2+ required; FBOs are core since 3.0 |
+| Performance regression from extra pass | No | All effects default OFF; zero overhead when disabled |
+| Visual artifacts from upscaling | Minor | FSR EASU outlier taps fixed; bicubic/RCAS clamped to [0,1] |
+| Maintenance burden | Low | Self-contained in video/ directory; 400+ unit tests |
+| Breaks palette animation | Managed | PP operates after palette resolve; `_screen_disable_anim` guards CPU VP scaling |

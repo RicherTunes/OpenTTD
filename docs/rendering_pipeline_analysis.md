@@ -1,15 +1,26 @@
 # OpenTTD Rendering Pipeline Analysis
 
-**Date:** 2026-03-21
+**Date:** 2026-03-21 (originally); updated 2026-03-22
 **Purpose:** Technical analysis of OpenTTD's rendering architecture for evaluating DLSS/FSR integration feasibility.
+
+> **Status (2026-03-22):** This document was written as a pre-implementation analysis. Since then, the full GPU post-processing pipeline has been implemented (29 shader effects, FBO pipeline, motion vectors, temporal upscaling, CPU viewport scaling, DLSS/FSR plugin architecture). The "vanilla" architecture described below still applies to the base rendering path; the GPU pipeline is layered on top via `OpenGLBackend::Paint()` and `RenderPostProcess()`. See CLAUDE.md for the current implementation reference.
 
 ## 1. Architecture Overview
 
-OpenTTD's rendering pipeline is fundamentally **CPU-based**. The GPU is used only as a presentation layer (uploading a finished framebuffer to screen). There is **no GPU-accelerated scene rendering**, no 3D pipeline, and no compute shader usage.
+OpenTTD's rendering pipeline is fundamentally **CPU-based** at its core. The GPU is used as a presentation layer (uploading a finished framebuffer to screen), **plus an optional GPU post-processing pipeline** that adds 29 shader effects, FBO-based render scaling (25-200%), temporal upscaling, and CPU viewport scaling.
 
 ```
-Game State -> Viewport Drawing (CPU) -> Blitter (CPU) -> Video Buffer (RAM)
-    -> [Optional: OpenGL texture upload] -> Screen
+Vanilla (no PP):
+  Game State -> Viewport Drawing (CPU) -> Blitter (CPU) -> Video Buffer (RAM)
+      -> [OpenGL texture upload] -> Screen
+
+With GPU Post-Processing:
+  Game State -> Viewport Drawing (CPU) -> Blitter (CPU) -> vid_buffer (PBO)
+      -> vid_texture -> FBO[0] (render resolution)
+      -> [CPU VP scaling: vp_texture composited over viewport area]
+      -> Upscale pass (FSR/bilinear/temporal) -> FBO ping-pong
+      -> Effect passes (FXAA, bloom, night, CRT, etc.) -> FBO ping-pong
+      -> Final pass -> Default FBO -> Screen
 ```
 
 ## 2. Blitter System (`src/blitter/`)

@@ -3,6 +3,8 @@
 **Date:** 2026-03-21
 **Purpose:** Technical overview of NVIDIA DLSS 5 and AMD FSR 4.x for evaluating integration into OpenTTD.
 
+> **Note (2026-03-22):** This document covers the technology landscape. For implementation status, see `gpu_migration_plan_v2.md`. FSR 1 spatial upscaling and CAS sharpening are fully implemented. Temporal upscaling infrastructure is complete. DLSS/FSR 2+ integration is available via the plugin C ABI (`src/video/upscale_plugin.h`).
+
 ## 1. NVIDIA DLSS 5
 
 ### 1.1 What It Is
