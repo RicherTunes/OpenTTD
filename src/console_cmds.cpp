@@ -1896,7 +1896,15 @@ static bool ConSaveThumbnail(std::span<std::string_view> argv)
 
 	std::string filename = "thumbnail.bmp";
 	if (argv.size() > 1) {
-		filename = std::string(argv[1]);
+		/* Sanitize filename: strip path separators and special characters
+		 * to prevent path traversal attacks. */
+		std::string safe_name;
+		for (char c : argv[1]) {
+			if (c != '/' && c != '\\' && c != ':' && c != '*' && c != '?' && c != '<' && c != '>' && c != '|') {
+				safe_name += c;
+			}
+		}
+		if (!safe_name.empty()) filename = safe_name;
 		if (filename.find('.') == std::string::npos) {
 			filename += ".bmp";
 		}
