@@ -1103,6 +1103,9 @@ bool OpenGLBackend::Resize(int w, int h, bool force)
 	 * Compare against display size to avoid redundant re-allocation every frame. */
 	if (!force && _screen.width == w && _screen.height == h) return false;
 
+	/* Wave 8: Force scratch buffer rebuild on window resize. */
+	this->DestroyViewportScratchBuffer();
+
 	/* CPU blitter ALWAYS renders at display resolution. Render scaling is GPU-only
 	 * (handled by FBO pipeline upscale/downsample shaders via pp_render_size).
 	 * _screen must match window size for correct UI/viewport/mouse/dirty rects. */
@@ -1423,10 +1426,13 @@ void OpenGLBackend::Paint()
 		}
 	}
 
-	/* CPU viewport scaling: manage scratch buffer lifecycle. */
+	/* CPU viewport scaling: manage scratch buffer lifecycle.
+	 * Wave 7: Require 32bpp blitter — 8bpp palette indices are not valid RGBA. */
 	this->vp_cpu_scaling = false;
+	Blitter *vp_blitter = BlitterFactory::GetCurrentBlitter();
 	if (this->pp_fbo_supported && this->pp_config.cpu_viewport_scaling &&
-	    _video_post_processing && this->pp_config.render_scale <= 50) {
+	    _video_post_processing && this->pp_config.render_scale <= 50 &&
+	    vp_blitter != nullptr && vp_blitter->GetScreenDepth() != 8) {
 		const Window *mw = GetMainWindow();
 		if (mw != nullptr && mw->viewport != nullptr) {
 			int vp_w = mw->viewport->width;

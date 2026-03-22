@@ -3465,11 +3465,17 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			_video_tiltshift = true;
 			_video_tiltshift_blur = 20;
 			IConsolePrint(CC_INFO, "Preset 'postcard' applied: smooth + sway + shadows + tilt-shift.");
+		} else if (argv[2] == "performance") {
+			_video_render_scale = 50;
+			_video_cpu_viewport_scaling = true;
+			_video_upscale_mode = 1; /* Bilinear */
+			_video_sharpening = 40;
+			IConsolePrint(CC_INFO, "Preset 'performance' applied: CPU viewport scaling at 50%% + bilinear upscale.");
 		} else if (argv[2] == "clean") {
 			/* Already reset above, just enable PP. */
 			IConsolePrint(CC_INFO, "Preset 'clean' applied: all effects off.");
 		} else {
-			IConsolePrint(CC_ERROR, "Unknown preset '{}'. Use: retro, cinematic, night, miniature, sharp, temporal, zoom, clean, realistic, fantasy, photo, stormy, postcard.", argv[2]);
+			IConsolePrint(CC_ERROR, "Unknown preset '{}'. Use: retro, cinematic, night, miniature, sharp, temporal, zoom, clean, performance, realistic, fantasy, photo, stormy, postcard.", argv[2]);
 			return false;
 		}
 		return true;
