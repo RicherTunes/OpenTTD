@@ -2924,6 +2924,8 @@ static void ResetPPDefaults()
 	_video_tree_sway_amount = 3;
 	_video_tree_sway_speed = 50;
 	_video_sky_clouds = false;
+	_video_cloud_density = 50;
+	_video_cloud_speed = 30;
 	_video_sky_brightness = 70;
 	_video_depth_of_field = false;
 	_video_dof_focus_point = 50;
@@ -3127,6 +3129,11 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			IConsolePrint(CC_ERROR, "  Weather: weather_type (0-2), weather_intensity (0-100)");
 			IConsolePrint(CC_ERROR, "  Shadows: shadow_intensity (0-100), shadow_angle (0-359), shadow_length (1-30), shadow_softness (1-10)");
 			IConsolePrint(CC_ERROR, "  Water: reflection_intensity (0-100), reflection_distortion (0-20)");
+			IConsolePrint(CC_ERROR, "  SSAO: ssao_radius (1-15), ssao_intensity (0-100), ssao_samples (4-16)");
+			IConsolePrint(CC_ERROR, "  Terrain: terrain_smooth_radius (1-5), terrain_smooth_strength (0-100)");
+			IConsolePrint(CC_ERROR, "  Sway: tree_sway_amount (1-10), tree_sway_speed (10-100)");
+			IConsolePrint(CC_ERROR, "  Sky: cloud_density (0-100), cloud_speed (0-100), sky_brightness (0-100)");
+			IConsolePrint(CC_ERROR, "  DOF: dof_focus (0-100), dof_aperture (0-100), dof_range (0-100)");
 			return false;
 		}
 		std::string_view param = argv[2];
@@ -3287,6 +3294,11 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			IConsolePrint(CC_ERROR, "  Smooth: smooth_amount");
 			IConsolePrint(CC_ERROR, "  Shadows: shadow_intensity, shadow_angle, shadow_length, shadow_softness");
 			IConsolePrint(CC_ERROR, "  Water: reflection_intensity, reflection_distortion");
+			IConsolePrint(CC_ERROR, "  SSAO: ssao_radius (1-15), ssao_intensity (0-100), ssao_samples (4-16)");
+			IConsolePrint(CC_ERROR, "  Terrain: terrain_smooth_radius (1-5), terrain_smooth_strength (0-100)");
+			IConsolePrint(CC_ERROR, "  Sway: tree_sway_amount (1-10), tree_sway_speed (10-100)");
+			IConsolePrint(CC_ERROR, "  Sky: cloud_density (0-100), cloud_speed (0-100), sky_brightness (0-100)");
+			IConsolePrint(CC_ERROR, "  DOF: dof_focus (0-100), dof_aperture (0-100), dof_range (0-100)");
 			IConsolePrint(CC_ERROR, "  Other: grain_intensity, bloom_threshold, bloom_intensity, weather_type, weather_intensity");
 			return false;
 		}
