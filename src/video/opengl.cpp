@@ -1420,7 +1420,23 @@ void OpenGLBackend::Paint()
 		bool cpu_scale_changed = (new_config.cpu_viewport_scaling != this->pp_config.cpu_viewport_scaling);
 		bool config_changed = fbo_need_changed || scale_changed || cpu_scale_changed ||
 		                      (new_config.upscale_mode != this->pp_config.upscale_mode);
-		if (config_changed) this->pp_temporal_frame_count = 0;
+		if (config_changed) {
+			this->pp_temporal_frame_count = 0;
+			/* Destroy history texture so stale content from the old resolution
+			 * cannot bleed into the new configuration.  SetupPostProcessFBOs()
+			 * already does this when the FBO topology changes, but we must also
+			 * cover cpu_scale_changed and upscale_mode changes that skip the FBO
+			 * rebuild path.  The texture is lazily reallocated at the correct
+			 * size by temporal accumulation or bloom on the next frame. */
+			if (this->pp_history_tex != 0) {
+				_glDeleteTextures(1, &this->pp_history_tex);
+				this->pp_history_tex = 0;
+			}
+			if (this->pp_history_fbo != 0) {
+				_glDeleteFramebuffers(1, &this->pp_history_fbo);
+				this->pp_history_fbo = 0;
+			}
+		}
 		this->pp_config = new_config;
 		if (fbo_need_changed || scale_changed) {
 			this->SetupPostProcessFBOs(this->pp_display_size.width > 0 ? this->pp_display_size.width : _screen.width,
