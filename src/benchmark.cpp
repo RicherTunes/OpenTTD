@@ -273,6 +273,17 @@ void BenchmarkHarness::WriteCSV() const
 	fmt::print(*f, "# Weather Type: {}\n", wtype <= 2 ? weather_names[wtype] : "Unknown");
 	fmt::print(*f, "# Weather Intensity: {}\n", _video_weather_intensity);
 
+	/* New effects. */
+	fmt::print(*f, "# Pixel Smoothing: {}\n", _video_pixel_smoothing ? "on" : "off");
+	fmt::print(*f, "# Auto Supersample: {}\n", _video_auto_supersample ? "on" : "off");
+	fmt::print(*f, "# Fake Shadows: {}\n", _video_fake_shadows ? "on" : "off");
+	fmt::print(*f, "# Water Reflections: {}\n", _video_water_reflections ? "on" : "off");
+	fmt::print(*f, "# SSAO: {}\n", _video_ssao ? "on" : "off");
+	fmt::print(*f, "# Terrain Smooth: {}\n", _video_terrain_smooth ? "on" : "off");
+	fmt::print(*f, "# Tree Sway: {}\n", _video_tree_sway ? "on" : "off");
+	fmt::print(*f, "# Sky Clouds: {}\n", _video_sky_clouds ? "on" : "off");
+	fmt::print(*f, "# Depth of Field: {}\n", _video_depth_of_field ? "on" : "off");
+
 	fmt::print(*f, "# Vsync: forced off\n");
 	fmt::print(*f, "# Warmup: {} frames\n", this->warmup_frames);
 	if (!this->label.empty()) fmt::print(*f, "# Label: {}\n", this->label);
