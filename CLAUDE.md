@@ -151,10 +151,10 @@ Always use a TDD (Test-Driven Development) approach: write tests first, then imp
 
 ## GPU Post-Processing Pipeline
 
-The GPU post-processing pipeline adds visual enhancement to OpenTTD's OpenGL backend. 29 shader programs, 66+ configurable globals, 400+ unit tests.
+The GPU post-processing pipeline adds visual enhancement to OpenTTD's OpenGL backend. 33 shader programs, 80+ configurable globals, 557+ CTest tests (590 Catch2 cases, 104K+ assertions).
 
 ### Current Status
-- **Phase 1 (Complete):** FBO pipeline, 29 shader effects, render scaling (25-200%), settings UI
+- **Phase 1 (Complete):** FBO pipeline, 33 shader effects, render scaling (25-200%), settings UI
 - **Phase 2a (Complete):** Motion vector recording, tile-based compute shader rasterization, jitter sequence
 - **Phase 2b (Complete):** Temporal accumulation shader, history buffer, full pipeline wiring
 - **Phase 3 (Complete):** RenderBackend abstraction, DLSS/FSR plugin C ABI, plugin auto-discovery, plugin dispatch in pipeline
@@ -189,7 +189,7 @@ The GPU post-processing pipeline adds visual enhancement to OpenTTD's OpenGL bac
 - `pp on/off` -- Master post-processing toggle
 - `pp enable/disable <effect>` -- Toggle individual effects:
   Ship: fxaa, night, crt, vignette, tiltshift, grain, smooth, supersample, cpu_scale, lighting, bloom, weather
-  Lab: shadows, water, ssao, terrain_smooth, tree_sway, sky, dof
+  Lab: shadows, water, ssao, terrain_smooth, tree_sway, sky, dof, toon, haze, waves, seasonal
 - `pp debug_class on/off` -- Toggle classification buffer debug visualization (false-colour overlay)
 - `pp budget` -- Show current quality tier, pass count, and estimated GPU time
 - `pp set <param> <value>` -- Set numeric parameters:
@@ -210,10 +210,16 @@ The GPU post-processing pipeline adds visual enhancement to OpenTTD's OpenGL bac
   - Sway: tree_sway_amount (1-10), tree_sway_speed (10-100)
   - Sky: cloud_density (0-100), cloud_speed (0-100), sky_brightness (0-100)
   - DOF: dof_focus (0-100), dof_aperture (0-100), dof_range (0-100)
+  - Toon: toon_edge_threshold (1-50), toon_color_levels (2-16)
+  - Haze: haze_intensity (0-100), haze_distortion (1-20)
+  - Waves: wave_amplitude (1-15), wave_speed (10-100)
+  - Seasonal: season_intensity (0-100)
   - FXAA: fxaa_quality (0-100), fxaa_threshold (1-50)
 - `pp reset` -- Restore all PP settings to defaults
 - `pp preset <name>` -- Apply effect presets:
   clean, retro, cinematic, night, miniature, sharp, temporal, zoom, realistic, fantasy, photo, stormy, postcard, performance
+- `pp autodetect` -- Benchmark GPU and apply optimal preset
+- `pp cycle` -- Cycle through presets (also Ctrl+Shift+P hotkey)
 - `pp_screenshot [filename]` -- Capture post-processed framebuffer to BMP
 
 ### Effect Classification
@@ -332,7 +338,7 @@ Global variables (`_video_*` in `video_driver.cpp`, 66+ vars) -> synced per-fram
 
 ## Map Generation Improvements
 
-12 terrain generation features with TDD tests, all defaulting to OFF for backward compatibility.
+13 terrain generation features with TDD tests, all defaulting to OFF for backward compatibility.
 
 ### Features
 - **Continent Shapes** -- Multiplicative heightmap masks: Island, Archipelago, Fjords, Scattered, Peninsula, Mesa/Canyon, Volcanic
@@ -345,6 +351,8 @@ Global variables (`_video_*` in `video_driver.cpp`, 66+ vars) -> synced per-fram
 - **River Deltas** -- Delta generation at river mouths where rivers meet the sea
 - **Biome-Aware Tree Placement** -- Temperature-based tree type biasing: cold (high altitude) tiles get conifers, warm (low) tiles get deciduous/tropical
 - **Harbor-Aware Industry Placement** -- Port-type industries (oil refineries, oil rigs) prefer tiles with high harbor scores via best-of-N candidate selection
+- **Biome Town Growth** -- Towns at moderate temperatures grow fastest; extreme cold/hot reduces growth rate by up to 50%. Coastal proximity provides 5-15% bonus
+- **Heightmap Import Preview** -- Shows preview of loaded heightmap file in import dialog using same palette as TGP preview
 - **Real-Time Map Preview** -- 256x128 terrain preview in generation window, updates when settings change, uses self-contained Perlin engine independent of global HeightMap
 - **Precomputed Tile Cache** -- Pre-built valid tile lists for tree/town generation, eliminates rejection sampling
 
@@ -393,7 +401,7 @@ genworld.cpp: BuildTileCache -> Towns(Voronoi) -> Industries(harbor-aware) -> Fr
 | Precomputed tile list | **5.9x** | genworld_cache.cpp | Eliminates rejection sampling for tree/town placement |
 | CDF binary search | **1.2x** | industry_cmd.cpp | O(log N) industry type selection via cumulative distribution |
 | Early viewport culling | **1.2x** | viewport.cpp | Skip slope calc for tiles above viewport |
-| Tile slope cache | -- | viewport.cpp | Per-frame unordered_map cache for GetTilePixelSlope |
+| Persistent slope cache | **3.1x** | viewport.cpp | Cross-frame cache, invalidated per-tile via MarkTileDirtyByTile (98.9% lookup reduction) |
 | SmoothSlopes pointer | -- | tgp.cpp | Direct pointer arithmetic, boundary separation |
 | Cargo dedup | *(kept linear)* | economy.cpp | Benchmark proved hash set slower for small N |
 | CPU viewport scaling | **up to 4x** | viewport.cpp | Render viewport at zoom+1 into half-size scratch buffer |
@@ -420,13 +428,14 @@ TGP: Total generation: 103ms
 
 | Test File | Tests | What |
 |---|---|---|
-| test_postprocess.cpp | 271 | PP config, dimensions, pass count, NeedsFBO, shader math, CPU scaling |
-| test_terrain_gen.cpp | 50 | Continent shapes, mountain ranges, Perlin, biomes, harbors, deltas |
+| test_postprocess.cpp | 323 | PP config, dimensions, pass count, NeedsFBO, shader math, CPU scaling, all 33 effects |
+| test_terrain_gen.cpp | 81 | Continent shapes (8 presets), mountain ranges, Perlin, biomes, harbors, deltas, town growth |
 | test_motion_vector.cpp | 38 | Draw commands, tile binning, depth computation, scroll delta |
 | test_mapgen_biome.cpp | 15 | Biome-aware tree seed biasing, harbor-aware industry selection |
 | test_temporal_upscale.cpp | 14 | Halton jitter, frame cycling, jitter gating, params |
 | test_upscale_plugin.cpp | 14 | Plugin API, quality modes, capabilities, dispatch params |
-| test_optimization_benchmarks.cpp | 9 | Performance regression guards (1000+ assertions) |
+| test_optimization_benchmarks.cpp | 12 | Performance regression guards (100K+ assertions) |
+| **Total** | **590 cases** | **104,892 assertions, 557 CTest entries, 100% pass** |
 
 ## Project Documentation Index
 
@@ -439,6 +448,7 @@ TGP: Total generation: 103ms
 | `docs/performance_analysis_240hz.md` | Performance analysis for high refresh rate targets |
 | `docs/dlss_fsr_feasibility_assessment.md` | DLSS/FSR integration feasibility (led to current approach) |
 | `docs/dlss_fsr_technology_overview.md` | DLSS 5 / FSR 4 technology landscape |
+| `docs/gpu_benchmark_plan.md` | GPU auto-detect benchmark methodology (4 phases, tier classification) |
 | `docs/adversarial_review_findings.md` | 4 hostile reviews of v1.0 plan (all findings addressed) |
 
 ## Documentation
