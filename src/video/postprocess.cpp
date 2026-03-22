@@ -282,13 +282,13 @@ static const PPEffectDescriptor _pp_effect_registry[] = {
 	{"grain",         "grain",         true,  EffectCategory::Novelty,      true,  true,  false, true,  false, 3},
 
 	/* Lab effects (quarantined, console-only) */
-	{"shadows",       "shadows",       true,  EffectCategory::Lab,          false, false, true,  true,  false, 3},
+	{"shadows",       "shadows",       true,  EffectCategory::Lab,          false, false, false, true,  false, 3},
 	{"water",         "water",         true,  EffectCategory::Lab,          false, false, true,  true,  false, 3},
-	{"ssao",          "ssao",          true,  EffectCategory::Lab,          false, false, true,  false, false, 3},
-	{"terrain_smooth","terrain_smooth",true,  EffectCategory::Lab,          false, false, true,  true,  false, 3},
-	{"tree_sway",     "tree_sway",     true,  EffectCategory::Lab,          false, false, true,  true,  false, 3},
+	{"ssao",          "ssao",          true,  EffectCategory::Lab,          false, false, false, false, false, 3},
+	{"terrain_smooth","terrain_smooth",true,  EffectCategory::Lab,          false, false, false, true,  false, 3},
+	{"tree_sway",     "tree_sway",     true,  EffectCategory::Lab,          false, false, false, true,  false, 3},
 	{"sky",           "sky",           true,  EffectCategory::Lab,          false, false, false, true,  false, 3},
-	{"dof",           "dof",           true,  EffectCategory::Lab,          false, false, true,  false, false, 3},
+	{"dof",           "dof",           true,  EffectCategory::Lab,          false, false, false, false, false, 3},
 	{"toon",          "toon",          true,  EffectCategory::Lab,          false, false, false, true,  false, 3},
 	{"haze",          "haze",          true,  EffectCategory::Lab,          false, false, false, true,  false, 3},
 
@@ -441,7 +441,14 @@ QualityTier EstimateQualityTier(const PostProcessConfig &config)
 	for (const auto &m : mappings) {
 		if (!m.active) continue;
 		const PPEffectDescriptor *desc = GetPPEffectDescriptor(m.key);
-		if (desc != nullptr && desc->quality_tier_min > max_tier) {
+		if (desc == nullptr) continue;
+
+		/* Quality tiers describe the shipping path only.
+		 * Lab/research effects should not silently upgrade the config into
+		 * "Photo"; they are experimental and assessed separately. */
+		if (desc->category == EffectCategory::Lab || desc->category == EffectCategory::Research) continue;
+
+		if (desc->quality_tier_min > max_tier) {
 			max_tier = desc->quality_tier_min;
 		}
 	}

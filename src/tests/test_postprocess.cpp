@@ -3109,6 +3109,21 @@ TEST_CASE("PostProcess - CRT pushes to Photo tier")
 	CHECK(EstimateQualityTier(config) == QualityTier::Photo);
 }
 
+TEST_CASE("PostProcess - lab effects do not raise shipping quality tier")
+{
+	PostProcessConfig config;
+	config.toon_rendering = true;
+	CHECK(EstimateQualityTier(config) == QualityTier::Low);
+
+	config = {};
+	config.heat_haze = true;
+	CHECK(EstimateQualityTier(config) == QualityTier::Low);
+
+	config = {};
+	config.water_reflections = true;
+	CHECK(EstimateQualityTier(config) == QualityTier::Low);
+}
+
 TEST_CASE("PostProcess - GetTierPassBudget returns expected limits")
 {
 	CHECK(GetTierPassBudget(QualityTier::Low) == 0);
@@ -3146,7 +3161,22 @@ TEST_CASE("PostProcess - metadata-backed lab effects require sprite classificati
 
 	config = {};
 	config.tree_sway = true;
-	CHECK(PostProcessNeedsSpriteClassification(config));
+	CHECK(!PostProcessNeedsSpriteClassification(config));
+}
+
+TEST_CASE("PostProcess - unconverted heuristic effects do not claim metadata backing")
+{
+	PostProcessConfig config;
+	config.fake_shadows = true;
+	CHECK(!PostProcessNeedsSpriteClassification(config));
+
+	config = {};
+	config.ssao = true;
+	CHECK(!PostProcessNeedsSpriteClassification(config));
+
+	config = {};
+	config.depth_of_field = true;
+	CHECK(!PostProcessNeedsSpriteClassification(config));
 }
 
 /* --- Toon/Cartoon rendering tests --- */

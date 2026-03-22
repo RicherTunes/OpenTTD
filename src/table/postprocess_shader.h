@@ -1329,8 +1329,11 @@ static const char *_frag_shader_pp_heat_haze[] = {
 	"void main() {",
 	"  vec4 base = texture(source_tex, tex_coord);",
 	"  float lum = dot(base.rgb, vec3(0.299, 0.587, 0.114));",
-	/* Detect warm/bright pixels (industries, desert, bright areas) */
-	"  float warmth = smoothstep(0.5, 0.8, lum) * smoothstep(0.7, 0.3, tex_coord.y);",
+	/* Detect warm/bright pixels (industries, desert, bright areas).
+	 * Weight toward the lower screen half where ground-level shimmer tends to read best.
+	 * tex_coord.y = 0 is bottom in GL texture space. */
+	"  float screen_weight = 1.0 - smoothstep(0.3, 0.7, tex_coord.y);",
+	"  float warmth = smoothstep(0.5, 0.8, lum) * screen_weight;",
 	"  if (warmth < 0.01) { frag_colour = base; return; }",
 	/* Heat shimmer using sine waves at different frequencies */
 	"  float wave1 = sin(tex_coord.y * 120.0 + time * 3.0) * haze_distortion;",
