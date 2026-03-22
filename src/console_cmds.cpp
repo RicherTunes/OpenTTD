@@ -2904,7 +2904,12 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 	if (argv[1] == "status") {
 		IConsolePrint(CC_INFO, "Post-processing: {}", _video_post_processing ? "ON" : "OFF");
 		IConsolePrint(CC_INFO, "  Render scale: {}%", _video_render_scale);
-		IConsolePrint(CC_INFO, "  Upscale mode: {}", _video_upscale_mode);
+		static const char *upscale_names[] = {"None", "Bilinear", "FSR1", "Temporal", "Plugin"};
+		IConsolePrint(CC_INFO, "  Upscale mode: {} ({})", _video_upscale_mode,
+			_video_upscale_mode <= 4 ? upscale_names[_video_upscale_mode] : "Unknown");
+		static const char *texfilter_names[] = {"Nearest", "Bilinear", "Bicubic"};
+		IConsolePrint(CC_INFO, "  Texture filter: {} ({})", _video_texture_filter,
+			_video_texture_filter <= 2 ? texfilter_names[_video_texture_filter] : "Unknown");
 		IConsolePrint(CC_INFO, "  Sharpening: {}", _video_sharpening);
 		IConsolePrint(CC_INFO, "  FXAA: {}", _video_fxaa ? "ON" : "OFF");
 		IConsolePrint(CC_INFO, "  Night mode: {} (intensity={}, blue_shift={})", _video_night_mode ? "ON" : "OFF", _video_night_intensity, _video_night_blue_shift);

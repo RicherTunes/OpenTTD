@@ -230,9 +230,9 @@ void BenchmarkHarness::WriteCSV() const
 	fmt::print(*f, "# Post-Processing: {}\n", _video_post_processing ? "on" : "off");
 	fmt::print(*f, "# Render Scale: {}%\n", _video_render_scale);
 
-	const char *upscale_names[] = {"None", "Bilinear", "FSR1"};
+	const char *upscale_names[] = {"None", "Bilinear", "FSR1", "Temporal", "Plugin"};
 	uint8_t mode = _video_upscale_mode;
-	fmt::print(*f, "# Upscale Mode: {}\n", mode <= 2 ? upscale_names[mode] : "Unknown");
+	fmt::print(*f, "# Upscale Mode: {}\n", mode <= 4 ? upscale_names[mode] : "Unknown");
 	fmt::print(*f, "# Sharpening: {}\n", _video_sharpening);
 
 	/* Effect toggles. */
