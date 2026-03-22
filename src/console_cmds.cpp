@@ -3043,7 +3043,8 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			IConsolePrint(CC_INFO, "Vignette softness set to {}.", _video_vignette_softness);
 		} else if (param == "texture_filter") {
 			_video_texture_filter = static_cast<uint8_t>(Clamp(value, 0, 2));
-			IConsolePrint(CC_INFO, "Texture filter set to {}.", _video_texture_filter);
+			static const char *tfnames[] = {"Nearest", "Bilinear", "Bicubic"};
+			IConsolePrint(CC_INFO, "Texture filter set to {} ({}).", _video_texture_filter, tfnames[_video_texture_filter]);
 		} else if (param == "tiltshift_focus") {
 			_video_tiltshift_focus_y = static_cast<uint8_t>(Clamp(value, 0, 100));
 			IConsolePrint(CC_INFO, "Tilt-shift focus Y set to {}.", _video_tiltshift_focus_y);
