@@ -128,6 +128,11 @@ private:
 	GLuint pp_weather_program = 0;   ///< Weather particle overlay shader program.
 	GLuint pp_shadow_program = 0;        ///< Fake shadow shader program.
 	GLuint pp_water_reflect_program = 0;        ///< Water reflection shader program.
+	GLuint pp_ssao_program = 0;          ///< Screen-space ambient occlusion shader program.
+	GLuint pp_terrain_smooth_program = 0; ///< Terrain transition smoothing shader program.
+	GLuint pp_tree_sway_program = 0;     ///< Animated tree sway shader program.
+	GLuint pp_sky_program = 0;           ///< Procedural sky with clouds shader program.
+	GLuint pp_dof_program = 0;           ///< Depth-of-field blur shader program.
 	GLuint pp_downsample_program = 0;    ///< Downsample shader for supersampling.
 	GLint pp_downsample_texel_loc = -1;  ///< Downsample texel_size uniform.
 
@@ -181,6 +186,25 @@ private:
 	GLint pp_water_reflect_distortion_loc = -1;  ///< Wave distortion uniform.
 	GLint pp_water_reflect_time_loc = -1;        ///< Animation time uniform.
 	GLint pp_water_reflect_texel_loc = -1;       ///< Texel size uniform.
+	GLint pp_ssao_radius_loc = -1;       ///< SSAO radius uniform location.
+	GLint pp_ssao_intensity_loc = -1;    ///< SSAO intensity uniform location.
+	GLint pp_ssao_samples_loc = -1;      ///< SSAO samples uniform location.
+	GLint pp_ssao_texel_loc = -1;        ///< SSAO texel_size uniform location.
+	GLint pp_terrain_smooth_radius_loc = -1;   ///< Terrain smooth radius uniform location.
+	GLint pp_terrain_smooth_strength_loc = -1; ///< Terrain smooth strength uniform location.
+	GLint pp_terrain_smooth_texel_loc = -1;    ///< Terrain smooth texel_size uniform location.
+	GLint pp_tree_sway_amount_loc = -1;  ///< Tree sway amount uniform location.
+	GLint pp_tree_sway_speed_loc = -1;   ///< Tree sway speed uniform location.
+	GLint pp_tree_sway_time_loc = -1;    ///< Tree sway time uniform location.
+	GLint pp_tree_sway_texel_loc = -1;   ///< Tree sway texel_size uniform location.
+	GLint pp_sky_density_loc = -1;       ///< Sky cloud density uniform location.
+	GLint pp_sky_speed_loc = -1;         ///< Sky cloud speed uniform location.
+	GLint pp_sky_brightness_loc = -1;    ///< Sky brightness uniform location.
+	GLint pp_sky_time_loc = -1;          ///< Sky time uniform location.
+	GLint pp_dof_focus_loc = -1;         ///< DoF focus point uniform location.
+	GLint pp_dof_aperture_loc = -1;      ///< DoF aperture uniform location.
+	GLint pp_dof_range_loc = -1;         ///< DoF focus range uniform location.
+	GLint pp_dof_texel_loc = -1;         ///< DoF texel_size uniform location.
 
 	PostProcessConfig pp_config;     ///< Current post-processing configuration.
 

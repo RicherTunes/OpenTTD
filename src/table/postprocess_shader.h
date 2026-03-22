@@ -1012,3 +1012,185 @@ static const char *_frag_shader_pp_water_reflect[] = {
 	"  frag_colour = vec4(mix(base.rgb, reflected.rgb, blend), base.a);",
 	"}",
 };
+
+/* ---- Screen-space ambient occlusion ---- */
+
+/** Fragment shader for luminance-based pseudo-depth ambient occlusion.
+ * Darkens crevices between buildings using luminance as a depth proxy. */
+static const char *_frag_shader_pp_ssao[] = {
+	"#version 150\n",
+	"uniform sampler2D source_tex;",
+	"uniform vec2 texel_size;",
+	"uniform float ssao_radius;",
+	"uniform float ssao_intensity;",
+	"uniform int ssao_samples;",
+	"in vec2 tex_coord;",
+	"out vec4 frag_colour;",
+	"void main() {",
+	"  vec4 base = texture(source_tex, tex_coord);",
+	"  float center_lum = dot(base.rgb, vec3(0.299, 0.587, 0.114));",
+	"  float occlusion = 0.0;",
+	"  float PI2 = 6.28318;",
+	"  for (int i = 0; i < ssao_samples; i++) {",
+	"    float angle = PI2 * float(i) / float(ssao_samples);",
+	"    vec2 offset = vec2(cos(angle), sin(angle)) * ssao_radius * texel_size;",
+	"    float sample_lum = dot(texture(source_tex, tex_coord + offset).rgb, vec3(0.299, 0.587, 0.114));",
+	"    occlusion += max(0.0, center_lum - sample_lum);",
+	"  }",
+	"  occlusion = occlusion / float(ssao_samples);",
+	"  occlusion = clamp(occlusion * ssao_intensity * 3.0, 0.0, 1.0);",
+	"  frag_colour = vec4(base.rgb * (1.0 - occlusion * 0.5), base.a);",
+	"}",
+};
+
+/* ---- Terrain transition smoothing ---- */
+
+/** Fragment shader for edge-aware bilateral filter that softens
+ * harsh tile boundaries while preserving detail. */
+static const char *_frag_shader_pp_terrain_smooth[] = {
+	"#version 150\n",
+	"uniform sampler2D source_tex;",
+	"uniform vec2 texel_size;",
+	"uniform float smooth_radius;",
+	"uniform float smooth_strength;",
+	"in vec2 tex_coord;",
+	"out vec4 frag_colour;",
+	"void main() {",
+	"  vec4 center = texture(source_tex, tex_coord);",
+	"  vec3 sum = center.rgb;",
+	"  float weight_sum = 1.0;",
+	"  int r = int(smooth_radius);",
+	"  for (int dy = -r; dy <= r; dy++) {",
+	"    for (int dx = -r; dx <= r; dx++) {",
+	"      if (dx == 0 && dy == 0) continue;",
+	"      vec2 offset = vec2(float(dx), float(dy)) * texel_size;",
+	"      vec3 s = texture(source_tex, tex_coord + offset).rgb;",
+	"      float color_dist = length(s - center.rgb);",
+	"      float w = exp(-color_dist * 10.0) * exp(-float(dx*dx + dy*dy) / (smooth_radius * smooth_radius));",
+	"      sum += s * w;",
+	"      weight_sum += w;",
+	"    }",
+	"  }",
+	"  vec3 smoothed = sum / weight_sum;",
+	"  frag_colour = vec4(mix(center.rgb, smoothed, smooth_strength), center.a);",
+	"}",
+};
+
+/* ---- Animated tree/vegetation sway ---- */
+
+/** Fragment shader for animated tree sway effect.
+ * Green-dominant pixels oscillate using sine wave displacement. */
+static const char *_frag_shader_pp_tree_sway[] = {
+	"#version 150\n",
+	"uniform sampler2D source_tex;",
+	"uniform vec2 texel_size;",
+	"uniform float sway_amount;",
+	"uniform float sway_speed;",
+	"uniform float time;",
+	"in vec2 tex_coord;",
+	"out vec4 frag_colour;",
+	"void main() {",
+	"  vec4 base = texture(source_tex, tex_coord);",
+	"  float r = base.r, g = base.g, b = base.b;",
+	"  float green_excess = g - max(r, b);",
+	"  float is_vegetation = smoothstep(0.02, 0.12, green_excess);",
+	"  if (is_vegetation < 0.01) {",
+	"    frag_colour = base;",
+	"    return;",
+	"  }",
+	"  float phase = tex_coord.x * 50.0 + tex_coord.y * 30.0;",
+	"  float wave = sin(phase + time * sway_speed * 0.05) * sway_amount;",
+	"  float wave2 = sin(phase * 0.7 + time * sway_speed * 0.03) * sway_amount * 0.5;",
+	"  vec2 offset = vec2(wave, wave2) * texel_size * is_vegetation;",
+	"  vec4 swayed = texture(source_tex, tex_coord + offset);",
+	"  frag_colour = vec4(mix(base.rgb, swayed.rgb, is_vegetation * 0.7), base.a);",
+	"}",
+};
+
+/* ---- Procedural sky with clouds ---- */
+
+/** Fragment shader for dynamic sky gradient with FBM noise clouds.
+ * Detects sky pixels by brightness and low saturation at the top of the screen. */
+static const char *_frag_shader_pp_sky[] = {
+	"#version 150\n",
+	"uniform sampler2D source_tex;",
+	"uniform float cloud_density;",
+	"uniform float cloud_speed;",
+	"uniform float sky_brightness;",
+	"uniform float time;",
+	"in vec2 tex_coord;",
+	"out vec4 frag_colour;",
+	"float hash(vec2 p) {",
+	"  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);",
+	"}",
+	"float noise(vec2 p) {",
+	"  vec2 i = floor(p); vec2 f = fract(p);",
+	"  f = f * f * (3.0 - 2.0 * f);",
+	"  float a = hash(i); float b = hash(i + vec2(1,0));",
+	"  float c = hash(i + vec2(0,1)); float d = hash(i + vec2(1,1));",
+	"  return mix(mix(a,b,f.x), mix(c,d,f.x), f.y);",
+	"}",
+	"float fbm(vec2 p) {",
+	"  float v = 0.0; float a = 0.5;",
+	"  for (int i = 0; i < 4; i++) { v += a * noise(p); p *= 2.0; a *= 0.5; }",
+	"  return v;",
+	"}",
+	"void main() {",
+	"  vec4 base = texture(source_tex, tex_coord);",
+	"  float lum = dot(base.rgb, vec3(0.299, 0.587, 0.114));",
+	/* Detect 'sky' pixels: very bright, low saturation, near top of screen */
+	"  float max_c = max(base.r, max(base.g, base.b));",
+	"  float min_c = min(base.r, min(base.g, base.b));",
+	"  float sat = (max_c > 0.001) ? (max_c - min_c) / max_c : 0.0;",
+	"  float is_sky = smoothstep(0.6, 0.9, lum) * smoothstep(0.3, 0.05, sat);",
+	"  is_sky *= smoothstep(0.6, 0.2, tex_coord.y);",  /* Stronger at top */
+	"  if (is_sky < 0.01) { frag_colour = base; return; }",
+	/* Sky gradient */
+	"  float t = 1.0 - tex_coord.y;",
+	"  vec3 sky_top = vec3(0.4, 0.6, 0.9) * sky_brightness;",
+	"  vec3 sky_bot = vec3(0.7, 0.8, 0.95) * sky_brightness;",
+	"  vec3 sky = mix(sky_bot, sky_top, t);",
+	/* Clouds */
+	"  vec2 cloud_uv = tex_coord * vec2(8.0, 4.0) + vec2(time * cloud_speed * 0.001, 0.0);",
+	"  float cloud = fbm(cloud_uv);",
+	"  cloud = smoothstep(1.0 - cloud_density, 1.0, cloud);",
+	"  sky = mix(sky, vec3(0.95), cloud * 0.6);",
+	"  frag_colour = vec4(mix(base.rgb, sky, is_sky * 0.5), base.a);",
+	"}",
+};
+
+/* ---- Depth-of-field ---- */
+
+/** Fragment shader for depth-of-field blur effect.
+ * Uses luminance as a proxy for depth and applies variable blur
+ * based on distance from the focus plane. */
+static const char *_frag_shader_pp_dof[] = {
+	"#version 150\n",
+	"uniform sampler2D source_tex;",
+	"uniform vec2 texel_size;",
+	"uniform float focus_point;",
+	"uniform float aperture;",
+	"uniform float focus_range;",
+	"in vec2 tex_coord;",
+	"out vec4 frag_colour;",
+	"void main() {",
+	"  vec4 center = texture(source_tex, tex_coord);",
+	"  float lum = dot(center.rgb, vec3(0.299, 0.587, 0.114));",
+	/* Use luminance as proxy for depth (brighter = farther in isometric) */
+	"  float depth = clamp(lum, 0.0, 1.0);",
+	"  float dist_from_focus = abs(depth - focus_point);",
+	"  float blur_amount = smoothstep(0.0, focus_range, dist_from_focus) * aperture;",
+	"  if (blur_amount < 0.01) { frag_colour = center; return; }",
+	"  vec3 sum = center.rgb;",
+	"  float weight = 1.0;",
+	"  int samples = int(blur_amount * 6.0) + 1;",
+	"  float radius = blur_amount * 4.0;",
+	"  for (int i = 0; i < samples; i++) {",
+	"    float angle = 6.28318 * float(i) / float(samples);",
+	"    vec2 offset = vec2(cos(angle), sin(angle)) * radius * texel_size;",
+	"    sum += texture(source_tex, tex_coord + offset).rgb;",
+	"    weight += 1.0;",
+	"  }",
+	"  frag_colour = vec4(sum / weight, center.a);",
+	"}",
+};
