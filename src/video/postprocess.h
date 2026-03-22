@@ -84,7 +84,7 @@ struct PostProcessConfig {
 	/* Fake directional shadows. */
 	bool fake_shadows = false;         ///< Enable fake directional shadows from buildings/terrain.
 	uint8_t shadow_intensity = 40;     ///< Shadow darkness (0-100, mapped to 0.0..1.0).
-	uint8_t shadow_angle = 45;         ///< Shadow angle in degrees (0-359). 0=right, 90=down.
+	uint16_t shadow_angle = 45;        ///< Shadow angle in degrees (0-359). 0=right, 90=down.
 	uint8_t shadow_length = 8;         ///< Shadow length in pixels (1-30).
 	uint8_t shadow_softness = 3;       ///< Shadow edge softness (1-10, number of blur samples).
 
@@ -123,7 +123,42 @@ struct PostProcessConfig {
 
 	bool auto_supersample = false;     ///< Automatically enable supersampling at zoom-in levels.
 
-	bool operator==(const PostProcessConfig &) const = default;
+	/**
+	 * Compare configurations for topology changes.
+	 * Intentionally excludes time_of_day which changes every tick
+	 * and should not trigger FBO rebuilds or temporal resets.
+	 */
+	bool operator==(const PostProcessConfig &o) const
+	{
+		/* Compare all fields except time_of_day. Any field that changes the
+		 * shader topology or requires FBO rebuild should be compared here. */
+		return this->render_scale == o.render_scale &&
+			this->upscale_mode == o.upscale_mode &&
+			this->sharpening == o.sharpening &&
+			this->bilinear_filtering == o.bilinear_filtering &&
+			this->bicubic_filtering == o.bicubic_filtering &&
+			this->fxaa == o.fxaa &&
+			this->fxaa_quality == o.fxaa_quality &&
+			this->fxaa_threshold == o.fxaa_threshold &&
+			this->color_grading == o.color_grading &&
+			this->vignette == o.vignette &&
+			this->tiltshift == o.tiltshift &&
+			this->night_mode == o.night_mode &&
+			this->film_grain == o.film_grain &&
+			this->crt_filter == o.crt_filter &&
+			this->pixel_smoothing == o.pixel_smoothing &&
+			this->dynamic_lighting == o.dynamic_lighting &&
+			this->bloom == o.bloom &&
+			this->weather_type == o.weather_type &&
+			this->fake_shadows == o.fake_shadows &&
+			this->water_reflections == o.water_reflections &&
+			this->auto_supersample == o.auto_supersample &&
+			this->ssao == o.ssao &&
+			this->terrain_smooth == o.terrain_smooth &&
+			this->tree_sway == o.tree_sway &&
+			this->sky_clouds == o.sky_clouds &&
+			this->depth_of_field == o.depth_of_field;
+	}
 };
 
 /** Computed dimensions for the post-processing pipeline. */

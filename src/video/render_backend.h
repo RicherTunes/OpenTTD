@@ -81,7 +81,7 @@ public:
 	virtual uint8_t *GetAnimBuffer() { return nullptr; }
 
 	/** Unmap the animation buffer and upload changed region. */
-	virtual void ReleaseAnimBuffer(const Rect &update_rect) {}
+	virtual void ReleaseAnimBuffer([[maybe_unused]] const Rect &update_rect) {}
 
 	/* --- Rendering --- */
 
@@ -105,7 +105,7 @@ public:
 	/* --- Post-processing --- */
 
 	/** Set the post-processing configuration. */
-	virtual void SetPostProcessConfig(const PostProcessConfig &config) {}
+	virtual void SetPostProcessConfig([[maybe_unused]] const PostProcessConfig &config) {}
 
 	/** Check if post-processing is supported. */
 	virtual bool IsPostProcessSupported() const { return false; }
@@ -113,8 +113,8 @@ public:
 	/* --- Motion vectors --- */
 
 	/** Submit draw commands for motion vector generation. */
-	virtual void SubmitDrawCommands(const std::vector<DrawCommand> &cmds,
-	                                 int16_t scroll_dx, int16_t scroll_dy) {}
+	virtual void SubmitDrawCommands([[maybe_unused]] const std::vector<DrawCommand> &cmds,
+	                                 [[maybe_unused]] int16_t scroll_dx, [[maybe_unused]] int16_t scroll_dy) {}
 
 	/* --- External upscaler plugin --- */
 
@@ -123,7 +123,7 @@ public:
 	 * @param path Path to the plugin shared library.
 	 * @return True if the plugin was loaded successfully.
 	 */
-	virtual bool LoadUpscalePlugin(const std::string &path) { return false; }
+	virtual bool LoadUpscalePlugin([[maybe_unused]] const std::string &path) { return false; }
 
 	/** Get the currently active upscaling technology. */
 	virtual UpscaleTechnology GetActiveUpscaler() const { return UpscaleTechnology::None; }

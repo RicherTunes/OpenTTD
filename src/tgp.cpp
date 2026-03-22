@@ -936,16 +936,59 @@ static void HeightMapSmoothCoasts(BorderFlags water_borders)
  */
 static void HeightMapSmoothSlopes(Height dh_max)
 {
-	for (int y = 0; y <= (int)_height_map.size_y; y++) {
-		for (int x = 0; x <= (int)_height_map.size_x; x++) {
-			Height h_max = std::min(_height_map.height(x > 0 ? x - 1 : x, y), _height_map.height(x, y > 0 ? y - 1 : y)) + dh_max;
-			if (_height_map.height(x, y) > h_max) _height_map.height(x, y) = h_max;
+	Height *const h = _height_map.h.data();
+	const int stride = _height_map.dim_x;
+	const int sx = _height_map.size_x;
+	const int sy = _height_map.size_y;
+
+	/* Forward pass (NW to SE): clamp each tile based on west and north neighbors.
+	 * Handle row 0 and column 0 boundaries separately to eliminate per-tile branches. */
+
+	/* Corner (0,0): clamp against self (no-op by definition). */
+
+	/* Row 0: only west neighbor matters (north neighbor is self). */
+	for (int x = 1; x <= sx; x++) {
+		Height h_max = std::min(h[x - 1], h[x]) + dh_max;
+		if (h[x] > h_max) h[x] = h_max;
+	}
+
+	for (int y = 1; y <= sy; y++) {
+		int row = y * stride;
+		/* Column 0: only north neighbor matters (west neighbor is self). */
+		Height h_max = std::min(h[row], h[row - stride]) + dh_max;
+		if (h[row] > h_max) h[row] = h_max;
+
+		/* Interior: both west and north neighbors are valid. */
+		for (int x = 1; x <= sx; x++) {
+			int idx = row + x;
+			h_max = std::min(h[idx - 1], h[idx - stride]) + dh_max;
+			if (h[idx] > h_max) h[idx] = h_max;
 		}
 	}
-	for (int y = _height_map.size_y; y >= 0; y--) {
-		for (int x = _height_map.size_x; x >= 0; x--) {
-			Height h_max = std::min(_height_map.height(x < _height_map.size_x ? x + 1 : x, y), _height_map.height(x, y < _height_map.size_y ? y + 1 : y)) + dh_max;
-			if (_height_map.height(x, y) > h_max) _height_map.height(x, y) = h_max;
+
+	/* Backward pass (SE to NW): clamp each tile based on east and south neighbors.
+	 * Handle last row and last column boundaries separately. */
+
+	/* Last row: only east neighbor matters (south neighbor is self). */
+	int last_row = sy * stride;
+	for (int x = sx - 1; x >= 0; x--) {
+		int idx = last_row + x;
+		Height h_max = std::min(h[idx + 1], h[idx]) + dh_max;
+		if (h[idx] > h_max) h[idx] = h_max;
+	}
+
+	for (int y = sy - 1; y >= 0; y--) {
+		int row = y * stride;
+		/* Last column: only south neighbor matters (east neighbor is self). */
+		int idx = row + sx;
+		Height h_max = std::min(h[idx], h[idx + stride]) + dh_max;
+		if (h[idx] > h_max) h[idx] = h_max;
+
+		/* Interior: both east and south neighbors are valid. */
+		for (int x = sx - 1; x >= 0; x--) {
+			idx = row + x;
+			h_max = std::min(h[idx + 1], h[idx + stride]) + dh_max;
+			if (h[idx] > h_max) h[idx] = h_max;
 		}
 	}
 }

@@ -460,3 +460,196 @@ TEST_CASE("Benchmark - Precomputed tile list vs rejection sampling") {
 	CHECK(optimized_found == NUM_ATTEMPTS); /* Always finds a valid tile */
 	CHECK(optimized_us <= baseline_us);
 }
+
+/*
+ * Benchmark 8: CDF binary search vs linear probability scan
+ *
+ * Industry generation selects random industry types from a weighted probability
+ * table. A cumulative distribution function (CDF) with std::upper_bound gives
+ * O(log N) lookup instead of O(N) linear scan.
+ */
+
+TEST_CASE("Benchmark - CDF binary search vs linear probability scan") {
+	const int NUM_TYPES = 240; /* Matches NUM_INDUSTRYTYPES */
+	const int NUM_SELECTIONS = 50000;
+
+	/* Build probability table mimicking real industry distribution:
+	 * most types have probability 0, a few have high values. */
+	std::vector<uint32_t> probs(NUM_TYPES);
+	uint32_t total = 0;
+	std::srand(55);
+	for (int i = 0; i < NUM_TYPES; i++) {
+		/* ~30% of types have non-zero probability (realistic for NewGRF games) */
+		probs[i] = (std::rand() % 100 < 30) ? (10 + std::rand() % 200) : 0;
+		total += probs[i];
+	}
+	/* Ensure at least some probability exists */
+	if (total == 0) { probs[0] = 100; total = 100; }
+
+	/* Build CDF: cdf[i] = sum of probs[0..i] */
+	std::vector<uint64_t> cdf(NUM_TYPES);
+	cdf[0] = probs[0];
+	for (int i = 1; i < NUM_TYPES; i++) cdf[i] = cdf[i - 1] + probs[i];
+
+	/* Baseline: linear scan (original algorithm) */
+	int linear_selected = 0;
+	auto t0 = std::chrono::steady_clock::now();
+	for (int s = 0; s < NUM_SELECTIONS; s++) {
+		uint32_t r = std::rand() % total;
+		for (int i = 0; i < NUM_TYPES; i++) {
+			if (r < probs[i]) { linear_selected = i; break; }
+			r -= probs[i];
+		}
+	}
+	auto t1 = std::chrono::steady_clock::now();
+	auto linear_us = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
+
+	/* Optimized: binary search on CDF */
+	int binary_selected = 0;
+	auto t2 = std::chrono::steady_clock::now();
+	for (int s = 0; s < NUM_SELECTIONS; s++) {
+		uint32_t r = std::rand() % total;
+		auto it = std::upper_bound(cdf.begin(), cdf.end(), (uint64_t)r);
+		binary_selected = (int)std::distance(cdf.begin(), it);
+	}
+	auto t3 = std::chrono::steady_clock::now();
+	auto binary_us = std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count();
+
+	INFO("Linear scan:    " << linear_us << " us");
+	INFO("Binary search:  " << binary_us << " us");
+	INFO("Speedup:        " << (double)linear_us / std::max((int64_t)1, binary_us) << "x");
+
+	/* Verify both methods select the same type for the same random values */
+	std::srand(999);
+	for (int s = 0; s < 1000; s++) {
+		uint32_t r = std::rand() % total;
+
+		/* Linear scan */
+		uint32_t r_lin = r;
+		int lin_idx = 0;
+		for (int i = 0; i < NUM_TYPES; i++) {
+			if (r_lin < probs[i]) { lin_idx = i; break; }
+			r_lin -= probs[i];
+		}
+
+		/* Binary search */
+		auto it = std::upper_bound(cdf.begin(), cdf.end(), (uint64_t)r);
+		int bin_idx = (int)std::distance(cdf.begin(), it);
+
+		CHECK(lin_idx == bin_idx);
+	}
+
+	/* Informational benchmark -- performance difference depends on build type
+	 * (Debug vs Release) and N. The key property is algorithmic: O(log N) vs O(N). */
+	CHECK(true);
+}
+
+/*
+ * Benchmark 9: HeightMap slope smoothing with direct pointer arithmetic
+ *
+ * HeightMapSmoothSlopes clamps each tile against its neighbors in two passes
+ * (forward NW->SE and backward SE->NW). The original code called height(x,y)
+ * which computes x + y*dim_x per access. The optimized version uses direct
+ * pointer arithmetic and separates boundary handling to eliminate per-tile
+ * branch conditions from the hot inner loop.
+ */
+
+TEST_CASE("Benchmark - HeightMap slope smoothing: pointer arithmetic vs accessor calls") {
+	const int SIZE = 512;
+	const int DIM_X = SIZE + 1; /* dim_x = size_x + 1, matches HeightMap layout */
+	const int TOTAL = DIM_X * (SIZE + 1);
+	const int16_t MAX_DIFF = 20;
+	const int REPS = 10;
+
+	/* Generate random heightmap data */
+	std::vector<int16_t> heights(TOTAL);
+	std::srand(88);
+	for (auto &h : heights) h = (int16_t)(std::rand() % 256);
+
+	/* Baseline: accessor-style with per-tile boundary branches (original pattern) */
+	auto h1 = heights;
+	auto t0 = std::chrono::steady_clock::now();
+	for (int rep = 0; rep < REPS; rep++) {
+		/* Forward pass */
+		for (int y = 0; y <= SIZE; y++) {
+			for (int x = 0; x <= SIZE; x++) {
+				int16_t west = h1[(x > 0 ? x - 1 : x) + y * DIM_X];
+				int16_t north = h1[x + (y > 0 ? y - 1 : y) * DIM_X];
+				int16_t h_max = std::min(west, north) + MAX_DIFF;
+				if (h1[x + y * DIM_X] > h_max) h1[x + y * DIM_X] = h_max;
+			}
+		}
+		/* Backward pass */
+		for (int y = SIZE; y >= 0; y--) {
+			for (int x = SIZE; x >= 0; x--) {
+				int16_t east = h1[(x < SIZE ? x + 1 : x) + y * DIM_X];
+				int16_t south = h1[x + (y < SIZE ? y + 1 : y) * DIM_X];
+				int16_t h_max = std::min(east, south) + MAX_DIFF;
+				if (h1[x + y * DIM_X] > h_max) h1[x + y * DIM_X] = h_max;
+			}
+		}
+	}
+	auto t1 = std::chrono::steady_clock::now();
+	auto baseline_us = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
+
+	/* Optimized: direct pointer arithmetic, boundary-separated loops */
+	auto h2 = heights;
+	auto t2 = std::chrono::steady_clock::now();
+	for (int rep = 0; rep < REPS; rep++) {
+		int16_t *h = h2.data();
+
+		/* Forward pass: row 0 (west neighbor only, north = self) */
+		for (int x = 1; x <= SIZE; x++) {
+			int16_t h_max = std::min(h[x - 1], h[x]) + MAX_DIFF;
+			if (h[x] > h_max) h[x] = h_max;
+		}
+		/* Forward pass: rows 1..SIZE */
+		for (int y = 1; y <= SIZE; y++) {
+			int row = y * DIM_X;
+			/* Column 0: north neighbor only (west = self) */
+			int16_t h_max = std::min(h[row], h[row - DIM_X]) + MAX_DIFF;
+			if (h[row] > h_max) h[row] = h_max;
+			/* Interior columns */
+			for (int x = 1; x <= SIZE; x++) {
+				int idx = row + x;
+				h_max = std::min(h[idx - 1], h[idx - DIM_X]) + MAX_DIFF;
+				if (h[idx] > h_max) h[idx] = h_max;
+			}
+		}
+
+		/* Backward pass: last row (east neighbor only, south = self) */
+		int last_row = SIZE * DIM_X;
+		for (int x = SIZE - 1; x >= 0; x--) {
+			int idx = last_row + x;
+			int16_t h_max = std::min(h[idx + 1], h[idx]) + MAX_DIFF;
+			if (h[idx] > h_max) h[idx] = h_max;
+		}
+		/* Backward pass: rows SIZE-1..0 */
+		for (int y = SIZE - 1; y >= 0; y--) {
+			int row = y * DIM_X;
+			/* Last column: south neighbor only (east = self) */
+			int idx = row + SIZE;
+			int16_t h_max = std::min(h[idx], h[idx + DIM_X]) + MAX_DIFF;
+			if (h[idx] > h_max) h[idx] = h_max;
+			/* Interior columns */
+			for (int x = SIZE - 1; x >= 0; x--) {
+				idx = row + x;
+				h_max = std::min(h[idx + 1], h[idx + DIM_X]) + MAX_DIFF;
+				if (h[idx] > h_max) h[idx] = h_max;
+			}
+		}
+	}
+	auto t3 = std::chrono::steady_clock::now();
+	auto optimized_us = std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count();
+
+	/* Verify identical results */
+	CHECK(h1 == h2);
+
+	INFO("Accessor + branches: " << baseline_us << " us");
+	INFO("Pointer arithmetic:  " << optimized_us << " us");
+	INFO("Speedup:             " << (double)baseline_us / std::max((int64_t)1, optimized_us) << "x");
+
+	/* The optimized version eliminates per-tile multiplication and branch
+	 * misprediction overhead. Expect modest speedup from reduced instruction count. */
+	CHECK(optimized_us <= baseline_us);
+}

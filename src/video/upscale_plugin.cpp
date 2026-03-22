@@ -20,6 +20,7 @@
 #include "../safeguards.h"
 
 static UpscalePluginAPI *_loaded_plugin = nullptr;
+static bool _plugin_inited = false;
 
 #ifdef _WIN32
 static HMODULE _plugin_handle = nullptr;
@@ -88,6 +89,16 @@ UpscalePluginAPI *LoadUpscalePlugin(const std::string &path)
 		return nullptr;
 	}
 
+	/* Call init() now that all validation has passed. */
+	int32_t init_result = _loaded_plugin->init(nullptr, 0, 0, 0, 0);
+	if (init_result != 0) {
+		Debug(driver, 0, "Upscale plugin '{}' init() failed with error {}", path, init_result);
+		_loaded_plugin = nullptr;
+		UnloadUpscalePlugin();
+		return nullptr;
+	}
+	_plugin_inited = true;
+
 	const char *name = _loaded_plugin->get_name != nullptr ? _loaded_plugin->get_name() : "unknown";
 	const char *version = _loaded_plugin->get_version != nullptr ? _loaded_plugin->get_version() : "unknown";
 	uint32_t caps = _loaded_plugin->get_capabilities != nullptr ? _loaded_plugin->get_capabilities() : 0;
@@ -102,10 +113,11 @@ UpscalePluginAPI *LoadUpscalePlugin(const std::string &path)
  */
 void UnloadUpscalePlugin()
 {
-	if (_loaded_plugin != nullptr && _loaded_plugin->shutdown != nullptr) {
+	if (_loaded_plugin != nullptr && _loaded_plugin->shutdown != nullptr && _plugin_inited) {
 		_loaded_plugin->shutdown();
 	}
 	_loaded_plugin = nullptr;
+	_plugin_inited = false;
 
 #ifdef _WIN32
 	if (_plugin_handle != nullptr) {

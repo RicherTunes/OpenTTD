@@ -197,8 +197,6 @@ add_files(
     gamelog_internal.h
     genworld.cpp
     genworld.h
-    genworld_cache.cpp
-    genworld_cache.h
     genworld_gui.cpp
     gfx.cpp
     gfx_func.h

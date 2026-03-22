@@ -915,7 +915,7 @@ struct GameOptionsWindow : Window {
 				break;
 
 			case WID_GO_VIDEO_SHADOW_ANGLE:
-				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 255, 8, _video_shadow_angle, GpuValueMarkFunc);
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 359, 8, _video_shadow_angle, GpuValueMarkFunc);
 				break;
 
 			case WID_GO_VIDEO_SHADOW_LENGTH:
@@ -1430,7 +1430,7 @@ struct GameOptionsWindow : Window {
 			GPU_SLIDER_CLICK(WID_GO_VIDEO_BLOOM_INTENSITY, 0, 100, 5, _video_bloom_intensity)
 			GPU_SLIDER_CLICK(WID_GO_VIDEO_WEATHER_INTENSITY, 0, 100, 5, _video_weather_intensity)
 			GPU_SLIDER_CLICK(WID_GO_VIDEO_SHADOW_INTENSITY, 0, 100, 5, _video_shadow_intensity)
-			GPU_SLIDER_CLICK(WID_GO_VIDEO_SHADOW_ANGLE, 0, 255, 8, _video_shadow_angle)
+			GPU_SLIDER_CLICK(WID_GO_VIDEO_SHADOW_ANGLE, 0, 359, 8, _video_shadow_angle)
 			GPU_SLIDER_CLICK(WID_GO_VIDEO_SHADOW_LENGTH, 1, 30, 6, _video_shadow_length)
 			GPU_SLIDER_CLICK(WID_GO_VIDEO_SHADOW_SOFTNESS, 1, 10, 5, _video_shadow_softness)
 			GPU_SLIDER_CLICK(WID_GO_VIDEO_REFLECTION_INTENSITY, 0, 100, 5, _video_reflection_intensity)

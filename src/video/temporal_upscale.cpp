@@ -24,6 +24,7 @@ JitterSequence _jitter_sequence;
  */
 /* static */ float JitterSequence::Halton(uint32_t index, uint32_t base)
 {
+	assert(base >= 2);
 	float result = 0.0f;
 	float f = 1.0f / static_cast<float>(base);
 	uint32_t i = index + 1; /* 1-based for better distribution. */

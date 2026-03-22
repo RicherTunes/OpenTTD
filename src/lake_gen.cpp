@@ -14,6 +14,7 @@
 #include "settings_type.h"
 #include "map_func.h"
 #include "tile_map.h"
+#include "direction_type.h"
 #include "water.h"
 #include "water_map.h"
 #include "clear_map.h"
@@ -74,11 +75,12 @@ void CreateLakes()
 			}
 
 			/* Check all 4 neighbors.
-		 * Use TileAddWrap to prevent wrapping to the opposite map edge. */
+		 * Use TileAddWrap to prevent wrapping to the opposite map edge
+		 * when tile is on the boundary of the map. */
+			static const int _lake_dx[] = {-1,  0,  1,  0}; /* NE, SE, SW, NW */
+			static const int _lake_dy[] = { 0,  1,  0, -1};
 			for (DiagDirection dir = DIAGDIR_BEGIN; dir < DIAGDIR_END; dir++) {
-				int dx = (dir == DIAGDIR_SW || dir == DIAGDIR_SE) ? 1 : (dir == DIAGDIR_NW || dir == DIAGDIR_NE) ? -1 : 0;
-				int dy = (dir == DIAGDIR_SE || dir == DIAGDIR_NE) ? 1 : (dir == DIAGDIR_SW || dir == DIAGDIR_NW) ? -1 : 0;
-				TileIndex neighbor = TileAddWrap(tile, dx, dy);
+				TileIndex neighbor = TileAddWrap(tile, _lake_dx[dir], _lake_dy[dir]);
 				if (neighbor == INVALID_TILE) {
 					is_enclosed = false;
 					continue;

@@ -209,6 +209,7 @@ private:
 
 	std::chrono::steady_clock::time_point pp_grain_start_time{}; ///< Film grain time base for pseudo-random seed.
 	std::chrono::steady_clock::time_point pp_weather_start_time{}; ///< Weather animation time base (independent of grain).
+	std::chrono::steady_clock::time_point pp_last_frame_time{};   ///< Last frame timestamp for delta_time computation.
 
 	/* Benchmark GPU timer query state. */
 	GLuint benchmark_query[2] = {};      ///< Double-buffered GL_TIME_ELAPSED query objects.

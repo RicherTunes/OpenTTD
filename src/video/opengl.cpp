@@ -1769,17 +1769,17 @@ bool OpenGLBackend::SetupPostProcessFBOs(int display_w, int display_h)
 	_glGenFramebuffers(2, this->pp_fbo);
 	_glGenTextures(2, this->pp_tex);
 
+	/* When render_scale > 100 (supersampling), Paint() sets the viewport to
+	 * render resolution, so both ping-pong textures must be large enough to
+	 * hold those fragments. All effect passes run at render resolution;
+	 * the final downsample pass writes to the backbuffer at display resolution.
+	 * When render_scale <= 100, both FBOs are at display resolution as before. */
+	Dimension fbo_size = (dims.render.width > dims.display.width) ? dims.render : dims.display;
+
 	for (int i = 0; i < 2; i++) {
-		/* FBO[0] receives the initial scene render. When render_scale > 100
-		 * (supersampling), Paint() sets the viewport to render resolution, so
-		 * pp_tex[0] must be large enough to hold those fragments. FBO[1] and
-		 * all subsequent effect passes operate at display resolution. The
-		 * downsample pass converts render-res pp_tex[0] to display-res
-		 * pp_fbo[1] at the start of the effect chain. */
-		Dimension tex_size = (i == 0) ? dims.render : dims.display;
 		_glBindTexture(GL_TEXTURE_2D, this->pp_tex[i]);
 		_glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
-			tex_size.width, tex_size.height,
+			fbo_size.width, fbo_size.height,
 			0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -1912,16 +1912,23 @@ void OpenGLBackend::RenderPostProcess()
 	if (this->pp_config.weather_type > 0 && this->pp_weather_program != 0) total++;
 	if (this->pp_config.render_scale > 100 && this->pp_downsample_program != 0) total++;
 
+	/* When supersampling (render_scale > 100) both ping-pong FBOs are at render
+	 * resolution. Intermediate effect passes use the full render viewport; only
+	 * the final pass (downsample or last effect) writes to the display-res backbuffer. */
+	bool supersampling = (this->pp_render_size.width > this->pp_display_size.width);
+	Dimension work_size = supersampling ? this->pp_render_size : this->pp_display_size;
+
 	/* RunPass: program must already be bound via _glUseProgram before calling. */
 	auto RunPass = [&]() {
 		bool is_last = (pass == total - 1);
 
 		if (is_last) {
 			_glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			_glViewport(0, 0, this->pp_display_size.width, this->pp_display_size.height);
 		} else {
 			_glBindFramebuffer(GL_FRAMEBUFFER, this->pp_fbo[1 - src]);
+			_glViewport(0, 0, work_size.width, work_size.height);
 		}
-		_glViewport(0, 0, this->pp_display_size.width, this->pp_display_size.height);
 		_glClear(GL_COLOR_BUFFER_BIT);
 
 		_glActiveTexture(GL_TEXTURE0);
@@ -1935,8 +1942,11 @@ void OpenGLBackend::RenderPostProcess()
 		pass++;
 	};
 
-	float texel_w = 1.0f / std::max(1u, this->pp_display_size.width);
-	float texel_h = 1.0f / std::max(1u, this->pp_display_size.height);
+	/* Effect texel size matches the working resolution of intermediate passes.
+	 * When supersampling, effects run at render resolution for full quality;
+	 * the downsample to display resolution happens as the final pass. */
+	float texel_w = 1.0f / std::max(1u, work_size.width);
+	float texel_h = 1.0f / std::max(1u, work_size.height);
 
 	/* Upscaling passes. */
 	if (this->pp_config.upscale_mode == UpscaleMode::FSR1 && this->pp_fsr_easu_program != 0) {
@@ -2153,13 +2163,18 @@ void OpenGLBackend::RenderPostProcess()
 		RunPass();
 	}
 
-	/* Water reflections (screen-space). */
+	/* Water reflections (screen-space).
+	 * Use wall-clock time for wave animation so reflections animate
+	 * even when dynamic lighting is off (time_of_day would be static). */
 	if (this->pp_config.water_reflections && this->pp_water_reflect_program != 0) {
+		auto now_reflect = std::chrono::steady_clock::now();
+		if (this->pp_weather_start_time == std::chrono::steady_clock::time_point{}) this->pp_weather_start_time = now_reflect;
+		float reflect_time = std::fmod(std::chrono::duration<float>(now_reflect - this->pp_weather_start_time).count(), 1000.0f);
 		_glUseProgram(this->pp_water_reflect_program);
 		_glUniform2f(this->pp_water_reflect_texel_loc, texel_w, texel_h);
 		_glUniform1f(this->pp_water_reflect_intensity_loc, this->pp_config.reflection_intensity / 100.0f);
 		_glUniform1f(this->pp_water_reflect_distortion_loc, (float)this->pp_config.reflection_distortion);
-		_glUniform1f(this->pp_water_reflect_time_loc, this->pp_config.time_of_day * 100.0f);
+		_glUniform1f(this->pp_water_reflect_time_loc, reflect_time);
 		RunPass();
 	}
 
@@ -2261,12 +2276,14 @@ void OpenGLBackend::RenderPostProcess()
 		 * ping-pong FBOs, so the composite can't read the original from pp_tex.
 		 * We use the history texture as scratch storage for the pre-bloom scene. */
 		bool bloom_save_valid = false;
-		/* Allocate history texture on demand if not already allocated by temporal mode. */
+		/* Allocate history texture on demand if not already allocated by temporal mode.
+		 * When supersampling, intermediate passes run at render resolution, so the
+		 * history texture must match the working size to capture the full scene. */
 		if (this->pp_bloom_composite_program != 0 && this->pp_history_tex == 0) {
 			_glGenTextures(1, &this->pp_history_tex);
 			_glBindTexture(GL_TEXTURE_2D, this->pp_history_tex);
 			_glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
-				this->pp_display_size.width, this->pp_display_size.height,
+				work_size.width, work_size.height,
 				0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 			_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 			_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -2278,7 +2295,7 @@ void OpenGLBackend::RenderPostProcess()
 		if (this->pp_bloom_composite_program != 0 && this->pp_history_tex != 0) {
 			_glBindTexture(GL_TEXTURE_2D, this->pp_history_tex);
 			_glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0,
-				this->pp_display_size.width, this->pp_display_size.height);
+				work_size.width, work_size.height);
 			bloom_save_valid = true;
 		}
 
@@ -2330,7 +2347,7 @@ void OpenGLBackend::RenderPostProcess()
 		_glUniform2f(this->pp_shadow_texel_loc, texel_w, texel_h);
 		_glUniform1f(this->pp_shadow_intensity_loc, this->pp_config.shadow_intensity / 100.0f);
 		float angle_rad = this->pp_config.shadow_angle * 3.14159265f / 180.0f;
-		_glUniform2f(this->pp_shadow_dir_loc, cos(angle_rad), sin(angle_rad));
+		_glUniform2f(this->pp_shadow_dir_loc, std::cos(angle_rad), std::sin(angle_rad));
 		_glUniform1f(this->pp_shadow_length_loc, (float)this->pp_config.shadow_length);
 		_glUniform1i(this->pp_shadow_samples_loc, Clamp((int)this->pp_config.shadow_softness, 1, 10));
 		RunPass();
@@ -2340,7 +2357,7 @@ void OpenGLBackend::RenderPostProcess()
 	if (this->pp_config.crt_filter && this->pp_crt_program != 0) {
 		_glUseProgram(this->pp_crt_program);
 		_glUniform2f(this->pp_crt_texel_loc, texel_w, texel_h);
-		_glUniform2f(this->pp_crt_res_loc, (float)this->pp_display_size.width, (float)this->pp_display_size.height);
+		_glUniform2f(this->pp_crt_res_loc, (float)work_size.width, (float)work_size.height);
 		_glUniform1f(this->pp_crt_scanline_loc, this->pp_config.crt_scanlines / 100.0f);
 		_glUniform1f(this->pp_crt_curve_loc, this->pp_config.crt_curvature / 100.0f);
 		_glUniform1f(this->pp_crt_aberr_loc, this->pp_config.crt_aberration / 10.0f);

@@ -80,9 +80,16 @@ void MotionVectorState::UpdateScrollDelta(int32_t virtual_left, int32_t virtual_
 	int32_t raw_dx = this->prev_scroll_x - virtual_left;
 	int32_t raw_dy = this->prev_scroll_y - virtual_top;
 
-	/* Convert virtual units to screen pixels using zoom. */
-	int16_t pixel_dx = static_cast<int16_t>(Clamp(UnScaleByZoom(raw_dx, zoom) * 8, -32768, 32767));
-	int16_t pixel_dy = static_cast<int16_t>(Clamp(UnScaleByZoom(raw_dy, zoom) * 8, -32768, 32767));
+	/* Convert virtual units to screen pixels using zoom.
+	 * Use arithmetic shift for symmetric rounding (round-toward-zero)
+	 * instead of UnScaleByZoom which rounds up, creating directional bias. */
+	int shift = static_cast<int>(zoom);
+	auto SymmetricScale = [shift](int32_t val) -> int32_t {
+		if (val >= 0) return val >> shift;
+		return -((-val) >> shift);
+	};
+	int16_t pixel_dx = static_cast<int16_t>(Clamp(SymmetricScale(raw_dx) * 8, -32768, 32767));
+	int16_t pixel_dy = static_cast<int16_t>(Clamp(SymmetricScale(raw_dy) * 8, -32768, 32767));
 
 	this->scroll_dx = pixel_dx;
 	this->scroll_dy = pixel_dy;
@@ -97,9 +104,14 @@ void MotionVectorState::UpdateScrollDelta(int32_t virtual_left, int32_t virtual_
  */
 void TileBin::Resize(int screen_w, int screen_h)
 {
-	this->tiles_x = std::max(1, (screen_w + TILE_SIZE - 1) / TILE_SIZE);
-	this->tiles_y = std::max(1, (screen_h + TILE_SIZE - 1) / TILE_SIZE);
+	int new_tiles_x = std::max(1, (screen_w + TILE_SIZE - 1) / TILE_SIZE);
+	int new_tiles_y = std::max(1, (screen_h + TILE_SIZE - 1) / TILE_SIZE);
+	bool dims_changed = (new_tiles_x != this->tiles_x || new_tiles_y != this->tiles_y);
+	this->tiles_x = new_tiles_x;
+	this->tiles_y = new_tiles_y;
 	this->data.resize(this->BufferSize(), 0);
+	/* Clear stale data when dimensions change to prevent old bin contents from persisting. */
+	if (dims_changed) std::fill(this->data.begin(), this->data.end(), 0);
 }
 
 /**

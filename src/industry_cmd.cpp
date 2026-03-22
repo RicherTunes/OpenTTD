@@ -2464,6 +2464,7 @@ void IndustryBuildData::EconomyMonthlyLoop()
 
 struct IndustryGenerationProbabilities {
 	std::array<uint32_t, NUM_INDUSTRYTYPES> probs{};
+	std::array<uint64_t, NUM_INDUSTRYTYPES> cdf{}; ///< Cumulative distribution function for O(log N) binary search selection.
 	std::array<bool, NUM_INDUSTRYTYPES> force_one{};
 	uint64_t total = 0;
 	uint num_forced = 0;
@@ -2482,6 +2483,12 @@ static IndustryGenerationProbabilities GetScaledProbabilities(bool water)
 		p.probs[it] = GetScaledIndustryGenerationProbability(it, water, &p.force_one[it]);
 		p.total += p.probs[it];
 		if (p.force_one[it]) p.num_forced++;
+	}
+
+	/* Build cumulative distribution function for O(log N) binary search selection. */
+	p.cdf[0] = p.probs[0];
+	for (IndustryType it = 1; it < NUM_INDUSTRYTYPES; it++) {
+		p.cdf[it] = p.cdf[it - 1] + p.probs[it];
 	}
 
 	return p;
@@ -2528,15 +2535,14 @@ void GenerateIndustries()
 			}
 		}
 
-		/* Add the remaining industries according to their probabilities */
+		/* Add the remaining industries according to their probabilities.
+		 * Uses binary search on the cumulative distribution function for O(log N)
+		 * lookup instead of O(N) linear scan through the probability table. */
 		for (uint i = 0; i < total_amount; i++) {
 			uint32_t r = RandomRange(p.total);
-			IndustryType it = 0;
-			while (r >= p.probs[it]) {
-				r -= p.probs[it];
-				it++;
-				assert(it < NUM_INDUSTRYTYPES);
-			}
+			auto it_iter = std::upper_bound(p.cdf.begin(), p.cdf.end(), (uint64_t)r);
+			IndustryType it = static_cast<IndustryType>(std::distance(p.cdf.begin(), it_iter));
+			assert(it < NUM_INDUSTRYTYPES);
 			assert(p.probs[it] > 0);
 			PlaceInitialIndustry(it, water, false);
 		}
@@ -2659,18 +2665,23 @@ void IndustryBuildData::SetupTargetCount()
 
 	if (total_prob == 0) return; // No buildable industries.
 
+	/* Build cumulative distribution function for O(log N) binary search selection. */
+	std::array<uint64_t, NUM_INDUSTRYTYPES> cdf;
+	cdf[0] = this->builddata[0].probability;
+	for (IndustryType it = 1; it < NUM_INDUSTRYTYPES; it++) {
+		cdf[it] = cdf[it - 1] + this->builddata[it].probability;
+	}
+
 	/* Subtract forced industries from the number of industries available for construction. */
 	total_amount = (total_amount <= force_build) ? 0 : total_amount - force_build;
 
-	/* Assign number of industries that should be aimed for, by using the probability as a weight. */
+	/* Assign number of industries that should be aimed for, by using the probability as a weight.
+	 * Uses binary search on the CDF for O(log N) lookup instead of O(N) linear scan. */
 	while (total_amount > 0) {
 		uint32_t r = RandomRange(total_prob);
-		IndustryType it = 0;
-		while (r >= this->builddata[it].probability) {
-			r -= this->builddata[it].probability;
-			it++;
-			assert(it < NUM_INDUSTRYTYPES);
-		}
+		auto it_iter = std::upper_bound(cdf.begin(), cdf.end(), (uint64_t)r);
+		IndustryType it = static_cast<IndustryType>(std::distance(cdf.begin(), it_iter));
+		assert(it < NUM_INDUSTRYTYPES);
 		assert(this->builddata[it].probability > 0);
 		this->builddata[it].target_count++;
 		total_amount--;

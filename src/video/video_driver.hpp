@@ -70,7 +70,7 @@ extern uint8_t _video_pixel_smooth_amount;
 extern bool _video_auto_supersample;
 extern bool _video_fake_shadows;
 extern uint8_t _video_shadow_intensity;
-extern uint8_t _video_shadow_angle;
+extern uint16_t _video_shadow_angle;
 extern uint8_t _video_shadow_length;
 extern uint8_t _video_shadow_softness;
 extern bool _video_water_reflections;

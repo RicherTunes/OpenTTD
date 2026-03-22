@@ -3087,7 +3087,11 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		} else if (effect == "bloom") {
 			_video_bloom = enable;
 		} else if (effect == "weather") {
-			_video_weather_type = enable ? 1 : 0;
+			if (enable) {
+				if (_video_weather_type == 0) _video_weather_type = 1;
+			} else {
+				_video_weather_type = 0;
+			}
 		} else if (effect == "smooth" || effect == "pixel_smooth") {
 			_video_pixel_smoothing = enable;
 		} else if (effect == "supersample") {
@@ -3321,6 +3325,11 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			IConsolePrint(CC_HELP, "  sharp     - FSR1 upscale + CAS sharpening at 75%% render scale");
 			IConsolePrint(CC_HELP, "  temporal  - Temporal upscale at 67%% render scale");
 			IConsolePrint(CC_HELP, "  zoom      - Auto-supersample + pixel smoothing for close zoom");
+			IConsolePrint(CC_HELP, "  realistic - Shadows + water reflections + SSAO + tree sway + lighting");
+			IConsolePrint(CC_HELP, "  fantasy   - Sky clouds + bloom + vivid colors + reflections");
+			IConsolePrint(CC_HELP, "  photo     - Depth of field + shadows + vignette (photography)");
+			IConsolePrint(CC_HELP, "  stormy    - Rain + dark clouds + desaturated + reflections");
+			IConsolePrint(CC_HELP, "  postcard  - Smooth terrain + shadows + sky + tilt-shift");
 			IConsolePrint(CC_HELP, "  clean     - Disable all effects (same as reset + on)");
 			return true;
 		}
@@ -3377,11 +3386,79 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			_video_pixel_smooth_amount = 60;
 			_video_fxaa = true;
 			IConsolePrint(CC_INFO, "Preset 'zoom' applied: auto-supersample + pixel smoothing + FXAA.");
+		} else if (argv[2] == "realistic") {
+			_video_fake_shadows = true;
+			_video_shadow_intensity = 35;
+			_video_shadow_angle = 135;
+			_video_shadow_length = 10;
+			_video_water_reflections = true;
+			_video_reflection_intensity = 25;
+			_video_ssao = true;
+			_video_ssao_intensity = 40;
+			_video_terrain_smooth = true;
+			_video_terrain_smooth_strength = 40;
+			_video_tree_sway = true;
+			_video_tree_sway_amount = 2;
+			_video_dynamic_lighting = true;
+			_video_fxaa = true;
+			IConsolePrint(CC_INFO, "Preset 'realistic' applied: shadows + reflections + SSAO + sway + lighting.");
+		} else if (argv[2] == "fantasy") {
+			_video_sky_clouds = true;
+			_video_cloud_density = 60;
+			_video_water_reflections = true;
+			_video_reflection_intensity = 40;
+			_video_reflection_distortion = 8;
+			_video_bloom = true;
+			_video_bloom_threshold = 50;
+			_video_bloom_intensity = 40;
+			_video_saturation = 140;
+			_video_tree_sway = true;
+			_video_tree_sway_amount = 5;
+			_video_vignette = true;
+			IConsolePrint(CC_INFO, "Preset 'fantasy' applied: sky + reflections + bloom + vivid colors.");
+		} else if (argv[2] == "photo") {
+			_video_depth_of_field = true;
+			_video_dof_aperture = 50;
+			_video_dof_focus_point = 50;
+			_video_dof_range = 30;
+			_video_fake_shadows = true;
+			_video_shadow_intensity = 30;
+			_video_vignette = true;
+			_video_vignette_intensity = 25;
+			_video_color_temperature = 10;
+			_video_contrast = 105;
+			_video_fxaa = true;
+			IConsolePrint(CC_INFO, "Preset 'photo' applied: DOF + shadows + vignette (photography look).");
+		} else if (argv[2] == "stormy") {
+			_video_weather_type = 1; /* Rain */
+			_video_weather_intensity = 70;
+			_video_sky_clouds = true;
+			_video_cloud_density = 80;
+			_video_sky_brightness = 40;
+			_video_brightness = -10;
+			_video_saturation = 80;
+			_video_water_reflections = true;
+			_video_reflection_distortion = 12;
+			_video_dynamic_lighting = true;
+			IConsolePrint(CC_INFO, "Preset 'stormy' applied: rain + dark clouds + desaturated.");
+		} else if (argv[2] == "postcard") {
+			_video_terrain_smooth = true;
+			_video_terrain_smooth_strength = 60;
+			_video_tree_sway = true;
+			_video_fake_shadows = true;
+			_video_shadow_angle = 45;
+			_video_sky_clouds = true;
+			_video_cloud_density = 30;
+			_video_saturation = 120;
+			_video_brightness = 5;
+			_video_tiltshift = true;
+			_video_tiltshift_blur = 20;
+			IConsolePrint(CC_INFO, "Preset 'postcard' applied: smooth + sway + shadows + tilt-shift.");
 		} else if (argv[2] == "clean") {
 			/* Already reset above, just enable PP. */
 			IConsolePrint(CC_INFO, "Preset 'clean' applied: all effects off.");
 		} else {
-			IConsolePrint(CC_ERROR, "Unknown preset '{}'. Use: retro, cinematic, night, miniature, sharp, temporal, zoom, clean.", argv[2]);
+			IConsolePrint(CC_ERROR, "Unknown preset '{}'. Use: retro, cinematic, night, miniature, sharp, temporal, zoom, clean, realistic, fantasy, photo, stormy, postcard.", argv[2]);
 			return false;
 		}
 		return true;

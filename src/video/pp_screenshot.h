@@ -12,35 +12,18 @@
 
 #include <string>
 #include <cstdint>
+#include "postprocess.h"
 
-/** Snapshot of video settings at the time of screenshot request. */
+/**
+ * Snapshot of all post-processing settings at the time of screenshot request.
+ * Uses PostProcessConfig directly so every field is captured without manual sync.
+ * The extra fields (post_processing, texture_filter) track the master toggle
+ * and raw texture filter global that live outside PostProcessConfig.
+ */
 struct PPSettingsSnapshot {
-	bool post_processing;
-	uint8_t render_scale;
-	uint8_t upscale_mode;
-	uint8_t sharpening;
-	uint8_t texture_filter;
-	bool fxaa;
-	bool night_mode;
-	bool crt_filter;
-	bool vignette;
-	bool tiltshift;
-	bool film_grain;
-	int8_t brightness;
-	uint8_t contrast;
-	uint8_t saturation;
-	int8_t color_temperature;
-	uint8_t night_intensity;
-	uint8_t night_blue_shift;
-	uint8_t crt_scanlines;
-	uint8_t crt_curvature;
-	uint8_t crt_aberration;
-	uint8_t vignette_intensity;
-	uint8_t vignette_radius;
-	uint8_t tiltshift_focus_y;
-	uint8_t tiltshift_focus_width;
-	uint8_t tiltshift_blur;
-	uint8_t grain_intensity;
+	bool post_processing;          ///< Master PP toggle (_video_post_processing).
+	uint8_t texture_filter;        ///< Raw texture filter global (_video_texture_filter).
+	PostProcessConfig config;      ///< Full post-processing configuration.
 };
 
 /** Capture current _video_* globals into a snapshot. */

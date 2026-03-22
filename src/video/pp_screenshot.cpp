@@ -50,70 +50,246 @@ void SetPPPixelReader(PPPixelReaderFunc reader)
 }
 
 /**
- * Request a screenshot after the next Paint().
- * Multiple requests are queued and each captures on a separate frame.
- * @param filename Output filename (without extension).
+ * Capture all _video_* globals into a PPSettingsSnapshot.
+ * This mirrors the config sync block in OpenGLBackend::Paint() so that
+ * every post-processing parameter is preserved for deferred screenshots.
+ * @return Snapshot of the current post-processing state.
  */
 PPSettingsSnapshot CapturePPSettings()
 {
 	PPSettingsSnapshot s;
 	s.post_processing = _video_post_processing;
-	s.render_scale = _video_render_scale;
-	s.upscale_mode = _video_upscale_mode;
-	s.sharpening = _video_sharpening;
 	s.texture_filter = _video_texture_filter;
-	s.fxaa = _video_fxaa;
-	s.night_mode = _video_night_mode;
-	s.crt_filter = _video_crt_filter;
-	s.vignette = _video_vignette;
-	s.tiltshift = _video_tiltshift;
-	s.film_grain = _video_film_grain;
-	s.brightness = _video_brightness;
-	s.contrast = _video_contrast;
-	s.saturation = _video_saturation;
-	s.color_temperature = _video_color_temperature;
-	s.night_intensity = _video_night_intensity;
-	s.night_blue_shift = _video_night_blue_shift;
-	s.crt_scanlines = _video_crt_scanlines;
-	s.crt_curvature = _video_crt_curvature;
-	s.crt_aberration = _video_crt_aberration;
-	s.vignette_intensity = _video_vignette_intensity;
-	s.vignette_radius = _video_vignette_radius;
-	s.tiltshift_focus_y = _video_tiltshift_focus_y;
-	s.tiltshift_focus_width = _video_tiltshift_focus_width;
-	s.tiltshift_blur = _video_tiltshift_blur;
-	s.grain_intensity = _video_grain_intensity;
+
+	PostProcessConfig &c = s.config;
+
+	/* Core upscaling. */
+	c.render_scale = _video_render_scale;
+	c.upscale_mode = static_cast<UpscaleMode>(Clamp<uint8_t>(_video_upscale_mode, 0, static_cast<uint8_t>(UpscaleMode::Plugin)));
+	c.sharpening = _video_sharpening;
+	c.bilinear_filtering = (_video_texture_filter >= 1);
+	c.bicubic_filtering = (_video_texture_filter == 2);
+
+	/* Anti-aliasing. */
+	c.fxaa = _video_fxaa;
+	c.fxaa_quality = _video_fxaa_quality;
+	c.fxaa_threshold = _video_fxaa_threshold;
+
+	/* Effect toggles. */
+	c.night_mode = _video_night_mode;
+	c.crt_filter = _video_crt_filter;
+	c.vignette = _video_vignette;
+	c.tiltshift = _video_tiltshift;
+	c.film_grain = _video_film_grain;
+
+	/* Color grading. */
+	c.cg_brightness = _video_brightness;
+	c.cg_contrast = _video_contrast;
+	c.cg_saturation = _video_saturation;
+	c.cg_temperature = _video_color_temperature;
+	c.color_grading = (_video_brightness != 0 || _video_contrast != 100 ||
+	                   _video_saturation != 100 || _video_color_temperature != 0);
+
+	/* Night mode sub-parameters. */
+	c.night_intensity = _video_night_intensity;
+	c.night_blue_shift = _video_night_blue_shift;
+
+	/* CRT sub-parameters. */
+	c.crt_scanlines = _video_crt_scanlines;
+	c.crt_curvature = _video_crt_curvature;
+	c.crt_aberration = _video_crt_aberration;
+
+	/* Vignette sub-parameters. */
+	c.vignette_intensity = _video_vignette_intensity;
+	c.vignette_radius = _video_vignette_radius;
+	c.vignette_softness = _video_vignette_softness;
+
+	/* Tilt-shift sub-parameters. */
+	c.tiltshift_focus_y = _video_tiltshift_focus_y;
+	c.tiltshift_focus_width = _video_tiltshift_focus_width;
+	c.tiltshift_blur = _video_tiltshift_blur;
+
+	/* Film grain sub-parameter. */
+	c.grain_intensity = _video_grain_intensity;
+
+	/* Dynamic lighting. */
+	c.dynamic_lighting = _video_dynamic_lighting;
+
+	/* Bloom. */
+	c.bloom = _video_bloom;
+	c.bloom_threshold = _video_bloom_threshold;
+	c.bloom_intensity = _video_bloom_intensity;
+
+	/* Weather. */
+	c.weather_type = _video_weather_type;
+	c.weather_intensity = _video_weather_intensity;
+
+	/* Pixel art smoothing. */
+	c.pixel_smoothing = _video_pixel_smoothing;
+	c.pixel_smooth_amount = _video_pixel_smooth_amount;
+
+	/* Auto-supersample. */
+	c.auto_supersample = _video_auto_supersample;
+
+	/* Fake directional shadows. */
+	c.fake_shadows = _video_fake_shadows;
+	c.shadow_intensity = _video_shadow_intensity;
+	c.shadow_angle = _video_shadow_angle;
+	c.shadow_length = _video_shadow_length;
+	c.shadow_softness = _video_shadow_softness;
+
+	/* Water reflections. */
+	c.water_reflections = _video_water_reflections;
+	c.reflection_intensity = _video_reflection_intensity;
+	c.reflection_distortion = _video_reflection_distortion;
+
+	/* Screen-space ambient occlusion. */
+	c.ssao = _video_ssao;
+	c.ssao_radius = _video_ssao_radius;
+	c.ssao_intensity = _video_ssao_intensity;
+	c.ssao_samples = _video_ssao_samples;
+
+	/* Terrain transition smoothing. */
+	c.terrain_smooth = _video_terrain_smooth;
+	c.terrain_smooth_radius = _video_terrain_smooth_radius;
+	c.terrain_smooth_strength = _video_terrain_smooth_strength;
+
+	/* Animated tree sway. */
+	c.tree_sway = _video_tree_sway;
+	c.tree_sway_amount = _video_tree_sway_amount;
+	c.tree_sway_speed = _video_tree_sway_speed;
+
+	/* Procedural sky with clouds. */
+	c.sky_clouds = _video_sky_clouds;
+	c.cloud_density = _video_cloud_density;
+	c.cloud_speed = _video_cloud_speed;
+	c.sky_brightness = _video_sky_brightness;
+
+	/* Depth-of-field blur. */
+	c.depth_of_field = _video_depth_of_field;
+	c.dof_focus_point = _video_dof_focus_point;
+	c.dof_aperture = _video_dof_aperture;
+	c.dof_range = _video_dof_range;
+
 	return s;
 }
 
+/**
+ * Restore all _video_* globals from a PPSettingsSnapshot.
+ * This is the inverse of CapturePPSettings() and writes every field back
+ * to the corresponding global so the next Paint() config sync picks them up.
+ * @param s Snapshot to restore.
+ */
 void RestorePPSettings(const PPSettingsSnapshot &s)
 {
 	_video_post_processing = s.post_processing;
-	_video_render_scale = s.render_scale;
-	_video_upscale_mode = s.upscale_mode;
-	_video_sharpening = s.sharpening;
 	_video_texture_filter = s.texture_filter;
-	_video_fxaa = s.fxaa;
-	_video_night_mode = s.night_mode;
-	_video_crt_filter = s.crt_filter;
-	_video_vignette = s.vignette;
-	_video_tiltshift = s.tiltshift;
-	_video_film_grain = s.film_grain;
-	_video_brightness = s.brightness;
-	_video_contrast = s.contrast;
-	_video_saturation = s.saturation;
-	_video_color_temperature = s.color_temperature;
-	_video_night_intensity = s.night_intensity;
-	_video_night_blue_shift = s.night_blue_shift;
-	_video_crt_scanlines = s.crt_scanlines;
-	_video_crt_curvature = s.crt_curvature;
-	_video_crt_aberration = s.crt_aberration;
-	_video_vignette_intensity = s.vignette_intensity;
-	_video_vignette_radius = s.vignette_radius;
-	_video_tiltshift_focus_y = s.tiltshift_focus_y;
-	_video_tiltshift_focus_width = s.tiltshift_focus_width;
-	_video_tiltshift_blur = s.tiltshift_blur;
-	_video_grain_intensity = s.grain_intensity;
+
+	const PostProcessConfig &c = s.config;
+
+	/* Core upscaling. */
+	_video_render_scale = c.render_scale;
+	_video_upscale_mode = static_cast<uint8_t>(c.upscale_mode);
+	_video_sharpening = c.sharpening;
+
+	/* Anti-aliasing. */
+	_video_fxaa = c.fxaa;
+	_video_fxaa_quality = c.fxaa_quality;
+	_video_fxaa_threshold = c.fxaa_threshold;
+
+	/* Effect toggles. */
+	_video_night_mode = c.night_mode;
+	_video_crt_filter = c.crt_filter;
+	_video_vignette = c.vignette;
+	_video_tiltshift = c.tiltshift;
+	_video_film_grain = c.film_grain;
+
+	/* Color grading. */
+	_video_brightness = c.cg_brightness;
+	_video_contrast = c.cg_contrast;
+	_video_saturation = c.cg_saturation;
+	_video_color_temperature = c.cg_temperature;
+
+	/* Night mode sub-parameters. */
+	_video_night_intensity = c.night_intensity;
+	_video_night_blue_shift = c.night_blue_shift;
+
+	/* CRT sub-parameters. */
+	_video_crt_scanlines = c.crt_scanlines;
+	_video_crt_curvature = c.crt_curvature;
+	_video_crt_aberration = c.crt_aberration;
+
+	/* Vignette sub-parameters. */
+	_video_vignette_intensity = c.vignette_intensity;
+	_video_vignette_radius = c.vignette_radius;
+	_video_vignette_softness = c.vignette_softness;
+
+	/* Tilt-shift sub-parameters. */
+	_video_tiltshift_focus_y = c.tiltshift_focus_y;
+	_video_tiltshift_focus_width = c.tiltshift_focus_width;
+	_video_tiltshift_blur = c.tiltshift_blur;
+
+	/* Film grain sub-parameter. */
+	_video_grain_intensity = c.grain_intensity;
+
+	/* Dynamic lighting. */
+	_video_dynamic_lighting = c.dynamic_lighting;
+
+	/* Bloom. */
+	_video_bloom = c.bloom;
+	_video_bloom_threshold = c.bloom_threshold;
+	_video_bloom_intensity = c.bloom_intensity;
+
+	/* Weather. */
+	_video_weather_type = c.weather_type;
+	_video_weather_intensity = c.weather_intensity;
+
+	/* Pixel art smoothing. */
+	_video_pixel_smoothing = c.pixel_smoothing;
+	_video_pixel_smooth_amount = c.pixel_smooth_amount;
+
+	/* Auto-supersample. */
+	_video_auto_supersample = c.auto_supersample;
+
+	/* Fake directional shadows. */
+	_video_fake_shadows = c.fake_shadows;
+	_video_shadow_intensity = c.shadow_intensity;
+	_video_shadow_angle = c.shadow_angle;
+	_video_shadow_length = c.shadow_length;
+	_video_shadow_softness = c.shadow_softness;
+
+	/* Water reflections. */
+	_video_water_reflections = c.water_reflections;
+	_video_reflection_intensity = c.reflection_intensity;
+	_video_reflection_distortion = c.reflection_distortion;
+
+	/* Screen-space ambient occlusion. */
+	_video_ssao = c.ssao;
+	_video_ssao_radius = c.ssao_radius;
+	_video_ssao_intensity = c.ssao_intensity;
+	_video_ssao_samples = c.ssao_samples;
+
+	/* Terrain transition smoothing. */
+	_video_terrain_smooth = c.terrain_smooth;
+	_video_terrain_smooth_radius = c.terrain_smooth_radius;
+	_video_terrain_smooth_strength = c.terrain_smooth_strength;
+
+	/* Animated tree sway. */
+	_video_tree_sway = c.tree_sway;
+	_video_tree_sway_amount = c.tree_sway_amount;
+	_video_tree_sway_speed = c.tree_sway_speed;
+
+	/* Procedural sky with clouds. */
+	_video_sky_clouds = c.sky_clouds;
+	_video_cloud_density = c.cloud_density;
+	_video_cloud_speed = c.cloud_speed;
+	_video_sky_brightness = c.sky_brightness;
+
+	/* Depth-of-field blur. */
+	_video_depth_of_field = c.depth_of_field;
+	_video_dof_focus_point = c.dof_focus_point;
+	_video_dof_aperture = c.dof_aperture;
+	_video_dof_range = c.dof_range;
 }
 
 void RequestPPScreenshot(const std::string &filename)
@@ -166,7 +342,7 @@ static bool WriteBMP(const std::string &filename, const std::vector<uint8_t> &da
 	uint8_t pad_bytes[3] = {};
 	for (int y = 0; y < height; y++) {
 		for (int x = 0; x < width; x++) {
-			int src_idx = (y * width + x) * 4;
+			size_t src_idx = (static_cast<size_t>(y) * width + x) * 4;
 			/* BMP uses BGR, OpenGL gives RGBA. */
 			uint8_t bgr[3] = { data[src_idx + 2], data[src_idx + 1], data[src_idx] };
 			file.write(reinterpret_cast<const char *>(bgr), 3);
@@ -220,7 +396,7 @@ void CapturePPScreenshotIfPending(int width, int height)
 	}
 
 	/* Read pixels from the current framebuffer. */
-	std::vector<uint8_t> pixels(width * height * 4);
+	std::vector<uint8_t> pixels(static_cast<size_t>(width) * height * 4);
 
 	/* We need glReadPixels -- it's a GL 1.0 function, should be loaded. */
 	/* Since we can't call it directly without the function pointer, we'll

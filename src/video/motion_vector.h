@@ -27,7 +27,7 @@ struct DrawCommand {
 	int16_t motion_x;    ///< Horizontal motion in 1/8 pixel units (fixed-point).
 	int16_t motion_y;    ///< Vertical motion in 1/8 pixel units (fixed-point).
 	uint16_t depth;      ///< Synthetic depth (higher = closer to camera).
-	uint16_t padding;    ///< Padding for GPU alignment (32 bytes total).
+	uint16_t padding;    ///< Padding for GPU alignment (16 bytes total).
 };
 static_assert(sizeof(DrawCommand) == 16, "DrawCommand must be 16 bytes for GPU upload");
 
