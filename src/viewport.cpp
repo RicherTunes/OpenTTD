@@ -1712,6 +1712,141 @@ static void ViewportSortParentSprites(ParentSpriteToSortVector *psdv)
 	}
 }
 
+/**
+ * Optimized sprite sorter using spatial bins to reduce overlap search range.
+ * Same topological sort semantics as ViewportSortParentSprites but replaces
+ * the forward_list linear scan with a binned structure.
+ * Average case is O(n * k) where k = average sprites per bin, instead of O(n^2).
+ * Falls back to the original sorter for small sprite counts.
+ * @param psdv The sprites to sort.
+ */
+static void ViewportSortParentSpritesBinned(ParentSpriteToSortVector *psdv)
+{
+	if (psdv->size() < 2) return;
+
+	const uint32_t ORDER_COMPARED = UINT32_MAX;
+	const uint32_t ORDER_RETURNED = UINT32_MAX - 1;
+
+	/* Compute sum range for binning. */
+	int64_t min_sum = INT64_MAX;
+	int64_t max_sum = INT64_MIN;
+	for (auto *ps : *psdv) {
+		int64_t sum = (int64_t)ps->xmin + ps->ymin;
+		if (sum < min_sum) min_sum = sum;
+		if (sum > max_sum) max_sum = sum;
+	}
+
+	/* For small sprite counts or tiny range, fall back to original algorithm. */
+	const int64_t BIN_SIZE = 256;
+	int num_bins = (int)((max_sum - min_sum) / BIN_SIZE) + 1;
+	if (psdv->size() < 50 || num_bins < 2) {
+		ViewportSortParentSprites(psdv);
+		return;
+	}
+
+	/* Bin all sprites by xmin+ymin. */
+	struct BinEntry {
+		int64_t sum;                 ///< xmin + ymin for this sprite
+		ParentSpriteToDraw *sprite;  ///< pointer to the sprite
+	};
+	std::vector<std::vector<BinEntry>> bins(num_bins);
+
+	for (auto *ps : *psdv) {
+		int64_t sum = (int64_t)ps->xmin + ps->ymin;
+		int bin_idx = (int)((sum - min_sum) / BIN_SIZE);
+		bins[bin_idx].push_back({sum, ps});
+	}
+
+	/* Sort entries within each bin by sum for early exit. */
+	for (auto &bin : bins) {
+		std::sort(bin.begin(), bin.end(), [](const BinEntry &a, const BinEntry &b) {
+			return a.sum < b.sum;
+		});
+	}
+
+	/* Topological sort with binned overlap search.
+	 * Same logic as the original: use a stack to process sprites,
+	 * find preceding sprites that overlap, push them for processing first. */
+	std::stack<ParentSpriteToDraw *> sprite_order;
+	uint32_t next_order = 0;
+
+	for (auto p = psdv->rbegin(); p != psdv->rend(); p++) {
+		sprite_order.push(*p);
+		(*p)->order = next_order++;
+	}
+
+	std::vector<ParentSpriteToDraw *> preceding;
+	auto out = psdv->begin();
+
+	while (!sprite_order.empty()) {
+		auto s = sprite_order.top();
+		sprite_order.pop();
+
+		/* Sprite is already sorted, ignore it. */
+		if (s->order == ORDER_RETURNED) continue;
+
+		/* Sprite was already compared, just need to output it. */
+		if (s->order == ORDER_COMPARED) {
+			*(out++) = s;
+			s->order = ORDER_RETURNED;
+			continue;
+		}
+
+		preceding.clear();
+
+		/* We only need sprites with xmin + ymin <= ssum.
+		 * By using bins we only scan bins up to the one containing ssum,
+		 * avoiding the full linear scan of the original algorithm. */
+		auto ssum = std::max(s->xmax, s->xmin) + std::max(s->ymax, s->ymin);
+		int max_bin = std::min((int)((ssum - min_sum) / BIN_SIZE), num_bins - 1);
+
+		for (int b = 0; b <= max_bin; b++) {
+			for (auto &entry : bins[b]) {
+				auto p = entry.sprite;
+
+				/* Skip self and already-sorted sprites. */
+				if (p == s || p->order == ORDER_RETURNED) continue;
+
+				/* Entries are sorted within bin, so we can stop early. */
+				if (entry.sum > ssum) break;
+
+				/* Same overlap checks as the original sorter. */
+				if (s->xmax < p->xmin || s->ymax < p->ymin || s->zmax < p->zmin) continue;
+				if (s->xmin <= p->xmax &&
+						s->ymin <= p->ymax &&
+						s->zmin <= p->zmax) {
+					if (s->xmin + s->xmax + s->ymin + s->ymax + s->zmin + s->zmax <=
+							p->xmin + p->xmax + p->ymin + p->ymax + p->zmin + p->zmax) {
+						continue;
+					}
+				}
+
+				preceding.push_back(p);
+			}
+		}
+
+		if (preceding.empty()) {
+			/* No preceding sprites, add current one to the output. */
+			*(out++) = s;
+			s->order = ORDER_RETURNED;
+			continue;
+		}
+
+		/* Sort all preceding sprites by order and assign new orders in reverse (as original sorter did). */
+		std::sort(preceding.begin(), preceding.end(), [](const ParentSpriteToDraw *a, const ParentSpriteToDraw *b) {
+			return a->order > b->order;
+		});
+
+		s->order = ORDER_COMPARED;
+		sprite_order.push(s);
+
+		for (auto p : preceding) {
+			p->order = next_order++;
+			sprite_order.push(p);
+		}
+	}
+}
+
 
 static void ViewportDrawParentSprites(const ParentSpriteToSortVector *psd, const ChildScreenSpriteToDrawVector *csstdv)
 {
@@ -3625,6 +3760,7 @@ static const ViewportSSCSS _vp_sprite_sorters[] = {
 #ifdef WITH_SSE
 	{ &ViewportSortParentSpritesSSE41Checker, &ViewportSortParentSpritesSSE41 },
 #endif
+	{ []() { return true; }, &ViewportSortParentSpritesBinned },
 	{ []() { return true; /* Always available */ }, &ViewportSortParentSprites }
 };
 
