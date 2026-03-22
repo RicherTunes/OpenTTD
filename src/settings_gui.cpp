@@ -1943,8 +1943,9 @@ struct GameOptionsWindow : Window {
 		this->SetWidgetLoweredState(WID_GO_VIDEO_DYNAMIC_LIGHTING_BUTTON, _video_dynamic_lighting);
 		this->SetWidgetLoweredState(WID_GO_VIDEO_BLOOM_BUTTON, _video_bloom);
 
-		/* Collapse entire effects section when PP is off to keep tab compact. */
 		bool gpu_enabled = _video_hw_accel && _video_post_processing;
+
+		/* Collapse entire effects section when PP is off to keep tab compact. */
 		this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_EFFECTS_SEL)->SetDisplayedPlane(gpu_enabled ? 0 : SZSP_NONE);
 
 		/* Collapse sub-parameter sections when parent effect is off. */
@@ -1956,8 +1957,6 @@ struct GameOptionsWindow : Window {
 		this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_GRAIN_PARAMS_SEL)->SetDisplayedPlane(_video_film_grain ? 0 : SZSP_NONE);
 		this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_BLOOM_PARAMS_SEL)->SetDisplayedPlane(_video_bloom ? 0 : SZSP_NONE);
 		this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_WEATHER_PARAMS_SEL)->SetDisplayedPlane(_video_weather_type > 0 ? 0 : SZSP_NONE);
-
-		bool gpu_enabled = _video_hw_accel && _video_post_processing;
 		this->SetWidgetDisabledState(WID_GO_VIDEO_RENDER_SCALE, !gpu_enabled);
 		this->SetWidgetDisabledState(WID_GO_VIDEO_UPSCALE_DROPDOWN, !gpu_enabled);
 		this->SetWidgetDisabledState(WID_GO_VIDEO_SHARPENING, !gpu_enabled);

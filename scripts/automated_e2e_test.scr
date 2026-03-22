@@ -1,44 +1,33 @@
-; Automated E2E Visual Test
-; This script is run via 'schedule' so it executes AFTER the game is loaded.
-; The game is paused first for consistent screenshots.
 
 pause
 
-; Step 1: Passthrough baseline (PP on, no effects)
 pp reset
 pp on
 pp_screenshot e2e_01_passthrough
 
-; Step 2: Night mode
 pp enable night
 pp_screenshot e2e_02_night
 
-; Step 3: Vignette
 pp disable night
 pp enable vignette
 pp_screenshot e2e_03_vignette
 
-; Step 4: CRT
 pp disable vignette
 pp enable crt
 pp_screenshot e2e_04_crt
 
-; Step 5: Tilt-shift
 pp disable crt
 pp enable tiltshift
 pp_screenshot e2e_05_tiltshift
 
-; Step 6: FXAA
 pp disable tiltshift
 pp enable fxaa
 pp_screenshot e2e_06_fxaa
 
-; Step 7: Film grain
 pp disable fxaa
 pp enable grain
 pp_screenshot e2e_07_grain
 
-; Step 8: Warm color grading
 pp disable grain
 pp set brightness 25
 pp set contrast 130
@@ -46,34 +35,29 @@ pp set saturation 140
 pp set color_temperature 50
 pp_screenshot e2e_08_warm
 
-; Step 9: Cool color grading
 pp set brightness -15
 pp set contrast 80
 pp set saturation 70
 pp set color_temperature -60
 pp_screenshot e2e_09_cool
 
-; Step 10: FSR1 at 75%
 pp reset
 pp on
 pp set render_scale 75
 pp set upscale_mode 2
 pp_screenshot e2e_10_fsr1_75
 
-; Step 11: Sharpening
 pp set render_scale 100
 pp set upscale_mode 0
 pp set sharpening 90
 pp_screenshot e2e_11_sharp90
 
-; Step 12: Combined effects
 pp set sharpening 0
 pp enable vignette
 pp enable fxaa
 pp enable night
 pp_screenshot e2e_12_combined
 
-; Step 13: Back to clean passthrough (should match step 1)
 pp reset
 pp on
 pp_screenshot e2e_13_restored
