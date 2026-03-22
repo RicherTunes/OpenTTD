@@ -1255,14 +1255,11 @@ static void ViewportAddLandscape()
 	assert(_vd.dpi.top <= _vd.dpi.top + _vd.dpi.height);
 	assert(_vd.dpi.left <= _vd.dpi.left + _vd.dpi.width);
 
-	/* Persistent slope cache: NOT cleared every frame.
-	 * Individual tiles are invalidated via MarkTileDirtyByTile() when terrain
-	 * changes (terraform, building, etc.). This avoids re-computing slopes
-	 * for the ~99.5% of tiles that don't change between frames.
-	 * Safety size limit prevents unbounded growth from panning across the map. */
-	if (_vd.slope_cache.size() > 16384) {
-		_vd.slope_cache.clear();
-	}
+	/* Clear per-frame slope cache. Must be cleared every frame to pick up
+	 * terrain changes, viewport scrolling, and window expose events correctly.
+	 * The cache avoids redundant GetTilePixelSlope() calls for tiles queried
+	 * multiple times within a single frame (overlapping sprites, foundations). */
+	_vd.slope_cache.clear();
 
 	Point upper_left = InverseRemapCoords(_vd.dpi.left, _vd.dpi.top);
 	Point upper_right = InverseRemapCoords(_vd.dpi.left + _vd.dpi.width, _vd.dpi.top);
