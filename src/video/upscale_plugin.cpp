@@ -79,6 +79,15 @@ UpscalePluginAPI *LoadUpscalePlugin(const std::string &path)
 		return nullptr;
 	}
 
+	/* Validate that all required function pointers are non-null. */
+	if (_loaded_plugin->init == nullptr || _loaded_plugin->shutdown == nullptr ||
+	    _loaded_plugin->evaluate == nullptr) {
+		Debug(driver, 0, "Upscale plugin '{}' missing required function pointers (init/shutdown/evaluate)", path);
+		_loaded_plugin = nullptr;
+		UnloadUpscalePlugin();
+		return nullptr;
+	}
+
 	const char *name = _loaded_plugin->get_name != nullptr ? _loaded_plugin->get_name() : "unknown";
 	const char *version = _loaded_plugin->get_version != nullptr ? _loaded_plugin->get_version() : "unknown";
 	uint32_t caps = _loaded_plugin->get_capabilities != nullptr ? _loaded_plugin->get_capabilities() : 0;
