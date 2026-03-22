@@ -1952,11 +1952,11 @@ void OpenGLBackend::RenderPostProcess()
 			src = 1 - src;
 			pass++;
 		} else {
-			/* Plugin not available, fall back to blit. */
-			if (this->pp_blit_program != 0) {
-				_glUseProgram(this->pp_blit_program);
-				RunPass();
-			}
+			/* Plugin not available — do not execute any pass.
+			 * The pass was not counted in total, so calling RunPass() here
+			 * would desync the is_last detection. The scene in the FBO
+			 * will be blitted by the safety fallback at the end if no
+			 * other passes run. */
 		}
 	}
 
