@@ -31,7 +31,11 @@
     # this way after being missed by unit tests.
 
     # Copy lifecycle config files to build directory
-    set(LIFECYCLE_CFGS lifecycle lifecycle_temperate lifecycle_arctic lifecycle_tropic lifecycle_toyland lifecycle_large)
+    set(LIFECYCLE_CFGS
+        lifecycle lifecycle_temperate lifecycle_arctic lifecycle_tropic lifecycle_toyland
+        lifecycle_large lifecycle_arctic_large lifecycle_tropic_large
+        lifecycle_many_rivers lifecycle_flat lifecycle_many_towns lifecycle_long_run
+    )
     foreach(CFG ${LIFECYCLE_CFGS})
         add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${CFG}.cfg
                 COMMAND ${CMAKE_COMMAND} -E copy
@@ -44,15 +48,19 @@
     endforeach()
     add_custom_target(lifecycle_cfg ALL DEPENDS ${LIFECYCLE_CFG_FILES})
 
-    # Helper macro to add a lifecycle test.
-    # OPENTTD_ARGS is passed as a semicolon-separated CMake list.
+    # Helper macro to add a lifecycle test (100 ticks default).
     macro(add_lifecycle_test TEST_NAME)
+        add_lifecycle_test_ticks(${TEST_NAME} 100 ${ARGN})
+    endmacro()
+
+    # Helper macro with custom tick count.
+    macro(add_lifecycle_test_ticks TEST_NAME TICKS)
         add_test(NAME lifecycle_${TEST_NAME}
                 COMMAND ${CMAKE_COMMAND}
                         -DOPENTTD_EXECUTABLE=$<TARGET_FILE:openttd>
                         -DEDITBIN_EXECUTABLE=${EDITBIN_EXECUTABLE}
                         -DLIFECYCLE_TEST=${TEST_NAME}
-                        -DLIFECYCLE_TICKS=100
+                        -DLIFECYCLE_TICKS=${TICKS}
                         "-DOPENTTD_ARGS=${ARGN}"
                         -P "${CMAKE_SOURCE_DIR}/cmake/scripts/LifecycleTest.cmake"
                 WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
@@ -65,8 +73,26 @@
     add_lifecycle_test(newgame_tropic    -g -G 1 -c regression/lifecycle_tropic.cfg)
     add_lifecycle_test(newgame_toyland   -g -G 1 -c regression/lifecycle_toyland.cfg)
 
-    # New game generation - 1024x1024 map (stress test)
-    add_lifecycle_test(newgame_large     -g -G 42 -c regression/lifecycle_large.cfg)
+    # New game generation - 1024x1024 maps (stress test, all climates)
+    add_lifecycle_test(newgame_large          -g -G 42 -c regression/lifecycle_large.cfg)
+    add_lifecycle_test(newgame_arctic_large   -g -G 42 -c regression/lifecycle_arctic_large.cfg)
+    add_lifecycle_test(newgame_tropic_large   -g -G 42 -c regression/lifecycle_tropic_large.cfg)
+
+    # Edge case: many rivers (exercises river/delta generation)
+    add_lifecycle_test(newgame_many_rivers    -g -G 7  -c regression/lifecycle_many_rivers.cfg)
+
+    # Edge case: flat map (exercises flat terrain code paths)
+    add_lifecycle_test(newgame_flat           -g -G 1  -c regression/lifecycle_flat.cfg)
+
+    # Edge case: high density towns + industries (exercises placement code)
+    add_lifecycle_test(newgame_many_towns     -g -G 1  -c regression/lifecycle_many_towns.cfg)
+
+    # Multiple different seeds (catches seed-dependent crashes)
+    add_lifecycle_test(newgame_seed_0         -g -G 0  -c regression/lifecycle_temperate.cfg)
+    add_lifecycle_test(newgame_seed_max       -g -G 4294967295 -c regression/lifecycle_temperate.cfg)
+
+    # Long run: 1000 ticks to exercise game loop stability
+    add_lifecycle_test_ticks(long_run_1000ticks 1000 -g -G 1 -c regression/lifecycle_long_run.cfg)
 
     # Load the existing regression test savegame (verifies save/load path)
     add_lifecycle_test(load_save -g ai/regression/test.sav -c regression/lifecycle.cfg)
