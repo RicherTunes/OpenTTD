@@ -1659,9 +1659,6 @@ static void CalculateSnowLineWithBiomes()
 	std::array<int, 256> temp_histogram = {};
 	uint land_tiles = 0;
 
-	/* Use tile coordinates as noise input, scaled for large features */
-	double freq = 4.0 / std::max(Map::SizeX(), Map::SizeY());
-
 	for (const auto tile : Map::Iterate()) {
 		if (!IsValidTile(tile)) continue;
 		uint h = TileHeight(tile);
