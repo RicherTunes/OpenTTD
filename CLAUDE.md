@@ -164,11 +164,11 @@ The GPU post-processing pipeline adds visual enhancement to OpenTTD's OpenGL bac
 - `src/video/postprocess.h/.cpp` -- Post-processing config, dimension math, FSR/CAS constants
 - `src/video/motion_vector.h/.cpp` -- Draw-command recording, tile-based spatial binning (MAX_COMMANDS=16384)
 - `src/video/temporal_upscale.h/.cpp` -- Jitter sequence, temporal upscale interface
-- `src/table/postprocess_shader.h` -- All GLSL shader source (12+ effects + compute + bicubic)
+- `src/table/postprocess_shader.h` -- All GLSL shader source (15+ effects + compute + bicubic + pixel smooth)
 - `src/video/opengl.h/.cpp` -- FBO pipeline, shader compilation, render dispatch
 - `src/benchmark.h/.cpp` -- GPU benchmark harness with CSV export and statistics
-- `src/tests/test_postprocess.cpp` -- 100+ postprocess tests
-- `src/tests/test_motion_vector.cpp` -- 40+ motion vector tests
+- `src/tests/test_postprocess.cpp` -- 200+ postprocess tests
+- `src/tests/test_motion_vector.cpp` -- 45+ motion vector tests
 - `src/tests/test_temporal_upscale.cpp` -- 12 temporal upscale tests
 - `src/video/render_backend.h` -- Abstract rendering backend interface (Vulkan/DX11 composition)
 - `src/video/upscale_plugin.h/.cpp` -- DLSS/FSR plugin C ABI + runtime loader
@@ -178,10 +178,11 @@ The GPU post-processing pipeline adds visual enhancement to OpenTTD's OpenGL bac
 - `benchmark start [N] [warmup=M] [label=X]` -- Capture N frames of GPU timing to CSV
 - `benchmark stop/abort/status` -- Control benchmark recording
 - `pp status/on/off` -- Master post-processing toggle
-- `pp enable/disable <effect>` -- Toggle individual effects (fxaa, night, crt, vignette, tiltshift, grain)
+- `pp info` -- Show GPU pipeline capabilities and loaded plugins
+- `pp enable/disable <effect>` -- Toggle individual effects (fxaa, night, crt, vignette, tiltshift, grain, smooth, supersample, lighting, bloom, weather)
 - `pp set <param> <value>` -- Set numeric parameters (render_scale, sharpening, brightness, etc.)
 - `pp reset` -- Restore all PP settings to defaults
-- `pp preset retro/cinematic/night/miniature/sharp/clean` -- Apply effect presets
+- `pp preset retro/cinematic/night/miniature/sharp/temporal/zoom/clean` -- Apply effect presets
 - `pp_screenshot [filename]` -- Capture post-processed framebuffer to BMP
 - `benchmark compare` -- A/B testing workflow guide
 
@@ -216,6 +217,12 @@ Global variables (`_video_*` in `video_driver.cpp`) → synced per-frame in `Pai
 - GL error drain loop at end of RenderPostProcess catches all queued errors
 - PostProcessConfig has defaulted operator== for clean comparison
 - ResetPPDefaults() helper eliminates duplicated reset code in console commands
+- Bloom history texture allocated on demand (works without temporal mode)
+- Plugin pass count gated on actual plugin availability
+- Zero-dimension guards on RenderPostProcess and SetupPostProcessFBOs
+- Scene cut detection resets temporal history on viewport jumps
+- Auto-supersampling boosts render_scale at In4x/In2x zoom levels
+- Pixel art smoothing shader with EPX-inspired edge detection
 - FSR EASU con1.zw stores pixel dimensions (not reciprocal) for correct UV-to-texel math
 - GPU timer queries double-buffered (read previous frame, no GPU stall)
 - Blitter depth cached per Paint() frame (avoid repeated virtual calls)
