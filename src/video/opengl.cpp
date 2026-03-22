@@ -1750,7 +1750,7 @@ void OpenGLBackend::RenderPostProcess()
 		}
 	}
 	if (this->pp_config.upscale_mode == UpscaleMode::Temporal && this->pp_temporal_program != 0 && this->mv_compute_supported) total++;
-	if (this->pp_config.upscale_mode == UpscaleMode::Plugin) total++; /* Plugin handles its own pass */
+	if (this->pp_config.upscale_mode == UpscaleMode::Plugin && GetLoadedUpscalePlugin() != nullptr) total++;
 	if (this->pp_config.sharpening > 0 && this->pp_config.upscale_mode != UpscaleMode::FSR1 && this->pp_config.upscale_mode != UpscaleMode::Temporal && this->pp_config.upscale_mode != UpscaleMode::Plugin && this->pp_cas_program != 0) total++;
 	if (WillRun(this->pp_config.fxaa, this->pp_fxaa_program)) total++;
 	if (WillRun(this->pp_config.tiltshift, this->pp_tiltshift_h_program)) total++;
