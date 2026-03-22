@@ -563,9 +563,10 @@ struct GameOptionsWindow : Window {
 					STR_GAME_OPTIONS_UPSCALE_BILINEAR,
 					STR_GAME_OPTIONS_UPSCALE_FSR1,
 					STR_GAME_OPTIONS_UPSCALE_TEMPORAL,
+					STR_GAME_OPTIONS_UPSCALE_PLUGIN,
 				};
 				*selected_index = _video_upscale_mode;
-				for (int i = 0; i < 4; i++) {
+				for (int i = 0; i < 5; i++) {
 					list.push_back(MakeDropDownListStringItem(_upscale_items[i], i));
 				}
 				break;
@@ -754,8 +755,9 @@ struct GameOptionsWindow : Window {
 					STR_GAME_OPTIONS_UPSCALE_BILINEAR,
 					STR_GAME_OPTIONS_UPSCALE_FSR1,
 					STR_GAME_OPTIONS_UPSCALE_TEMPORAL,
+					STR_GAME_OPTIONS_UPSCALE_PLUGIN,
 				};
-				return GetString(_upscale_names[Clamp<uint8_t>(_video_upscale_mode, 0, 3)]);
+				return GetString(_upscale_names[Clamp<uint8_t>(_video_upscale_mode, 0, 4)]);
 			}
 
 			case WID_GO_VIDEO_TEXTURE_FILTER_DROPDOWN: {
@@ -1788,7 +1790,7 @@ struct GameOptionsWindow : Window {
 			}
 
 			case WID_GO_VIDEO_UPSCALE_DROPDOWN:
-				_video_upscale_mode = Clamp(index, 0, 3); /* 0=None, 1=Bilinear, 2=FSR1, 3=Temporal */
+				_video_upscale_mode = Clamp(index, 0, 4); /* 0=None, 1=Bilinear, 2=FSR1, 3=Temporal, 4=Plugin */
 				this->SetDirty();
 				break;
 
