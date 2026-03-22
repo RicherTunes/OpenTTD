@@ -3577,3 +3577,64 @@ TEST_CASE("PostProcess - NeedsFBO true for every individual bool effect")
 	CHECK(check_field([](PostProcessConfig &c) { c.upscale_mode = UpscaleMode::Plugin; }));
 	CHECK(check_field([](PostProcessConfig &c) { c.sharpening = 50; }));
 }
+
+TEST_CASE("PostProcess - every single effect adds at least 1 pass")
+{
+	auto adds = [](auto setter) {
+		PostProcessConfig c;
+		int base = PostProcessPassCount(c);
+		setter(c);
+		return PostProcessPassCount(c) > base;
+	};
+	CHECK(adds([](PostProcessConfig &c) { c.fxaa = true; }));
+	CHECK(adds([](PostProcessConfig &c) { c.color_grading = true; }));
+	CHECK(adds([](PostProcessConfig &c) { c.vignette = true; }));
+	CHECK(adds([](PostProcessConfig &c) { c.tiltshift = true; }));
+	CHECK(adds([](PostProcessConfig &c) { c.night_mode = true; }));
+	CHECK(adds([](PostProcessConfig &c) { c.film_grain = true; }));
+	CHECK(adds([](PostProcessConfig &c) { c.crt_filter = true; }));
+	CHECK(adds([](PostProcessConfig &c) { c.pixel_smoothing = true; }));
+	CHECK(adds([](PostProcessConfig &c) { c.dynamic_lighting = true; }));
+	CHECK(adds([](PostProcessConfig &c) { c.bloom = true; }));
+	CHECK(adds([](PostProcessConfig &c) { c.fake_shadows = true; }));
+	CHECK(adds([](PostProcessConfig &c) { c.water_reflections = true; }));
+	CHECK(adds([](PostProcessConfig &c) { c.ssao = true; }));
+	CHECK(adds([](PostProcessConfig &c) { c.terrain_smooth = true; }));
+	CHECK(adds([](PostProcessConfig &c) { c.tree_sway = true; }));
+	CHECK(adds([](PostProcessConfig &c) { c.sky_clouds = true; }));
+	CHECK(adds([](PostProcessConfig &c) { c.depth_of_field = true; }));
+	CHECK(adds([](PostProcessConfig &c) { c.toon_rendering = true; }));
+	CHECK(adds([](PostProcessConfig &c) { c.heat_haze = true; }));
+	CHECK(adds([](PostProcessConfig &c) { c.water_waves = true; }));
+	CHECK(adds([](PostProcessConfig &c) { c.seasonal_vegetation = true; }));
+	CHECK(adds([](PostProcessConfig &c) { c.debug_class = true; }));
+	CHECK(adds([](PostProcessConfig &c) { c.weather_type = 1; }));
+	CHECK(adds([](PostProcessConfig &c) { c.render_scale = 50; c.upscale_mode = UpscaleMode::FSR1; }));
+	CHECK(adds([](PostProcessConfig &c) { c.render_scale = 200; }));
+	CHECK(adds([](PostProcessConfig &c) { c.sharpening = 50; }));
+}
+
+TEST_CASE("PostProcess - bloom adds exactly 4 passes")
+{
+	PostProcessConfig c;
+	int base = PostProcessPassCount(c);
+	c.bloom = true;
+	CHECK(PostProcessPassCount(c) == base + 4);
+}
+
+TEST_CASE("PostProcess - tiltshift adds exactly 2 passes")
+{
+	PostProcessConfig c;
+	int base = PostProcessPassCount(c);
+	c.tiltshift = true;
+	CHECK(PostProcessPassCount(c) == base + 2);
+}
+
+TEST_CASE("PostProcess - FSR1 at 50% adds exactly 2 passes")
+{
+	PostProcessConfig c;
+	int base = PostProcessPassCount(c);
+	c.render_scale = 50;
+	c.upscale_mode = UpscaleMode::FSR1;
+	CHECK(PostProcessPassCount(c) == base + 2);
+}
