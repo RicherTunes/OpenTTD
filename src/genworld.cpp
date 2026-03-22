@@ -155,10 +155,11 @@ static void _GenerateWorld()
 			/* Only generate towns, tree and industries in newgame mode. */
 			if (_game_mode != GM_EDITOR) {
 				if (!GenerateTowns(_settings_game.economy.town_layout)) {
-					FreeGenerationTileCache();
-					FreeHarborScores();
-					HandleGeneratingWorldAbortion();
-					return;
+					/* Town generation failed — log a warning but continue.
+					 * The original code aborted here, but that silently dumps
+					 * the user back to the main menu with no explanation.
+					 * A game with no towns is playable (user can fund towns). */
+					Debug(misc, 0, "GenerateTowns failed — continuing with no towns");
 				}
 				GenerateIndustries();
 				GenerateObjects();
