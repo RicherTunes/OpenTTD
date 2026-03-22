@@ -6,6 +6,8 @@ pp on
 pp_screenshot e2e_01_passthrough
 
 pp enable night
+pp set night_intensity 100
+pp set night_blue_shift 80
 pp_screenshot e2e_02_night
 
 pp disable night
