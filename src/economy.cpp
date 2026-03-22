@@ -1949,11 +1949,13 @@ void LoadUnloadStation(Station *st)
 		if (v == last_loading) break;
 	}
 
-	/* Call the production machinery of industries */
-	for (Industry *iid : _cargo_delivery_destinations) {
-		TriggerIndustryProduction(iid);
+	/* Call the production machinery of industries (skip iteration if no deliveries this tick) */
+	if (!_cargo_delivery_destinations.empty()) {
+		for (Industry *iid : _cargo_delivery_destinations) {
+			TriggerIndustryProduction(iid);
+		}
+		_cargo_delivery_destinations.clear();
 	}
-	_cargo_delivery_destinations.clear();
 }
 
 /**

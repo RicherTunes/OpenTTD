@@ -3039,6 +3039,13 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		if (OpenGLBackend::Get() != nullptr) {
 			IConsolePrint(CC_INFO, "  OpenGL FBO: {}", OpenGLBackend::Get()->IsPostProcessSupported() ? "YES" : "NO");
 			IConsolePrint(CC_INFO, "  Display: {}x{}", _screen.width, _screen.height);
+			if (OpenGLBackend::Get()->IsViewportCPUScaling()) {
+				IConsolePrint(CC_INFO, "  CPU VP scaling: ACTIVE (scratch {}x{})",
+					OpenGLBackend::Get()->GetViewportScratchWidth(),
+					OpenGLBackend::Get()->GetViewportScratchHeight());
+			} else {
+				IConsolePrint(CC_INFO, "  CPU VP scaling: inactive");
+			}
 		}
 #endif
 		auto *plugin = GetLoadedUpscalePlugin();
@@ -3066,7 +3073,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 
 	if (argv[1] == "enable" || argv[1] == "disable") {
 		if (argv.size() < 3) {
-			IConsolePrint(CC_ERROR, "Usage: 'pp {} <effect>' - Effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather, smooth, supersample, shadows, water, ssao, terrain_smooth, tree_sway, sky, dof", argv[1]);
+			IConsolePrint(CC_ERROR, "Usage: 'pp {} <effect>' - Effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather, smooth, supersample, cpu_scale, shadows, water, ssao, terrain_smooth, tree_sway, sky, dof", argv[1]);
 			return false;
 		}
 		bool enable = (argv[1] == "enable");
@@ -3112,8 +3119,10 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			_video_sky_clouds = enable;
 		} else if (effect == "dof" || effect == "depth_of_field") {
 			_video_depth_of_field = enable;
+		} else if (effect == "cpu_scale" || effect == "cpu_viewport_scaling") {
+			_video_cpu_viewport_scaling = enable;
 		} else {
-			IConsolePrint(CC_ERROR, "Unknown effect '{}'. Valid effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather, smooth, supersample, shadows, water, ssao, terrain_smooth, tree_sway, sky, dof", effect);
+			IConsolePrint(CC_ERROR, "Unknown effect '{}'. Valid effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather, smooth, supersample, shadows, water, ssao, terrain_smooth, tree_sway, sky, dof, cpu_scale", effect);
 			return false;
 		}
 

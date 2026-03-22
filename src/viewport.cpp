@@ -2008,14 +2008,21 @@ void Window::DrawViewportCPUScaled() const
 	/* Clear scratch buffer to transparent black. */
 	std::fill_n(static_cast<uint32_t *>(vp_buf), static_cast<size_t>(vp_pitch) * vp_h, 0);
 
+	/* Wave 4: If already at max zoom, CPU scaling can't reduce further — bail out. */
+	if (this->viewport->zoom >= ZoomLevel::Max) return;
+
 	/* Determine how many extra zoom steps we're applying. */
 	int scale_divisor = this->viewport->width / vp_w;
 	uint8_t extra_zoom = 0;
 	while ((1 << extra_zoom) < scale_divisor && extra_zoom < 3) extra_zoom++;
+	if (extra_zoom == 0) return; /* No zoom reduction possible. */
 
 	/* Compute the scaled zoom level, clamped to ZoomLevel::Max. */
 	int new_zoom_val = to_underlying(this->viewport->zoom) + extra_zoom;
-	if (new_zoom_val > to_underlying(ZoomLevel::Max)) new_zoom_val = to_underlying(ZoomLevel::Max);
+	if (new_zoom_val > to_underlying(ZoomLevel::Max)) {
+		extra_zoom = static_cast<uint8_t>(to_underlying(ZoomLevel::Max) - to_underlying(this->viewport->zoom));
+		new_zoom_val = to_underlying(ZoomLevel::Max);
+	}
 	ZoomLevel scaled_zoom = static_cast<ZoomLevel>(new_zoom_val);
 
 	/* Build a temporary viewport at reduced size but same virtual extents. */
