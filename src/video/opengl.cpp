@@ -1637,6 +1637,12 @@ bool OpenGLBackend::SetupPostProcessFBOs(int display_w, int display_h)
 		return true;
 	}
 
+	/* Guard against zero dimensions (minimized window). */
+	if (display_w <= 0 || display_h <= 0) {
+		this->pp_active = false;
+		return true;
+	}
+
 	auto dims = CalculatePostProcessDimensions(display_w, display_h, this->pp_config.render_scale);
 	this->pp_render_size = dims.render;
 	this->pp_display_size = dims.display;
@@ -1712,6 +1718,12 @@ void OpenGLBackend::DestroyPostProcessFBOs()
  */
 void OpenGLBackend::RenderPostProcess()
 {
+	/* Guard against zero-sized display (minimized window or failed resize). */
+	if (this->pp_display_size.width == 0 || this->pp_display_size.height == 0) {
+		_glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		return;
+	}
+
 	int src = 0;
 	int pass = 0;
 	int total = PostProcessPassCount(this->pp_config);
