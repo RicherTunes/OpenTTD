@@ -33,6 +33,8 @@ uint8_t _video_upscale_mode = 0; ///< Upscale mode: 0=None, 1=Bilinear, 2=FSR1.
 uint8_t _video_sharpening = 50; ///< CAS sharpening intensity (0-100).
 uint8_t _video_texture_filter = 0; ///< Texture filter: 0=Nearest, 1=Bilinear, 2=Smooth.
 bool _video_fxaa = false; ///< Whether FXAA anti-aliasing is enabled.
+uint8_t _video_fxaa_quality = 75; ///< FXAA sub-pixel quality (0-100).
+uint8_t _video_fxaa_threshold = 13; ///< FXAA edge detection threshold (1-50).
 bool _video_night_mode = false; ///< Whether night mode effect is enabled.
 bool _video_crt_filter = false; ///< Whether CRT scanline filter is enabled.
 bool _video_vignette = false; ///< Whether vignette edge darkening is enabled.

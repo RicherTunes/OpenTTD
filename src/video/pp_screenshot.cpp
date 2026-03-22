@@ -12,8 +12,9 @@
 #include "../debug.h"
 #include "../fileio_func.h"
 
-#include <vector>
 #include <fstream>
+#include <string>
+#include <vector>
 
 #include "../safeguards.h"
 
@@ -33,7 +34,7 @@ static inline void WriteLE16(uint8_t *buf, int16_t val)
 	buf[1] = static_cast<uint8_t>(val >> 8);
 }
 
-static std::string _pending_pp_screenshot;
+static std::vector<std::string> _pending_pp_screenshots;
 static PPPixelReaderFunc _pp_pixel_reader = nullptr;
 
 void SetPPPixelReader(PPPixelReaderFunc reader)
@@ -43,12 +44,13 @@ void SetPPPixelReader(PPPixelReaderFunc reader)
 
 /**
  * Request a screenshot after the next Paint().
+ * Multiple requests are queued and each captures on a separate frame.
  * @param filename Output filename (without extension).
  */
 void RequestPPScreenshot(const std::string &filename)
 {
-	_pending_pp_screenshot = filename;
-	Debug(misc, 0, "PP screenshot requested: {}", filename);
+	_pending_pp_screenshots.push_back(filename);
+	Debug(misc, 0, "PP screenshot requested: {} (queue: {})", filename, _pending_pp_screenshots.size());
 }
 
 /**
@@ -113,10 +115,11 @@ static bool WriteBMP(const std::string &filename, const std::vector<uint8_t> &da
  */
 void CapturePPScreenshotIfPending(int width, int height)
 {
-	if (_pending_pp_screenshot.empty()) return;
+	if (_pending_pp_screenshots.empty()) return;
 
-	std::string basename = _pending_pp_screenshot;
-	_pending_pp_screenshot.clear();
+	/* Dequeue one screenshot per frame. */
+	std::string basename = _pending_pp_screenshots.front();
+	_pending_pp_screenshots.erase(_pending_pp_screenshots.begin());
 
 	/* Sanitize filename: strip path separators and special characters. */
 	std::string safe_name;

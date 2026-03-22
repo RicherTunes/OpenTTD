@@ -36,6 +36,8 @@ extern uint8_t _video_upscale_mode;
 extern uint8_t _video_sharpening;
 extern uint8_t _video_texture_filter;
 extern bool _video_fxaa;
+extern uint8_t _video_fxaa_quality;
+extern uint8_t _video_fxaa_threshold;
 extern bool _video_night_mode;
 extern bool _video_crt_filter;
 extern bool _video_vignette;

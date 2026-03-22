@@ -1251,6 +1251,8 @@ void OpenGLBackend::Paint()
 
 			/* Effect toggles from persistent settings. */
 			new_config.fxaa = _video_fxaa;
+			new_config.fxaa_quality = _video_fxaa_quality;
+			new_config.fxaa_threshold = _video_fxaa_threshold;
 			new_config.night_mode = _video_night_mode;
 			new_config.crt_filter = _video_crt_filter;
 			new_config.vignette = _video_vignette;
