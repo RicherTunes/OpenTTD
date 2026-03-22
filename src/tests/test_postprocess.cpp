@@ -1942,4 +1942,72 @@ TEST_CASE("PostProcess - NeedsFBO is true whenever pass count > 0")
 	TestConsistency([](auto &c) { c.render_scale = 150; });
 	TestConsistency([](auto &c) { c.upscale_mode = UpscaleMode::FSR1; });
 	TestConsistency([](auto &c) { c.upscale_mode = UpscaleMode::Temporal; });
+	TestConsistency([](auto &c) { c.upscale_mode = UpscaleMode::Plugin; });
+	TestConsistency([](auto &c) { c.pixel_smoothing = true; });
+	TestConsistency([](auto &c) { c.auto_supersample = true; }); /* no FBO by itself */
+}
+
+/* --- CAS exclusion with all upscale modes --- */
+
+TEST_CASE("PostProcess - CAS suppressed by Plugin mode")
+{
+	PostProcessConfig config;
+	config.upscale_mode = UpscaleMode::Plugin;
+	config.sharpening = 80;
+	/* Plugin handles sharpening internally, CAS should not add a pass. */
+	CHECK(PostProcessPassCount(config) == 1); /* Plugin pass only */
+}
+
+TEST_CASE("PostProcess - CAS active with Bilinear mode")
+{
+	PostProcessConfig config;
+	config.upscale_mode = UpscaleMode::Bilinear;
+	config.render_scale = 75;
+	config.sharpening = 50;
+	/* Bilinear blit + CAS = 2 passes. */
+	CHECK(PostProcessPassCount(config) == 2);
+}
+
+TEST_CASE("PostProcess - CAS active with None mode")
+{
+	PostProcessConfig config;
+	config.sharpening = 50;
+	/* CAS only = 1 pass. */
+	CHECK(PostProcessPassCount(config) == 1);
+}
+
+/* --- Pixel smoothing tests --- */
+
+TEST_CASE("PostProcess - pixel smoothing needs FBO")
+{
+	PostProcessConfig config;
+	config.pixel_smoothing = true;
+	CHECK(PostProcessNeedsFBO(config));
+	CHECK(PostProcessPassCount(config) == 1);
+}
+
+TEST_CASE("PostProcess - pixel smoothing stacks with FXAA")
+{
+	PostProcessConfig config;
+	config.pixel_smoothing = true;
+	config.fxaa = true;
+	CHECK(PostProcessPassCount(config) == 2);
+}
+
+TEST_CASE("PostProcess - pixel_smooth_amount defaults to 70")
+{
+	PostProcessConfig config;
+	CHECK(config.pixel_smooth_amount == 70);
+}
+
+/* --- Auto-supersample does not need FBO by itself --- */
+
+TEST_CASE("PostProcess - auto_supersample alone does not need FBO")
+{
+	PostProcessConfig config;
+	config.auto_supersample = true;
+	/* auto_supersample is a runtime hint that boosts render_scale,
+	 * not a PP config that triggers FBO allocation. */
+	CHECK_FALSE(PostProcessNeedsFBO(config));
+	CHECK(PostProcessPassCount(config) == 0);
 }
