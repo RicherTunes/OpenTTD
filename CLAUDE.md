@@ -164,10 +164,10 @@ The GPU post-processing pipeline adds visual enhancement to OpenTTD's OpenGL bac
 - `src/video/postprocess.h/.cpp` -- Post-processing config, dimension math, FSR/CAS constants
 - `src/video/motion_vector.h/.cpp` -- Draw-command recording, tile-based spatial binning (MAX_COMMANDS=16384)
 - `src/video/temporal_upscale.h/.cpp` -- Jitter sequence, temporal upscale interface
-- `src/table/postprocess_shader.h` -- All GLSL shader source (15+ effects + compute + bicubic + pixel smooth)
+- `src/table/postprocess_shader.h` -- All GLSL shader source (25+ effects + compute + bicubic + pixel smooth)
 - `src/video/opengl.h/.cpp` -- FBO pipeline, shader compilation, render dispatch
 - `src/benchmark.h/.cpp` -- GPU benchmark harness with CSV export and statistics
-- `src/tests/test_postprocess.cpp` -- 200+ postprocess tests
+- `src/tests/test_postprocess.cpp` -- 240+ postprocess tests (incl. 27 for new effects)
 - `src/tests/test_motion_vector.cpp` -- 45+ motion vector tests
 - `src/tests/test_temporal_upscale.cpp` -- 12 temporal upscale tests
 - `src/video/render_backend.h` -- Abstract rendering backend interface (Vulkan/DX11 composition)
@@ -179,10 +179,21 @@ The GPU post-processing pipeline adds visual enhancement to OpenTTD's OpenGL bac
 - `benchmark stop/abort/status` -- Control benchmark recording
 - `pp status/on/off` -- Master post-processing toggle
 - `pp info` -- Show GPU pipeline capabilities and loaded plugins
-- `pp enable/disable <effect>` -- Toggle individual effects (fxaa, night, crt, vignette, tiltshift, grain, smooth, supersample, lighting, bloom, weather)
+- `pp enable/disable <effect>` -- Toggle individual effects:
+  - Original: fxaa, night, crt, vignette, tiltshift, grain, smooth, supersample, lighting, bloom, weather
+  - New: shadows, water, ssao, terrain_smooth, tree_sway, sky, dof
 - `pp set <param> <value>` -- Set numeric parameters (render_scale, sharpening, brightness, etc.)
+  - Shadows: shadow_intensity (0-100), shadow_angle (0-359), shadow_length (1-30), shadow_softness (1-10)
+  - Water: reflection_intensity (0-100), reflection_distortion (0-20)
+  - SSAO: ssao_radius (1-15), ssao_intensity (0-100), ssao_samples (4-16)
+  - Terrain: terrain_smooth_radius (1-5), terrain_smooth_strength (0-100)
+  - Sway: tree_sway_amount (1-10), tree_sway_speed (10-100)
+  - Sky: cloud_density (0-100), cloud_speed (0-100), sky_brightness (0-100)
+  - DOF: dof_focus (0-100), dof_aperture (0-100), dof_range (0-100)
 - `pp reset` -- Restore all PP settings to defaults
-- `pp preset retro/cinematic/night/miniature/sharp/temporal/zoom/clean` -- Apply effect presets
+- `pp preset <name>` -- Apply effect presets:
+  - Original: retro, cinematic, night, miniature, sharp, temporal, zoom, clean
+  - New: realistic, fantasy, photo, stormy, postcard
 - `pp_screenshot [filename]` -- Capture post-processed framebuffer to BMP
 - `benchmark compare` -- A/B testing workflow guide
 
@@ -231,6 +242,94 @@ Global variables (`_video_*` in `video_driver.cpp`) → synced per-frame in `Pai
 - Safety blit fallback when all PP shader programs fail (prevents black screen)
 - Benchmark CSV reports all 28+ PP settings as metadata
 - Bicubic upscale uses render-resolution texel pitch (not display-resolution)
+- Render scale slider skips frame during resize to prevent FBO state corruption
+- DoF blur shader clamps output to [0,1] for RGBA8 FBO safety
+- SSAO uses luminance-based pseudo-depth (no separate depth buffer needed)
+- Water reflection detects water by blue_excess = b - max(r,g) with smoothstep
+- Tree sway uses green_excess detection with position-keyed sine phase
+- Sky clouds use FBM noise with brightness/saturation-based sky detection
+- Fake shadows cast directional edge-detection blur with configurable angle
+- All 7 new effects default to OFF, persist in openttd.cfg, expose in GUI + console
+- Named constants ROUGHNESS_BASE/ROUGHNESS_PER_SMOOTHNESS replace magic numbers in tgp.cpp
+- HeightMapSmoothSlopes uses direct pointer arithmetic instead of accessor calls
+- Precomputed tile cache freed on both normal and abort generation paths
+
+## Map Generation Improvements
+
+7 new terrain generation features with TDD tests, all defaulting to OFF for backward compatibility.
+
+### Features
+- **Continent Shapes** -- Multiplicative heightmap masks: Island, Archipelago, Fjords, Scattered, Peninsula
+- **Improved Perlin Interpolation** -- Quintic smoothstep replacing linear interpolation for smoother terrain
+- **Mountain Ranges** -- Random walk ridge lines with Gaussian falloff, spatial hash acceleration
+- **Lake Generation** -- BFS depression detection above sea level, fills enclosed basins as river tiles
+- **Natural Harbor Scoring** -- Ray-cast coastline concavity analysis for town/port placement bias
+- **Biome System** -- Temperature-based snow/desert zones using altitude + spatial noise
+- **Voronoi Town Placement** -- Grid-based Lloyd relaxation for even town distribution
+
+### Key Files
+- `src/tgp.cpp` -- Continent shapes, mountain ranges, improved Perlin, pipeline profiling
+- `src/tgp_func.h` -- Exposed TGP functions (quintic smoothstep) for testing
+- `src/landscape.cpp` -- Lake creation, harbor scoring, biome zones
+- `src/lake_gen.cpp/.h` -- Lake detection via BFS flood fill
+- `src/harbor_gen.cpp/.h` -- Coastline concavity scoring with lifecycle management
+- `src/town_cmd.cpp` -- Voronoi town placement with Lloyd relaxation
+- `src/genworld_cache.cpp/.h` -- Precomputed valid tile lists for tree/town generation
+- `src/terrain_advanced_gui.cpp/.h` -- Terrain Options sub-window (8 dropdowns)
+- `src/tests/test_terrain_gen.cpp` -- Terrain generation tests
+- `src/tests/test_town_placement.cpp` -- Town placement tests
+
+### Settings (SLV_TERRAIN_GENERATION_V2 = 365)
+All stored in `GameCreationSettings` struct, persisted via `world_settings.ini`:
+- `continent_shape` (ContinentShape enum: None/Island/Archipelago/Fjords/Scattered/Peninsula)
+- `terrain_algorithm` (TerrainAlgorithm enum: Classic/ImprovedPerlin)
+- `biome_model` (BiomeModel enum: Classic/TemperatureBased)
+- `town_distribution` (TownDistribution enum: Random/Even)
+- `amount_of_lakes` (0-3: None/Few/Normal/Many)
+- `amount_of_mountain_ranges` (0-3: None/Few/Normal/Many)
+
+### Generation Pipeline (updated order)
+```
+tgp.cpp: HeightMapGenerate → MountainRanges → HeightMapNormalize
+  (Normalize: AdjustWaterLevel → ContinentShape → CoastLines → SmoothSlopes → SmoothCoasts → SmoothSlopes → SineTransform → Curves)
+landscape.cpp: FixSlopes → Water → Lakes → HarborScores → Biomes → Rivers
+genworld.cpp: BuildTileCache → Towns → Industries → FreeHarbors → Trees → FreeTileCache
+```
+
+## Performance Optimizations
+
+### Proven Improvements (with benchmark tests)
+
+| Optimization | Speedup | File | What |
+|---|---|---|---|
+| Vector pre-allocation | **29x** | viewport.cpp | Reserve sprite vector capacity across frames |
+| Binned sprite sorter | **1.5x** | viewport.cpp | Spatial binning for topological sort overlap search |
+| Sine LUT | **4x** | tgp.cpp | Precomputed table replaces sin() in HeightMapCurves |
+| River bitset | **17x** | landscape.cpp | vector\<bool\> replaces unordered_set for visited tiles |
+| Precomputed tile list | **5.9x** | genworld_cache.cpp | Eliminates rejection sampling for tree/town placement |
+| CDF binary search | **1.2x** | industry_cmd.cpp | O(log N) industry type selection via cumulative distribution |
+| Early viewport culling | **1.2x** | viewport.cpp | Skip slope calc for tiles above viewport |
+| Tile slope cache | -- | viewport.cpp | Per-frame unordered_map cache for GetTilePixelSlope |
+| SmoothSlopes pointer | -- | tgp.cpp | Direct pointer arithmetic, boundary separation |
+| Cargo dedup | *(kept linear)* | economy.cpp | Benchmark proved hash set slower for small N |
+
+### Key Files
+- `src/tests/test_optimization_benchmarks.cpp` -- 9 benchmark tests with 1000+ assertions
+- `src/viewport.cpp` -- Binned sorter, vector prealloc, slope cache, early culling
+- `src/tgp.cpp` -- Sine LUT, SmoothSlopes optimization, Debug timing instrumentation
+- `src/landscape.cpp` -- River bitset visited tracking
+- `src/genworld_cache.cpp` -- Precomputed valid tile lists
+- `src/industry_cmd.cpp` -- CDF binary search for industry type selection
+
+### Debug Timing
+Enable with `-d map=2` to see per-step TGP generation timing:
+```
+TGP: HeightMapGenerate: 45ms
+TGP: MountainRanges: 12ms
+TGP: Normalize: 38ms
+TGP: TransferToTiles: 8ms
+TGP: Total generation: 103ms
+```
 
 ## Documentation
 
