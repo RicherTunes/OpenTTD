@@ -187,16 +187,16 @@ static std::optional<std::string> ScaleMarkFunc(int, int, int value)
 /** Mark function for GPU percentage sliders (render scale, sharpening, etc.). Shows value with % at key marks. */
 static std::optional<std::string> GpuPercentMarkFunc(int nmarks, int mark, int value)
 {
-	/* Label first, middle, and last marks. */
+	/* Label first, middle, and last marks only. */
 	if (mark != 0 && mark != nmarks / 2 && mark != nmarks) return std::nullopt;
-	return fmt::format("{}%", value);
+	return std::to_string(value) + "%";
 }
 
 /** Mark function for GPU value sliders (brightness, threshold, etc.). Shows plain numeric value at key marks. */
 static std::optional<std::string> GpuValueMarkFunc(int nmarks, int mark, int value)
 {
 	if (mark != 0 && mark != nmarks / 2 && mark != nmarks) return std::nullopt;
-	return fmt::format("{}", value);
+	return std::to_string(value);
 }
 
 static std::optional<std::string> VolumeMarkFunc(int, int mark, int value)
