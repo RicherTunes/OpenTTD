@@ -2874,7 +2874,7 @@ static void ResetPPDefaults()
 	_video_texture_filter = 0;
 	_video_fxaa = false;
 	_video_fxaa_quality = 75;
-	_video_fxaa_threshold = 13;
+	_video_fxaa_threshold = 8;
 	_video_night_mode = false;
 	_video_crt_filter = false;
 	_video_vignette = false;

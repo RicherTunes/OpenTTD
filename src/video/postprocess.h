@@ -31,7 +31,7 @@ struct PostProcessConfig {
 	bool bicubic_filtering = false;    ///< Use bicubic (Catmull-Rom) instead of bilinear for upscale texture filtering.
 	bool fxaa = false;                 ///< Enable FXAA anti-aliasing.
 	uint8_t fxaa_quality = 75;         ///< FXAA sub-pixel quality (0-100, mapped to 0.0..1.0).
-	uint8_t fxaa_threshold = 13;       ///< FXAA edge threshold (1-50, mapped to 0.01..0.50).
+	uint8_t fxaa_threshold = 8;        ///< FXAA edge threshold (1-50, mapped to 0.01..0.50). Lower = more sensitive.
 	bool color_grading = false;        ///< Enable color grading.
 	bool vignette = false;             ///< Enable vignette effect.
 	bool tiltshift = false;            ///< Enable tilt-shift miniature effect.
