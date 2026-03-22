@@ -29,6 +29,15 @@
     # Each test runs headlessly with -vnull and checks for crash logs.
     # The GfxFillRect variant crash (genworld_gui.cpp preview) was caught
     # this way after being missed by unit tests.
+    #
+    # Render-aware smoke tests are available as an opt-in layer on top.
+    # They need a real video driver and may open a window, so keep them
+    # disabled by default and only enable them on machines meant to run GUI tests.
+
+    set(OPENTTD_LIFECYCLE_RENDER_DRIVER "" CACHE STRING
+        "Optional video driver for render-aware lifecycle smoke tests (for example: win32-opengl or sdl2-opengl). Leave empty to disable.")
+    set(OPENTTD_LIFECYCLE_RENDER_RESOLUTION "1280x720" CACHE STRING
+        "Resolution to use for optional render-aware lifecycle smoke tests.")
 
     # Copy lifecycle config files to build directory
     set(LIFECYCLE_CFGS
@@ -51,6 +60,9 @@
         lifecycle_seed_256 lifecycle_seed_999 lifecycle_seed_12345 lifecycle_seed_65535
         lifecycle_tropic_seed_7 lifecycle_tropic_seed_42
         lifecycle_tropic_seed_314 lifecycle_tropic_seed_777
+        lifecycle_shore_stress_1337 lifecycle_shore_stress_2024
+        lifecycle_shore_stress_31415 lifecycle_shore_stress_54321
+        lifecycle_shore_stress_98765
     )
     foreach(CFG ${LIFECYCLE_CFGS})
         add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${CFG}.cfg
@@ -74,6 +86,7 @@
         add_test(NAME lifecycle_${TEST_NAME}
                 COMMAND ${CMAKE_COMMAND}
                         -DOPENTTD_EXECUTABLE=$<TARGET_FILE:openttd>
+                        -DOPENTTD_BUILD_DIR=${CMAKE_BINARY_DIR}
                         -DEDITBIN_EXECUTABLE=${EDITBIN_EXECUTABLE}
                         -DLIFECYCLE_TEST=${TEST_NAME}
                         -DLIFECYCLE_TICKS=${TICKS}
@@ -81,6 +94,32 @@
                         -P "${CMAKE_SOURCE_DIR}/cmake/scripts/LifecycleTest.cmake"
                 WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
         )
+    endmacro()
+
+    # Optional GUI-backed smoke tests that render a real frame and exit via
+    # a per-test game_start.scr in an isolated working directory. These are
+    # intentionally few and targeted at draw-path regressions that -vnull misses.
+    macro(add_lifecycle_render_test TEST_NAME)
+        add_lifecycle_render_test_ticks(${TEST_NAME} 100 ${ARGN})
+    endmacro()
+
+    macro(add_lifecycle_render_test_ticks TEST_NAME TICKS)
+        if(OPENTTD_LIFECYCLE_RENDER_DRIVER)
+            add_test(NAME lifecycle_render_${TEST_NAME}
+                    COMMAND ${CMAKE_COMMAND}
+                            -DOPENTTD_EXECUTABLE=$<TARGET_FILE:openttd>
+                            -DOPENTTD_BUILD_DIR=${CMAKE_BINARY_DIR}
+                            -DEDITBIN_EXECUTABLE=${EDITBIN_EXECUTABLE}
+                            -DLIFECYCLE_TEST=render_${TEST_NAME}
+                            -DLIFECYCLE_TICKS=${TICKS}
+                            -DLIFECYCLE_VIDEO_DRIVER=${OPENTTD_LIFECYCLE_RENDER_DRIVER}
+                            -DLIFECYCLE_RESOLUTION=${OPENTTD_LIFECYCLE_RENDER_RESOLUTION}
+                            "-DOPENTTD_ARGS=${ARGN}"
+                            -P "${CMAKE_SOURCE_DIR}/cmake/scripts/LifecycleTest.cmake"
+                    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+            )
+            set_tests_properties(lifecycle_render_${TEST_NAME} PROPERTIES LABELS "lifecycle;render_smoke")
+        endif()
     endmacro()
 
     # New game generation - all 4 landscapes at 128x128 (fast)
@@ -199,5 +238,17 @@
     add_lifecycle_test(tropic_seed_314 -g -G 314 -c regression/lifecycle_tropic_seed_314.cfg)
     add_lifecycle_test(tropic_seed_777 -g -G 777 -c regression/lifecycle_tropic_seed_777.cfg)
 
+    # Shore stress: 512x512 maps with rivers + lakes + sea (regression guard
+    # for flat shore assertion in water_cmd.cpp and river delta issues).
+    add_lifecycle_test(shore_stress_1337  -g -G 1337  -c regression/lifecycle_shore_stress_1337.cfg)
+    add_lifecycle_test(shore_stress_2024  -g -G 2024  -c regression/lifecycle_shore_stress_2024.cfg)
+    add_lifecycle_test(shore_stress_31415 -g -G 31415 -c regression/lifecycle_shore_stress_31415.cfg)
+    add_lifecycle_test(shore_stress_54321 -g -G 54321 -c regression/lifecycle_shore_stress_54321.cfg)
+    add_lifecycle_test(shore_stress_98765 -g -G 98765 -c regression/lifecycle_shore_stress_98765.cfg)
+
     # Load the existing regression test savegame (verifies save/load path)
     add_lifecycle_test(load_save -g ai/regression/test.sav -c regression/lifecycle.cfg)
+
+    # Opt-in render-aware smoke coverage for shore/water-heavy worldgen paths.
+    add_lifecycle_render_test(water_world    -g -G 1 -c regression/lifecycle_water_world.cfg)
+    add_lifecycle_render_test(tropic_rivers  -g -G 1 -c regression/lifecycle_tropic_rivers.cfg)
