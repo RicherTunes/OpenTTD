@@ -370,6 +370,14 @@
 	return ::Vehicle::Get(vehicle_id)->GetRunningCost() >> 8;
 }
 
+/* static */ Money ScriptVehicle::GetRunningCostPerMonth(VehicleID vehicle_id)
+{
+	if (!IsPrimaryVehicle(vehicle_id)) return -1;
+
+	Money yearly = ::Vehicle::Get(vehicle_id)->GetRunningCost() >> 8;
+	return yearly / 12;
+}
+
 /* static */ Money ScriptVehicle::GetProfitThisYear(VehicleID vehicle_id)
 {
 	if (!IsPrimaryVehicle(vehicle_id)) return -1;

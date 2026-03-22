@@ -255,6 +255,18 @@ public:
 	static Money GetRunningCost(VehicleID vehicle_id);
 
 	/**
+	 * Get the monthly running (maintenance) cost of this vehicle.
+	 * This is the yearly running cost divided by 12, useful for AI
+	 * budget planning on a per-month basis.
+	 * @param vehicle_id The vehicle to get the monthly cost of.
+	 * @pre IsPrimaryVehicle(vehicle_id).
+	 * @return The running cost of the vehicle per economy-month, or -1 on error.
+	 * @note This includes costs from all wagons and extra engines in the consist.
+	 * @see \ref ScriptEconomyTime
+	 */
+	static Money GetRunningCostPerMonth(VehicleID vehicle_id);
+
+	/**
 	 * Get the current profit of a vehicle.
 	 * @param vehicle_id The vehicle to get the profit of.
 	 * @pre IsPrimaryVehicle(vehicle_id).
