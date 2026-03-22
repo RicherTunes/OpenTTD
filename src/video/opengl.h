@@ -171,6 +171,7 @@ private:
 	GLint pp_vig_intensity_loc = -1; ///< Vignette intensity uniform location.
 	GLint pp_vig_radius_loc = -1;    ///< Vignette radius uniform location.
 	GLint pp_vig_softness_loc = -1;  ///< Vignette softness uniform location.
+	GLint pp_vig_screen_loc = -1;    ///< Vignette screen_size uniform location.
 	GLint pp_night_int_loc = -1;     ///< Night mode intensity uniform location.
 	GLint pp_night_blue_loc = -1;    ///< Night mode blue shift uniform location.
 	GLint pp_night_viewport_loc = -1; ///< Night mode viewport_uv uniform location.

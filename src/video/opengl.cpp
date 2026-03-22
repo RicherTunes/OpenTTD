@@ -1770,6 +1770,7 @@ bool OpenGLBackend::InitPostProcessShaders()
 	this->pp_vig_intensity_loc = CacheLoc(this->pp_vignette_program, "vignette_strength");
 	this->pp_vig_radius_loc = CacheLoc(this->pp_vignette_program, "vignette_radius");
 	this->pp_vig_softness_loc = CacheLoc(this->pp_vignette_program, "vignette_softness");
+	this->pp_vig_screen_loc = CacheLoc(this->pp_vignette_program, "screen_size");
 
 	/* Night mode uniforms. */
 	this->pp_night_int_loc = CacheLoc(this->pp_night_program, "night_amount");
@@ -2513,6 +2514,9 @@ void OpenGLBackend::RenderPostProcess()
 		_glUniform1f(this->pp_vig_intensity_loc, this->pp_config.vignette_intensity / 100.0f);
 		_glUniform1f(this->pp_vig_radius_loc, this->pp_config.vignette_radius / 100.0f);
 		_glUniform1f(this->pp_vig_softness_loc, this->pp_config.vignette_softness / 100.0f);
+		if (this->pp_vig_screen_loc >= 0) {
+			_glUniform2f(this->pp_vig_screen_loc, (float)work_size.width, (float)work_size.height);
+		}
 		RunPass();
 	}
 
