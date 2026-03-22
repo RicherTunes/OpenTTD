@@ -172,6 +172,7 @@ private:
 	GLint pp_vig_softness_loc = -1;  ///< Vignette softness uniform location.
 	GLint pp_night_int_loc = -1;     ///< Night mode intensity uniform location.
 	GLint pp_night_blue_loc = -1;    ///< Night mode blue shift uniform location.
+	GLint pp_night_viewport_loc = -1; ///< Night mode viewport_uv uniform location.
 	GLint pp_grain_int_loc = -1;     ///< Film grain intensity uniform location.
 	GLint pp_grain_time_loc = -1;    ///< Film grain time uniform location.
 	GLint pp_bicubic_texel_loc = -1; ///< Bicubic texel_size uniform location.
@@ -219,9 +220,12 @@ private:
 
 	PostProcessConfig pp_config;     ///< Current post-processing configuration.
 
-	std::chrono::steady_clock::time_point pp_grain_start_time{}; ///< Film grain time base for pseudo-random seed.
-	std::chrono::steady_clock::time_point pp_weather_start_time{}; ///< Weather animation time base (independent of grain).
-	std::chrono::steady_clock::time_point pp_last_frame_time{};   ///< Last frame timestamp for delta_time computation.
+	std::chrono::steady_clock::time_point pp_grain_start_time{};   ///< Film grain time base for pseudo-random seed.
+	std::chrono::steady_clock::time_point pp_weather_start_time{}; ///< Weather/rain/snow animation time base.
+	std::chrono::steady_clock::time_point pp_sky_start_time{};     ///< Sky cloud drift time base (independent of weather).
+	std::chrono::steady_clock::time_point pp_sway_start_time{};    ///< Tree sway animation time base (independent of weather).
+	std::chrono::steady_clock::time_point pp_reflect_start_time{}; ///< Water reflection wave time base.
+	std::chrono::steady_clock::time_point pp_last_frame_time{};    ///< Last frame timestamp for delta_time computation.
 
 	/* Benchmark GPU timer query state. */
 	GLuint benchmark_query[2] = {};      ///< Double-buffered GL_TIME_ELAPSED query objects.

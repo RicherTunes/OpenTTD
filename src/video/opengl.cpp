@@ -1469,11 +1469,7 @@ void OpenGLBackend::Paint()
 	/* Post-processing requires 32bpp blitter -- 8bpp palette indices are not valid RGBA input. */
 	bool pp_this_frame = this->pp_active && bpp != 8;
 
-	if (pp_this_frame) {
-		/* Render scene into post-processing FBO at render resolution. */
-		_glBindFramebuffer(GL_FRAMEBUFFER, this->pp_fbo[0]);
-		_glViewport(0, 0, this->pp_render_size.width, this->pp_render_size.height);
-	}
+tif (pp_this_frame) {		if (this->pp_scene_fbo != 0) {			/* Upscaling: render scene into dedicated render-sized scene FBO. */			_glBindFramebuffer(GL_FRAMEBUFFER, this->pp_scene_fbo);			_glViewport(0, 0, this->pp_render_size.width, this->pp_render_size.height);		} else {			/* No upscaling: render scene into ping-pong FBO[0]. */			_glBindFramebuffer(GL_FRAMEBUFFER, this->pp_fbo[0]);			_glViewport(0, 0, this->pp_render_size.width, this->pp_render_size.height);		}	}
 
 	_glClear(GL_COLOR_BUFFER_BIT);
 
@@ -1767,6 +1763,7 @@ bool OpenGLBackend::InitPostProcessShaders()
 	/* Night mode uniforms. */
 	this->pp_night_int_loc = CacheLoc(this->pp_night_program, "night_amount");
 	this->pp_night_blue_loc = CacheLoc(this->pp_night_program, "night_blue_shift");
+	this->pp_night_viewport_loc = CacheLoc(this->pp_night_program, "viewport_uv");
 
 	/* Film grain uniforms. */
 	this->pp_grain_int_loc = CacheLoc(this->pp_grain_program, "grain_strength");
@@ -1974,6 +1971,14 @@ void OpenGLBackend::DestroyPostProcessFBOs()
 	if (this->pp_history_tex != 0) {
 		_glDeleteTextures(1, &this->pp_history_tex);
 		this->pp_history_tex = 0;
+	}
+	if (this->pp_scene_fbo != 0) {
+		_glDeleteFramebuffers(1, &this->pp_scene_fbo);
+		this->pp_scene_fbo = 0;
+	}
+	if (this->pp_scene_tex != 0) {
+		_glDeleteTextures(1, &this->pp_scene_tex);
+		this->pp_scene_tex = 0;
 	}
 }
 
@@ -2337,8 +2342,8 @@ void OpenGLBackend::RenderPostProcess()
 	/* Procedural sky with clouds (background, runs first). */
 	if (this->pp_config.sky_clouds && this->pp_sky_program != 0) {
 		auto now = std::chrono::steady_clock::now();
-		if (this->pp_weather_start_time == std::chrono::steady_clock::time_point{}) this->pp_weather_start_time = now;
-		float sky_time = std::fmod(std::chrono::duration<float>(now - this->pp_weather_start_time).count(), 1000.0f);
+		if (this->pp_sky_start_time == std::chrono::steady_clock::time_point{}) this->pp_sky_start_time = now;
+		float sky_time = std::fmod(std::chrono::duration<float>(now - this->pp_sky_start_time).count(), 1000.0f);
 		_glUseProgram(this->pp_sky_program);
 		_glUniform1f(this->pp_sky_density_loc, this->pp_config.cloud_density / 100.0f);
 		_glUniform1f(this->pp_sky_speed_loc, (float)this->pp_config.cloud_speed);
@@ -2367,8 +2372,8 @@ void OpenGLBackend::RenderPostProcess()
 	/* Animated tree/vegetation sway. */
 	if (this->pp_config.tree_sway && this->pp_tree_sway_program != 0) {
 		auto now = std::chrono::steady_clock::now();
-		if (this->pp_weather_start_time == std::chrono::steady_clock::time_point{}) this->pp_weather_start_time = now;
-		float sway_time = std::fmod(std::chrono::duration<float>(now - this->pp_weather_start_time).count(), 1000.0f);
+		if (this->pp_sway_start_time == std::chrono::steady_clock::time_point{}) this->pp_sway_start_time = now;
+		float sway_time = std::fmod(std::chrono::duration<float>(now - this->pp_sway_start_time).count(), 1000.0f);
 		_glUseProgram(this->pp_tree_sway_program);
 		_glUniform2f(this->pp_tree_sway_texel_loc, texel_w, texel_h);
 		_glUniform1f(this->pp_tree_sway_amount_loc, (float)this->pp_config.tree_sway_amount);
@@ -2382,8 +2387,8 @@ void OpenGLBackend::RenderPostProcess()
 	 * even when dynamic lighting is off (time_of_day would be static). */
 	if (this->pp_config.water_reflections && this->pp_water_reflect_program != 0) {
 		auto now_reflect = std::chrono::steady_clock::now();
-		if (this->pp_weather_start_time == std::chrono::steady_clock::time_point{}) this->pp_weather_start_time = now_reflect;
-		float reflect_time = std::fmod(std::chrono::duration<float>(now_reflect - this->pp_weather_start_time).count(), 1000.0f);
+		if (this->pp_reflect_start_time == std::chrono::steady_clock::time_point{}) this->pp_reflect_start_time = now_reflect;
+		float reflect_time = std::fmod(std::chrono::duration<float>(now_reflect - this->pp_reflect_start_time).count(), 1000.0f);
 		_glUseProgram(this->pp_water_reflect_program);
 		_glUniform2f(this->pp_water_reflect_texel_loc, texel_w, texel_h);
 		_glUniform1f(this->pp_water_reflect_intensity_loc, this->pp_config.reflection_intensity / 100.0f);
@@ -2443,6 +2448,22 @@ void OpenGLBackend::RenderPostProcess()
 		_glUseProgram(this->pp_night_program);
 		_glUniform1f(this->pp_night_int_loc, this->pp_config.night_intensity / 100.0f);
 		_glUniform1f(this->pp_night_blue_loc, this->pp_config.night_blue_shift / 100.0f);
+		/* Compute viewport UV bounds so the effect doesn't tint the UI. */
+		const Window *vp_win = GetMainWindow();
+		if (vp_win != nullptr && vp_win->viewport != nullptr && this->pp_night_viewport_loc >= 0) {
+			float sw = (float)work_size.width;
+			float sh = (float)work_size.height;
+			/* Convert screen-space viewport rect to UV [0,1] coordinates.
+			 * Note: OpenGL UV Y=0 is bottom, screen Y=0 is top. */
+			float uv_left = (float)vp_win->left / sw;
+			float uv_top = 1.0f - (float)(vp_win->top + vp_win->height) / sh;
+			float uv_right = (float)(vp_win->left + vp_win->width) / sw;
+			float uv_bottom = 1.0f - (float)vp_win->top / sh;
+			_glUniform4f(this->pp_night_viewport_loc, uv_left, uv_top, uv_right, uv_bottom);
+		} else if (this->pp_night_viewport_loc >= 0) {
+			/* No viewport info — apply to full screen (no masking). */
+			_glUniform4f(this->pp_night_viewport_loc, 0.0f, 0.0f, 0.0f, 0.0f);
+		}
 		RunPass();
 	}
 

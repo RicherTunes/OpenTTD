@@ -426,16 +426,23 @@ static const char *_frag_shader_pp_tiltshift_v[] = {
 
 /* ---- Night / desaturation ---- */
 
-/** Fragment shader for night-time desaturation and blue-tint effect. */
+/** Fragment shader for night-time desaturation and blue-tint effect.
+ *  viewport_uv masks the effect to only the game viewport (UI stays unaffected). */
 static const char *_frag_shader_pp_night[] = {
 	"#version 150\n",
 	"uniform sampler2D source_tex;",
 	"uniform float night_amount;",
 	"uniform float night_blue_shift;",
+	"uniform vec4 viewport_uv;", /* x_start, y_start, x_end, y_end in UV space */
 	"in vec2 tex_coord;",
 	"out vec4 frag_colour;",
 	"void main() {",
 	"  vec4 center = texture(source_tex, tex_coord);",
+	"  /* Skip effect for UI pixels outside the game viewport. */",
+	"  if (viewport_uv.z > 0.0 && (tex_coord.x < viewport_uv.x || tex_coord.x > viewport_uv.z || tex_coord.y < viewport_uv.y || tex_coord.y > viewport_uv.w)) {",
+	"    frag_colour = center;",
+	"    return;",
+	"  }",
 	"  vec3 c = center.rgb;",
 	"  float src_alpha = center.a;",
 	"  float luma = dot(c, vec3(0.2126, 0.7152, 0.0722));",
