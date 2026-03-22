@@ -56,8 +56,6 @@
 
 #include "../safeguards.h"
 
-int _pp_active_frames = 0; ///< Frame count since PP activated/config changed. Screenshot capture skips frame 0.
-
 
 /* Define function pointers of all OpenGL functions that we load dynamically. */
 
@@ -1328,12 +1326,9 @@ int GetViewportCPUScratchPitch()
  */
 void OpenGLBackend::Paint()
 {
-	/* NOTE: ApplyNextPPScreenshotSettings() was previously called here to override
-	 * globals with per-screenshot settings snapshots. This caused black/corrupted
-	 * captures because the PP topology change (on/off) happened mid-frame before
-	 * the FBO was populated. Disabled: pp_screenshot now captures whatever the
-	 * current frame renders. Script commands set effects before each capture. */
-	/* ApplyNextPPScreenshotSettings(); */
+	/* PP screenshots capture whatever the current frame renders after console
+	 * commands have already set the desired state. Do not mutate render settings
+	 * at paint start via hidden queue state. */
 
 	/* Sync post-processing config from global settings. */
 	if (this->pp_fbo_supported) {
@@ -1516,10 +1511,11 @@ void OpenGLBackend::Paint()
 				this->pp_history_fbo = 0;
 			}
 		}
-		/* Reset PP screenshot frame counter on any config change so captures
-		 * skip the first frame after the change (FBO needs repopulating). */
-		extern int _pp_active_frames;
-		if (!(this->pp_config == new_config)) _pp_active_frames = 0;
+		/* Reset PP screenshot warmup counter only on FBO topology or scale
+		 * changes that invalidate framebuffer content.  Individual effect
+		 * toggles do not empty the FBO -- they just change which shaders
+		 * are applied -- so the capture warmup counter must not reset. */
+		if (fbo_need_changed || scale_changed) ResetPPScreenshotWarmupState();
 		this->pp_config = new_config;
 		if (fbo_need_changed || scale_changed) {
 			this->SetupPostProcessFBOs(this->pp_display_size.width > 0 ? this->pp_display_size.width : _screen.width,
@@ -1677,18 +1673,15 @@ void OpenGLBackend::Paint()
 	_glEnable(GL_BLEND);
 
 	/* Capture PP screenshot if one was requested (after all rendering is complete).
-	 * Track PP-active frame count: skip capture on first frame after PP activates
-	 * or after any topology change, because the FBO needs one full render cycle
-	 * to populate before glReadPixels can read valid content. */
-	extern int _pp_active_frames;
-	_pp_active_frames = GetNextPPActiveFrameCount(pp_this_frame, _pp_active_frames);
-
-	if (ShouldCapturePPScreenshotThisFrame(HasPendingPPScreenshots(), pp_this_frame, _pp_active_frames)) {
+	 * AdvanceAndShouldCapturePPScreenshotThisFrame tracks PP-active frame count
+	 * internally and skips capture on the first frame after PP activates or after
+	 * a topology change, because the FBO needs one full render cycle to populate
+	 * before glReadPixels can read valid content. */
+	if (AdvanceAndShouldCapturePPScreenshotThisFrame(HasPendingPPScreenshots(), pp_this_frame)) {
 		int capture_w = pp_this_frame ? (int)this->pp_display_size.width : _screen.width;
 		int capture_h = pp_this_frame ? (int)this->pp_display_size.height : _screen.height;
 		CapturePPScreenshotIfPending(capture_w, capture_h);
 	}
-	/* else: skip (PP just activated this frame or last frame, FBO not fully populated yet) */
 
 	/* If exit was deferred for screenshot queue drain, check if done. */
 	CheckDeferredExit();
