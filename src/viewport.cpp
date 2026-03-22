@@ -1739,21 +1739,26 @@ static void ViewportSortParentSpritesBinned(ParentSpriteToSortVector *psdv)
 	/* For small sprite counts or tiny range, fall back to original algorithm. */
 	const int64_t BIN_SIZE = 256;
 	int num_bins = (int)((max_sum - min_sum) / BIN_SIZE) + 1;
+	const int MAX_BINS = 512; /* Cap to prevent excessive allocation on extreme viewports. */
 	if (psdv->size() < 50 || num_bins < 2) {
 		ViewportSortParentSprites(psdv);
 		return;
 	}
+	if (num_bins > MAX_BINS) num_bins = MAX_BINS;
 
 	/* Bin all sprites by xmin+ymin. */
 	struct BinEntry {
 		int64_t sum;                 ///< xmin + ymin for this sprite
 		ParentSpriteToDraw *sprite;  ///< pointer to the sprite
 	};
-	std::vector<std::vector<BinEntry>> bins(num_bins);
+	/* Use thread_local to avoid per-frame heap allocation of the bin structure. */
+	static thread_local std::vector<std::vector<BinEntry>> bins;
+	bins.resize(num_bins);
+	for (auto &bin : bins) bin.clear();
 
 	for (auto *ps : *psdv) {
 		int64_t sum = (int64_t)ps->xmin + ps->ymin;
-		int bin_idx = (int)((sum - min_sum) / BIN_SIZE);
+		int bin_idx = Clamp((int)((sum - min_sum) / BIN_SIZE), 0, num_bins - 1);
 		bins[bin_idx].push_back({sum, ps});
 	}
 
@@ -1775,7 +1780,7 @@ static void ViewportSortParentSpritesBinned(ParentSpriteToSortVector *psdv)
 		(*p)->order = next_order++;
 	}
 
-	std::vector<ParentSpriteToDraw *> preceding;
+	static thread_local std::vector<ParentSpriteToDraw *> preceding;
 	auto out = psdv->begin();
 
 	while (!sprite_order.empty()) {
@@ -1796,7 +1801,8 @@ static void ViewportSortParentSpritesBinned(ParentSpriteToSortVector *psdv)
 
 		/* We only need sprites with xmin + ymin <= ssum.
 		 * By using bins we only scan bins up to the one containing ssum,
-		 * avoiding the full linear scan of the original algorithm. */
+		 * avoiding the full linear scan of the original algorithm.
+		 * Note: min coordinates can be > max, so use max() to be safe. */
 		auto ssum = std::max(s->xmax, s->xmin) + std::max(s->ymax, s->ymin);
 		int max_bin = std::min((int)((ssum - min_sum) / BIN_SIZE), num_bins - 1);
 
