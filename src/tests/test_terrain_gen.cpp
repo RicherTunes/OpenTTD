@@ -13,6 +13,7 @@
 
 #include "../genworld_preview.h"
 #include "../harbor_gen.h"
+#include "../save_thumbnail.h"
 #include "../tgp_func.h"
 #include "../tree_cmd.h"
 #include "../core/math_func.hpp"
@@ -23,6 +24,8 @@
 #include <algorithm>
 #include <numeric>
 #include <cstdint>
+#include <filesystem>
+#include <fstream>
 
 #include "../safeguards.h"
 
@@ -1281,40 +1284,71 @@ TEST_CASE("Heightmap preview - clockwise rotation transposes source orientation"
  */
 
 TEST_CASE("Save thumbnail - preview dimensions are valid") {
-	/* Save thumbnails should be 128x96 for compact file size */
-	uint16_t w = 128, h = 96;
-	CHECK(w * h == 12288); /* 12KB at 1 byte/pixel */
-	CHECK(w <= 256);
-	CHECK(h <= 256);
+	CHECK(THUMBNAIL_WIDTH == 128);
+	CHECK(THUMBNAIL_HEIGHT == 96);
+	CHECK(THUMBNAIL_WIDTH * THUMBNAIL_HEIGHT == 12288);
 }
 
 TEST_CASE("Save thumbnail - preview pixel data is valid palette indices") {
-	/* All preview pixels should be valid 8bpp palette indices (non-zero for land) */
-	uint8_t water = 0xCA;
-	uint8_t green = 0x58;
+	const uint8_t water = HeightToPreviewColour(0, 15, true);
+	const uint8_t land = HeightToPreviewColour(0, 15, false);
 	CHECK(water > 0);
-	CHECK(green > 0);
-	CHECK(water != green);
+	CHECK(land > 0);
+	CHECK(water != land);
 }
 
 TEST_CASE("Save thumbnail - GenerateSaveThumbnail produces correct dimensions") {
-	/* GenerateSaveThumbnail should fill a MapPreviewData with 128x96 pixels */
 	MapPreviewData preview;
-	preview.width = 128;
-	preview.height = 96;
-	preview.pixels.resize(128 * 96, 0xCA);
-	CHECK(preview.width == 128);
-	CHECK(preview.height == 96);
-	CHECK(preview.pixels.size() == 12288);
+	CHECK_FALSE(GenerateSaveThumbnail(preview));
+	CHECK(preview.width == THUMBNAIL_WIDTH);
+	CHECK(preview.height == THUMBNAIL_HEIGHT);
+	CHECK(preview.pixels.size() == THUMBNAIL_WIDTH * THUMBNAIL_HEIGHT);
 }
 
 TEST_CASE("Save thumbnail - BMP header is valid for 8bpp palette image") {
-	/* BMP file header: 14 bytes file header + 40 bytes DIB header + 1024 bytes palette = 1078 offset */
-	uint32_t file_header_size = 14;
-	uint32_t dib_header_size = 40;
-	uint32_t palette_size = 256 * 4; /* 256 RGBX entries */
-	uint32_t pixel_offset = file_header_size + dib_header_size + palette_size;
-	CHECK(pixel_offset == 1078);
+	MapPreviewData preview;
+	preview.width = 2;
+	preview.height = 2;
+	preview.pixels = {0xCA, 0x58, 0x10, 0x20};
+
+	const std::filesystem::path path = std::filesystem::temp_directory_path() / "openttd_save_thumbnail_test.bmp";
+	std::filesystem::remove(path);
+
+	REQUIRE(WriteThumbnailBMP(preview, path.string()));
+
+	std::ifstream file(path, std::ios::binary);
+	REQUIRE(file.is_open());
+	std::vector<uint8_t> bytes((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+	file.close();
+	std::filesystem::remove(path);
+
+	const auto read_le32 = [&bytes](size_t offset) -> uint32_t {
+		return static_cast<uint32_t>(bytes[offset]) |
+		       (static_cast<uint32_t>(bytes[offset + 1]) << 8) |
+		       (static_cast<uint32_t>(bytes[offset + 2]) << 16) |
+		       (static_cast<uint32_t>(bytes[offset + 3]) << 24);
+	};
+
+	REQUIRE(bytes.size() >= 54);
+	CHECK(bytes[0] == 'B');
+	CHECK(bytes[1] == 'M');
+	CHECK(read_le32(10) == 54 + 256 * 4);
+	CHECK(bytes[28] == 8);
+	CHECK(read_le32(18) == 2);
+	CHECK(read_le32(22) == 2);
+	CHECK(bytes.size() == 1078 + 8);
+}
+
+TEST_CASE("Save thumbnail - BMP writer rejects undersized pixel buffer") {
+	MapPreviewData preview;
+	preview.width = 2;
+	preview.height = 2;
+	preview.pixels = {0xCA, 0x58, 0x10};
+
+	const std::filesystem::path path = std::filesystem::temp_directory_path() / "openttd_save_thumbnail_invalid.bmp";
+	std::filesystem::remove(path);
+	CHECK_FALSE(WriteThumbnailBMP(preview, path.string()));
+	CHECK_FALSE(std::filesystem::exists(path));
 }
 
 /*
