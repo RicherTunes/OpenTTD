@@ -1,7 +1,13 @@
 ; Fully automated E2E test - runs via autoexec on game startup
 ; Takes pp_screenshots of each effect, then exits
 
-; Wait for game to fully load by taking baseline first
+; Pause game for consistent screenshots (no animation changes between frames)
+pause
+
+; Baseline: PP must be ON to capture via FBO -> glReadPixels works correctly
+; (When PP is off, glReadPixels reads a black buffer because the scene
+; renders directly to the back buffer which isn't readable after swap)
+pp on
 pp_screenshot e2e_01_baseline
 
 ; Enable PP passthrough (should look identical to baseline)
@@ -67,8 +73,9 @@ pp enable fxaa
 pp set sharpening 70
 pp_screenshot e2e_12_combined
 
-; Restore baseline
-pp off
+; Restore to passthrough (PP on but no effects = baseline)
+pp reset
+pp on
 pp_screenshot e2e_13_restored
 
 ; Done - game continues running, screenshots dequeue one per frame

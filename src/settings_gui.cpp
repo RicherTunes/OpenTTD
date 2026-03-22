@@ -889,19 +889,19 @@ struct GameOptionsWindow : Window {
 				break;
 
 			case WID_GO_VIDEO_FXAA_THRESHOLD:
-				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 1, 50, 5, _video_fxaa_threshold, nullptr);
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 1, 50, 5, _video_fxaa_threshold, GpuValueMarkFunc);
 				break;
 
 			case WID_GO_VIDEO_BLOOM_THRESHOLD:
-				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 100, 5, _video_bloom_threshold, nullptr);
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 100, 5, _video_bloom_threshold, GpuPercentMarkFunc);
 				break;
 
 			case WID_GO_VIDEO_BLOOM_INTENSITY:
-				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 100, 5, _video_bloom_intensity, nullptr);
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 100, 5, _video_bloom_intensity, GpuPercentMarkFunc);
 				break;
 
 			case WID_GO_VIDEO_WEATHER_INTENSITY:
-				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 100, 5, _video_weather_intensity, nullptr);
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 100, 5, _video_weather_intensity, GpuPercentMarkFunc);
 				break;
 
 			case WID_GO_BASE_SFX_VOLUME:
