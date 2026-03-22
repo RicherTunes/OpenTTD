@@ -47,6 +47,7 @@
 #include "misc_cmd.h"
 #include "benchmark.h"
 #include "video/video_driver.hpp"
+#include "video/postprocess.h"
 /* opengl.h requires GL type definitions (GLuint, GLsync, etc.). */
 #ifdef WITH_OPENGL
 #	if defined(_WIN32)
@@ -2951,6 +2952,25 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		IConsolePrint(CC_INFO, "  Contrast: {}", _video_contrast);
 		IConsolePrint(CC_INFO, "  Saturation: {}", _video_saturation);
 		IConsolePrint(CC_INFO, "  Color temperature: {}", _video_color_temperature);
+
+		/* Show estimated pass count for performance awareness. */
+		PostProcessConfig est_config;
+		est_config.render_scale = _video_render_scale;
+		est_config.upscale_mode = static_cast<UpscaleMode>(Clamp<uint8_t>(_video_upscale_mode, 0, 4));
+		est_config.sharpening = _video_sharpening;
+		est_config.fxaa = _video_fxaa;
+		est_config.color_grading = (_video_brightness != 0 || _video_contrast != 100 || _video_saturation != 100 || _video_color_temperature != 0);
+		est_config.night_mode = _video_night_mode;
+		est_config.vignette = _video_vignette;
+		est_config.tiltshift = _video_tiltshift;
+		est_config.film_grain = _video_film_grain;
+		est_config.crt_filter = _video_crt_filter;
+		est_config.dynamic_lighting = _video_dynamic_lighting;
+		est_config.bloom = _video_bloom;
+		est_config.weather_type = _video_weather_type;
+		int est_passes = PostProcessPassCount(est_config);
+		IConsolePrint(CC_INFO, "  Estimated shader passes: {} ({})", est_passes,
+			est_passes == 0 ? "no overhead" : est_passes <= 3 ? "light" : est_passes <= 7 ? "moderate" : "heavy");
 		return true;
 	}
 
