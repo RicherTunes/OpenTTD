@@ -1099,6 +1099,10 @@ STR_GAME_OPTIONS_TEXTURE_FILTER_BILINEAR                        :Bilinear (smoot
 STR_GAME_OPTIONS_TEXTURE_FILTER_SMOOTH                          :Smooth (bicubic)
 STR_GAME_OPTIONS_FXAA                                           :Anti-aliasing (FXAA)
 STR_GAME_OPTIONS_FXAA_TOOLTIP                                   :{BLACK}Enable FXAA to smooth jagged edges. Works at any resolution
+STR_GAME_OPTIONS_FXAA_QUALITY                                   :FXAA quality
+STR_GAME_OPTIONS_FXAA_QUALITY_TOOLTIP                           :{BLACK}Sub-pixel smoothing quality. Higher = smoother but softer
+STR_GAME_OPTIONS_FXAA_THRESHOLD                                 :Edge threshold
+STR_GAME_OPTIONS_FXAA_THRESHOLD_TOOLTIP                         :{BLACK}Minimum contrast to detect an edge. Lower = more edges smoothed
 STR_GAME_OPTIONS_BRIGHTNESS                                     :Brightness
 STR_GAME_OPTIONS_BRIGHTNESS_TOOLTIP                             :{BLACK}Adjust display brightness. 0 = no change
 STR_GAME_OPTIONS_CONTRAST                                       :Contrast

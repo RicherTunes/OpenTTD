@@ -100,6 +100,9 @@ enum GameOptionsWidgets : WidgetID {
 	WID_GO_VIDEO_BLOOM_INTENSITY,        ///< Bloom intensity slider.
 	WID_GO_VIDEO_WEATHER_DROPDOWN,       ///< Weather type dropdown.
 	WID_GO_VIDEO_WEATHER_INTENSITY,      ///< Weather intensity slider.
+	WID_GO_VIDEO_FXAA_PARAMS_SEL,        ///< Selection container for FXAA sub-parameters.
+	WID_GO_VIDEO_FXAA_QUALITY,           ///< FXAA quality slider.
+	WID_GO_VIDEO_FXAA_THRESHOLD,         ///< FXAA threshold slider.
 	WID_GO_VIDEO_NIGHT_PARAMS_SEL,       ///< Selection container for night mode sub-parameters.
 	WID_GO_VIDEO_CRT_PARAMS_SEL,         ///< Selection container for CRT sub-parameters.
 	WID_GO_VIDEO_VIGNETTE_PARAMS_SEL,    ///< Selection container for vignette sub-parameters.
