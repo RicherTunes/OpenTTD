@@ -445,6 +445,8 @@ static const char *_frag_shader_pp_night[] = {
 	"  float b_tint = 0.6 + night_blue_shift * 0.3;",
 	"  vec3 night = vec3(luma * r_tint, luma * g_tint, luma * b_tint);",
 	"  vec3 result = mix(c, night, night_amount);",
+	"  /* DEBUG: make night effect obvious — tint entire screen blue. */",
+	"  result = mix(result, vec3(0.0, 0.0, 1.0), 0.5 * night_amount);",
 	"  frag_colour = vec4(result, src_alpha);",
 	"}",
 };
@@ -725,7 +727,7 @@ static const char *_frag_shader_pp_lighting[] = {
 	"void main() {",
 	"  vec4 src = texture(source_tex, tex_coord);",
 	"  /* Brightness cycle: peaks at noon (0.5), darkest at midnight (0.0/1.0). */",
-	"  float sun = clamp(sin(time_of_day * 6.28318530) * 0.5 + 0.5, 0.0, 1.0);",
+	"  float sun = clamp(sin((time_of_day - 0.25) * 6.28318530) * 0.5 + 0.5, 0.0, 1.0);",
 	"  float brightness = 0.45 + sun * 0.55;",
 	"  /* Color temperature: warm yellow at noon, cool blue at night, orange at dawn/dusk. */",
 	"  /* Dawn at 0.25, dusk at 0.75. Use Gaussian-like peaks at those positions. */",
@@ -1001,8 +1003,8 @@ static const char *_frag_shader_pp_water_reflect[] = {
 	"  }",
 	/* Compute reflected UV (flip vertically from pixel position) */
 	"  float wave = sin(tex_coord.x * 80.0 + time * 2.0) * distortion_amount * texel_size.y;",
-	"  float wave2 = sin(tex_coord.x * 40.0 - time * 1.3) * distortion_amount * 0.5 * texel_size.y;",
-	"  vec2 reflect_uv = vec2(tex_coord.x + wave2 * texel_size.x, 1.0 - tex_coord.y + wave);",
+	"  float wave2 = sin(tex_coord.x * 40.0 - time * 1.3) * distortion_amount * 0.5 * texel_size.x;",
+	"  vec2 reflect_uv = vec2(tex_coord.x + wave2, 1.0 - tex_coord.y + wave);",
 	"  reflect_uv = clamp(reflect_uv, vec2(0.0), vec2(1.0));",
 	"  vec4 reflected = texture(source_tex, reflect_uv);",
 	/* Tint reflection slightly blue for water color */
@@ -1191,6 +1193,6 @@ static const char *_frag_shader_pp_dof[] = {
 	"    sum += texture(source_tex, tex_coord + offset).rgb;",
 	"    weight += 1.0;",
 	"  }",
-	"  frag_colour = vec4(sum / weight, center.a);",
+	"  frag_colour = vec4(clamp(sum / weight, 0.0, 1.0), center.a);",
 	"}",
 };
