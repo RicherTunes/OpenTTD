@@ -3063,6 +3063,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			IConsolePrint(CC_ERROR, "  CRT: crt_scanlines (0-50), crt_curvature (0-50), crt_aberration (0-30)");
 			IConsolePrint(CC_ERROR, "  Vignette: vignette_intensity (0-100), vignette_radius (50-150), vignette_softness (10-80)");
 			IConsolePrint(CC_ERROR, "  Tilt-shift: tiltshift_focus (0-100), tiltshift_width (5-80), tiltshift_blur (10-60)");
+			IConsolePrint(CC_ERROR, "  Smooth: smooth_amount (0-100)");
 			IConsolePrint(CC_ERROR, "  Other: grain_intensity (1-20), bloom_threshold (0-100), bloom_intensity (0-100)");
 			IConsolePrint(CC_ERROR, "  Weather: weather_type (0-2), weather_intensity (0-100)");
 			return false;
@@ -3155,6 +3156,9 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		} else if (param == "weather_intensity") {
 			_video_weather_intensity = static_cast<uint8_t>(Clamp(value, 0, 100));
 			IConsolePrint(CC_INFO, "Weather intensity set to {}.", _video_weather_intensity);
+		} else if (param == "smooth_amount") {
+			_video_pixel_smooth_amount = static_cast<uint8_t>(Clamp(value, 0, 100));
+			IConsolePrint(CC_INFO, "Pixel smooth amount set to {}.", _video_pixel_smooth_amount);
 		} else {
 			IConsolePrint(CC_ERROR, "Unknown parameter '{}'.", param);
 			IConsolePrint(CC_ERROR, "  Core: render_scale, sharpening, upscale, texture_filter, brightness, contrast, saturation, temperature");
@@ -3162,6 +3166,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			IConsolePrint(CC_ERROR, "  CRT: crt_scanlines, crt_curvature, crt_aberration");
 			IConsolePrint(CC_ERROR, "  Vignette: vignette_intensity, vignette_radius, vignette_softness");
 			IConsolePrint(CC_ERROR, "  Tilt-shift: tiltshift_focus, tiltshift_width, tiltshift_blur");
+			IConsolePrint(CC_ERROR, "  Smooth: smooth_amount");
 			IConsolePrint(CC_ERROR, "  Other: grain_intensity, bloom_threshold, bloom_intensity, weather_type, weather_intensity");
 			return false;
 		}

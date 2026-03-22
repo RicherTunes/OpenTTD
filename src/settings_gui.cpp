@@ -1944,6 +1944,7 @@ struct GameOptionsWindow : Window {
 		this->SetWidgetLoweredState(WID_GO_VIDEO_BLOOM_BUTTON, _video_bloom);
 
 		/* Collapse entire effects section when PP is off to keep tab compact. */
+		bool gpu_enabled = _video_hw_accel && _video_post_processing;
 		this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_EFFECTS_SEL)->SetDisplayedPlane(gpu_enabled ? 0 : SZSP_NONE);
 
 		/* Collapse sub-parameter sections when parent effect is off. */
