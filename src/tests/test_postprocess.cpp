@@ -3452,3 +3452,128 @@ TEST_CASE("PostProcess - water_waves and seasonal combined")
 	CHECK(PostProcessPassCount(config) == 2);
 	CHECK(PostProcessNeedsFBO(config));
 }
+
+/* --- Comprehensive equality tests for new fields --- */
+
+TEST_CASE("PostProcess - toon_rendering toggles inequality")
+{
+	PostProcessConfig a, b;
+	a.toon_rendering = true;
+	CHECK(!(a == b));
+	b.toon_rendering = true;
+	CHECK(a == b);
+}
+
+TEST_CASE("PostProcess - heat_haze toggles inequality")
+{
+	PostProcessConfig a, b;
+	a.heat_haze = true;
+	CHECK(!(a == b));
+	b.heat_haze = true;
+	CHECK(a == b);
+}
+
+TEST_CASE("PostProcess - water_waves toggles inequality")
+{
+	PostProcessConfig a, b;
+	a.water_waves = true;
+	CHECK(!(a == b));
+	b.water_waves = true;
+	CHECK(a == b);
+}
+
+TEST_CASE("PostProcess - seasonal_vegetation toggles inequality")
+{
+	PostProcessConfig a, b;
+	a.seasonal_vegetation = true;
+	CHECK(!(a == b));
+	b.seasonal_vegetation = true;
+	CHECK(a == b);
+}
+
+TEST_CASE("PostProcess - debug_class toggles inequality")
+{
+	PostProcessConfig a, b;
+	a.debug_class = true;
+	CHECK(!(a == b));
+	b.debug_class = true;
+	CHECK(a == b);
+}
+
+/* --- Sub-parameter defaults and ranges --- */
+
+TEST_CASE("PostProcess - toon defaults are in valid range")
+{
+	PostProcessConfig config;
+	CHECK(config.toon_edge_threshold >= 1);
+	CHECK(config.toon_edge_threshold <= 50);
+	CHECK(config.toon_color_levels >= 2);
+	CHECK(config.toon_color_levels <= 16);
+}
+
+TEST_CASE("PostProcess - haze defaults are in valid range")
+{
+	PostProcessConfig config;
+	CHECK(config.haze_intensity <= 100);
+	CHECK(config.haze_distortion >= 1);
+	CHECK(config.haze_distortion <= 20);
+}
+
+TEST_CASE("PostProcess - wave defaults are in valid range")
+{
+	PostProcessConfig config;
+	CHECK(config.wave_amplitude >= 1);
+	CHECK(config.wave_amplitude <= 15);
+	CHECK(config.wave_speed >= 10);
+	CHECK(config.wave_speed <= 100);
+}
+
+TEST_CASE("PostProcess - season defaults are in valid range")
+{
+	PostProcessConfig config;
+	CHECK(config.season_intensity <= 100);
+}
+
+/* --- NeedsFBO comprehensive check for every bool field --- */
+
+TEST_CASE("PostProcess - NeedsFBO true for every individual bool effect")
+{
+	/* Verify that enabling any single effect triggers FBO allocation.
+	 * This catches fields added to the struct but missing from NeedsFBO. */
+	auto check_field = [](auto setter) {
+		PostProcessConfig config;
+		setter(config);
+		return PostProcessNeedsFBO(config);
+	};
+
+	CHECK(check_field([](PostProcessConfig &c) { c.fxaa = true; }));
+	CHECK(check_field([](PostProcessConfig &c) { c.color_grading = true; }));
+	CHECK(check_field([](PostProcessConfig &c) { c.vignette = true; }));
+	CHECK(check_field([](PostProcessConfig &c) { c.tiltshift = true; }));
+	CHECK(check_field([](PostProcessConfig &c) { c.night_mode = true; }));
+	CHECK(check_field([](PostProcessConfig &c) { c.film_grain = true; }));
+	CHECK(check_field([](PostProcessConfig &c) { c.crt_filter = true; }));
+	CHECK(check_field([](PostProcessConfig &c) { c.pixel_smoothing = true; }));
+	CHECK(check_field([](PostProcessConfig &c) { c.dynamic_lighting = true; }));
+	CHECK(check_field([](PostProcessConfig &c) { c.bloom = true; }));
+	CHECK(check_field([](PostProcessConfig &c) { c.fake_shadows = true; }));
+	CHECK(check_field([](PostProcessConfig &c) { c.water_reflections = true; }));
+	CHECK(check_field([](PostProcessConfig &c) { c.ssao = true; }));
+	CHECK(check_field([](PostProcessConfig &c) { c.terrain_smooth = true; }));
+	CHECK(check_field([](PostProcessConfig &c) { c.tree_sway = true; }));
+	CHECK(check_field([](PostProcessConfig &c) { c.sky_clouds = true; }));
+	CHECK(check_field([](PostProcessConfig &c) { c.depth_of_field = true; }));
+	CHECK(check_field([](PostProcessConfig &c) { c.toon_rendering = true; }));
+	CHECK(check_field([](PostProcessConfig &c) { c.heat_haze = true; }));
+	CHECK(check_field([](PostProcessConfig &c) { c.water_waves = true; }));
+	CHECK(check_field([](PostProcessConfig &c) { c.seasonal_vegetation = true; }));
+	CHECK(check_field([](PostProcessConfig &c) { c.cpu_viewport_scaling = true; }));
+	CHECK(check_field([](PostProcessConfig &c) { c.debug_class = true; }));
+	CHECK(check_field([](PostProcessConfig &c) { c.render_scale = 50; }));
+	CHECK(check_field([](PostProcessConfig &c) { c.render_scale = 200; }));
+	CHECK(check_field([](PostProcessConfig &c) { c.weather_type = 1; }));
+	CHECK(check_field([](PostProcessConfig &c) { c.upscale_mode = UpscaleMode::FSR1; }));
+	CHECK(check_field([](PostProcessConfig &c) { c.upscale_mode = UpscaleMode::Temporal; }));
+	CHECK(check_field([](PostProcessConfig &c) { c.upscale_mode = UpscaleMode::Plugin; }));
+	CHECK(check_field([](PostProcessConfig &c) { c.sharpening = 50; }));
+}

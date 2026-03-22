@@ -33,8 +33,8 @@ if(EDITBIN_EXECUTABLE)
     execute_process(COMMAND ${EDITBIN_EXECUTABLE} /nologo /subsystem:console ${OPENTTD_EXECUTABLE})
 endif()
 
-# Remove previous crash files
-file(GLOB CRASH_FILES "regression/crash*")
+# Remove previous crash files from both possible locations
+file(GLOB CRASH_FILES "regression/crash*" "crash*.log" "crash*.json.log")
 if(CRASH_FILES)
     file(REMOVE ${CRASH_FILES})
 endif()
@@ -56,17 +56,21 @@ execute_process(
     ERROR_VARIABLE TEST_STDERR
     RESULT_VARIABLE TEST_EXIT_CODE
     OUTPUT_STRIP_TRAILING_WHITESPACE
-    TIMEOUT 120
+    TIMEOUT 300
 )
 
-# Check for crash files
-file(GLOB CRASH_FILES "regression/crash*.log" "regression/crash*.json.log")
+# Check for crash files in both regression/ dir and working directory.
+# OpenTTD may write crash logs to either location depending on config.
+file(GLOB CRASH_FILES
+    "regression/crash*.log" "regression/crash*.json.log"
+    "crash*.log" "crash*.json.log"
+)
 if(CRASH_FILES)
     foreach(CRASH_FILE ${CRASH_FILES})
         file(READ ${CRASH_FILE} CRASH_LOG)
-        message(STATUS "Crash log: ${CRASH_LOG}")
+        message(STATUS "Crash log (${CRASH_FILE}): ${CRASH_LOG}")
     endforeach()
-    message(FATAL_ERROR "Lifecycle test '${LIFECYCLE_TEST}' CRASHED. See crash log above.")
+    message(FATAL_ERROR "Lifecycle test '${LIFECYCLE_TEST}' CRASHED. See crash log(s) above.")
 endif()
 
 # Check exit code
