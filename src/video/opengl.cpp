@@ -1869,12 +1869,14 @@ void OpenGLBackend::RenderPostProcess()
 			_jitter_sequence.NextFrame(jitter_x, jitter_y);
 		}
 
-		/* Detect scene cuts: large viewport jumps or zoom changes invalidate temporal history. */
+		/* Detect scene cuts: large viewport jumps invalidate temporal history.
+		 * Threshold is in virtual viewport units (~500 = half a screen at Normal zoom). */
+		static constexpr int32_t SCENE_CUT_THRESHOLD = 500;
 		bool scene_cut = false;
 		if (this->pp_temporal_frame_count == 0) scene_cut = true; /* First frame after enable. */
 		int32_t scroll_delta_x = _motion_vectors.prev_scroll_x - this->pp_temporal_prev_scroll_x;
 		int32_t scroll_delta_y = _motion_vectors.prev_scroll_y - this->pp_temporal_prev_scroll_y;
-		if (std::abs(scroll_delta_x) > 500 || std::abs(scroll_delta_y) > 500) scene_cut = true;
+		if (std::abs(scroll_delta_x) > SCENE_CUT_THRESHOLD || std::abs(scroll_delta_y) > SCENE_CUT_THRESHOLD) scene_cut = true;
 		/* Store for next frame. */
 		this->pp_temporal_prev_scroll_x = _motion_vectors.prev_scroll_x;
 		this->pp_temporal_prev_scroll_y = _motion_vectors.prev_scroll_y;
