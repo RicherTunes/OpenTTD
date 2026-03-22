@@ -2905,6 +2905,14 @@ static void ResetPPDefaults()
 	_video_pixel_smoothing = false;
 	_video_pixel_smooth_amount = 70;
 	_video_auto_supersample = false;
+	_video_fake_shadows = false;
+	_video_shadow_intensity = 40;
+	_video_shadow_angle = 45;
+	_video_shadow_length = 8;
+	_video_shadow_softness = 3;
+	_video_water_reflections = false;
+	_video_reflection_intensity = 30;
+	_video_reflection_distortion = 5;
 }
 
 /** GPU post-processing control. @copydoc IConsoleCmdProc */
@@ -2916,7 +2924,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		IConsolePrint(CC_HELP, "Usage: 'pp info' - Show GPU pipeline capabilities.");
 		IConsolePrint(CC_HELP, "Usage: 'pp on/off' - Toggle master post-processing switch.");
 		IConsolePrint(CC_HELP, "Usage: 'pp enable/disable <effect>' - Toggle an effect.");
-		IConsolePrint(CC_HELP, "  Effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather, smooth, supersample");
+		IConsolePrint(CC_HELP, "  Effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather, smooth, supersample, shadows, water");
 		IConsolePrint(CC_HELP, "Usage: 'pp set <param> <value>' - Set a parameter.");
 		IConsolePrint(CC_HELP, "  Core: render_scale (50-200), sharpening (0-100), upscale (0-4), texture_filter (0-2)");
 		IConsolePrint(CC_HELP, "  Color: brightness (-50..50), contrast (50-200), saturation (0-200), temperature (-100..100)");
@@ -2954,6 +2962,8 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		IConsolePrint(CC_INFO, "  Weather: {} (type={}, intensity={})", _video_weather_type > 0 ? "ON" : "OFF", _video_weather_type, _video_weather_intensity);
 		IConsolePrint(CC_INFO, "  Pixel smooth: {} (amount={})", _video_pixel_smoothing ? "ON" : "OFF", _video_pixel_smooth_amount);
 		IConsolePrint(CC_INFO, "  Auto-supersample: {}", _video_auto_supersample ? "ON" : "OFF");
+		IConsolePrint(CC_INFO, "  Fake shadows: {} (intensity={}, angle={}°, length={}px, softness={})", _video_fake_shadows ? "ON" : "OFF", _video_shadow_intensity, _video_shadow_angle, _video_shadow_length, _video_shadow_softness);
+		IConsolePrint(CC_INFO, "  Water reflections: {} (intensity={}, distortion={})", _video_water_reflections ? "ON" : "OFF", _video_reflection_intensity, _video_reflection_distortion);
 		IConsolePrint(CC_INFO, "  Brightness: {}", _video_brightness);
 		IConsolePrint(CC_INFO, "  Contrast: {}", _video_contrast);
 		IConsolePrint(CC_INFO, "  Saturation: {}", _video_saturation);
@@ -2975,6 +2985,8 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		est_config.bloom = _video_bloom;
 		est_config.weather_type = _video_weather_type;
 		est_config.pixel_smoothing = _video_pixel_smoothing;
+		est_config.fake_shadows = _video_fake_shadows;
+		est_config.water_reflections = _video_water_reflections;
 		int est_passes = PostProcessPassCount(est_config);
 		IConsolePrint(CC_INFO, "  Estimated shader passes: {} ({})", est_passes,
 			est_passes == 0 ? "no overhead" : est_passes <= 3 ? "light" : est_passes <= 7 ? "moderate" : "heavy");
@@ -3017,7 +3029,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 
 	if (argv[1] == "enable" || argv[1] == "disable") {
 		if (argv.size() < 3) {
-			IConsolePrint(CC_ERROR, "Usage: 'pp {} <effect>' - Effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather, smooth, supersample", argv[1]);
+			IConsolePrint(CC_ERROR, "Usage: 'pp {} <effect>' - Effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather, smooth, supersample, shadows, water", argv[1]);
 			return false;
 		}
 		bool enable = (argv[1] == "enable");
@@ -3045,8 +3057,12 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			_video_pixel_smoothing = enable;
 		} else if (effect == "supersample") {
 			_video_auto_supersample = enable;
+		} else if (effect == "shadows" || effect == "fake_shadows") {
+			_video_fake_shadows = enable;
+		} else if (effect == "water" || effect == "water_reflections") {
+			_video_water_reflections = enable;
 		} else {
-			IConsolePrint(CC_ERROR, "Unknown effect '{}'. Valid effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather, smooth, supersample", effect);
+			IConsolePrint(CC_ERROR, "Unknown effect '{}'. Valid effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather, smooth, supersample, shadows, water", effect);
 			return false;
 		}
 
@@ -3066,6 +3082,8 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			IConsolePrint(CC_ERROR, "  Smooth: smooth_amount (0-100)");
 			IConsolePrint(CC_ERROR, "  Other: grain_intensity (1-20), bloom_threshold (0-100), bloom_intensity (0-100)");
 			IConsolePrint(CC_ERROR, "  Weather: weather_type (0-2), weather_intensity (0-100)");
+			IConsolePrint(CC_ERROR, "  Shadows: shadow_intensity (0-100), shadow_angle (0-359), shadow_length (1-30), shadow_softness (1-10)");
+			IConsolePrint(CC_ERROR, "  Water: reflection_intensity (0-100), reflection_distortion (0-20)");
 			return false;
 		}
 		std::string_view param = argv[2];
@@ -3159,6 +3177,24 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		} else if (param == "smooth_amount") {
 			_video_pixel_smooth_amount = static_cast<uint8_t>(Clamp(value, 0, 100));
 			IConsolePrint(CC_INFO, "Pixel smooth amount set to {}.", _video_pixel_smooth_amount);
+		} else if (param == "shadow_intensity") {
+			_video_shadow_intensity = static_cast<uint8_t>(Clamp(value, 0, 100));
+			IConsolePrint(CC_INFO, "Shadow intensity set to {}.", _video_shadow_intensity);
+		} else if (param == "shadow_angle") {
+			_video_shadow_angle = static_cast<uint8_t>(Clamp(value, 0, 359));
+			IConsolePrint(CC_INFO, "Shadow angle set to {}°.", _video_shadow_angle);
+		} else if (param == "shadow_length") {
+			_video_shadow_length = static_cast<uint8_t>(Clamp(value, 1, 30));
+			IConsolePrint(CC_INFO, "Shadow length set to {}px.", _video_shadow_length);
+		} else if (param == "shadow_softness") {
+			_video_shadow_softness = static_cast<uint8_t>(Clamp(value, 1, 10));
+			IConsolePrint(CC_INFO, "Shadow softness set to {}.", _video_shadow_softness);
+		} else if (param == "reflection_intensity") {
+			_video_reflection_intensity = static_cast<uint8_t>(Clamp(value, 0, 100));
+			IConsolePrint(CC_INFO, "Reflection intensity set to {}.", _video_reflection_intensity);
+		} else if (param == "reflection_distortion") {
+			_video_reflection_distortion = static_cast<uint8_t>(Clamp(value, 0, 20));
+			IConsolePrint(CC_INFO, "Reflection distortion set to {}.", _video_reflection_distortion);
 		} else {
 			IConsolePrint(CC_ERROR, "Unknown parameter '{}'.", param);
 			IConsolePrint(CC_ERROR, "  Core: render_scale, sharpening, upscale, texture_filter, brightness, contrast, saturation, temperature");
@@ -3167,6 +3203,8 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			IConsolePrint(CC_ERROR, "  Vignette: vignette_intensity, vignette_radius, vignette_softness");
 			IConsolePrint(CC_ERROR, "  Tilt-shift: tiltshift_focus, tiltshift_width, tiltshift_blur");
 			IConsolePrint(CC_ERROR, "  Smooth: smooth_amount");
+			IConsolePrint(CC_ERROR, "  Shadows: shadow_intensity, shadow_angle, shadow_length, shadow_softness");
+			IConsolePrint(CC_ERROR, "  Water: reflection_intensity, reflection_distortion");
 			IConsolePrint(CC_ERROR, "  Other: grain_intensity, bloom_threshold, bloom_intensity, weather_type, weather_intensity");
 			return false;
 		}
