@@ -35,6 +35,12 @@
         lifecycle lifecycle_temperate lifecycle_arctic lifecycle_tropic lifecycle_toyland
         lifecycle_large lifecycle_arctic_large lifecycle_tropic_large
         lifecycle_many_rivers lifecycle_flat lifecycle_many_towns lifecycle_long_run
+        lifecycle_shape_island lifecycle_shape_archipelago lifecycle_shape_fjords
+        lifecycle_shape_scattered lifecycle_shape_peninsula lifecycle_shape_mesa
+        lifecycle_shape_volcanic lifecycle_improved_perlin
+        lifecycle_biome_arctic lifecycle_biome_tropic
+        lifecycle_tiny lifecycle_asymmetric
+        lifecycle_lakes_mountains
     )
     foreach(CFG ${LIFECYCLE_CFGS})
         add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${CFG}.cfg
@@ -93,6 +99,29 @@
 
     # Long run: 1000 ticks to exercise game loop stability
     add_lifecycle_test_ticks(long_run_1000ticks 1000 -g -G 1 -c regression/lifecycle_long_run.cfg)
+
+    # Continent shapes (each exercises different mask algorithms in tgp.cpp)
+    add_lifecycle_test(shape_island       -g -G 1 -c regression/lifecycle_shape_island.cfg)
+    add_lifecycle_test(shape_archipelago  -g -G 1 -c regression/lifecycle_shape_archipelago.cfg)
+    add_lifecycle_test(shape_fjords       -g -G 1 -c regression/lifecycle_shape_fjords.cfg)
+    add_lifecycle_test(shape_scattered    -g -G 1 -c regression/lifecycle_shape_scattered.cfg)
+    add_lifecycle_test(shape_peninsula    -g -G 1 -c regression/lifecycle_shape_peninsula.cfg)
+    add_lifecycle_test(shape_mesa         -g -G 1 -c regression/lifecycle_shape_mesa.cfg)
+    add_lifecycle_test(shape_volcanic     -g -G 1 -c regression/lifecycle_shape_volcanic.cfg)
+
+    # Terrain algorithm variant
+    add_lifecycle_test(improved_perlin    -g -G 1 -c regression/lifecycle_improved_perlin.cfg)
+
+    # Biome system (temperature-based snow/desert)
+    add_lifecycle_test(biome_arctic       -g -G 1 -c regression/lifecycle_biome_arctic.cfg)
+    add_lifecycle_test(biome_tropic       -g -G 1 -c regression/lifecycle_biome_tropic.cfg)
+
+    # Map size edge cases
+    add_lifecycle_test(tiny_64x64         -g -G 1 -c regression/lifecycle_tiny.cfg)
+    add_lifecycle_test(asymmetric_512x64  -g -G 1 -c regression/lifecycle_asymmetric.cfg)
+
+    # Combined terrain features (lakes + mountains)
+    add_lifecycle_test(lakes_mountains    -g -G 1 -c regression/lifecycle_lakes_mountains.cfg)
 
     # Load the existing regression test savegame (verifies save/load path)
     add_lifecycle_test(load_save -g ai/regression/test.sav -c regression/lifecycle.cfg)
