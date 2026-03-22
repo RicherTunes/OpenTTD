@@ -26,4 +26,9 @@ struct MapPreviewData {
 bool GenerateMapPreview(MapPreviewData &out, uint32_t seed, uint8_t map_x, uint8_t map_y,
 	uint16_t preview_w, uint16_t preview_h);
 
+bool GenerateHeightmapPreview(MapPreviewData &out, const std::vector<uint8_t> &greyscale,
+	uint src_w, uint src_h, uint16_t preview_w, uint16_t preview_h);
+
+uint8_t HarborScoreToColour(uint8_t score);
+
 #endif /* GENWORLD_PREVIEW_H */

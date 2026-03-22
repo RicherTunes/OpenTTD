@@ -316,6 +316,15 @@ static constexpr std::initializer_list<NWidgetPart> _nested_heightmap_load_widge
 				EndContainer(),
 			EndContainer(),
 
+			/* Heightmap preview */
+			NWidget(NWID_HORIZONTAL), SetPIPRatio(1, 0, 1),
+				NWidget(WWT_PANEL, COLOUR_BROWN, WID_GL_PREVIEW_PANEL),
+					NWidget(NWID_VERTICAL), SetPadding(4, 4, 4, 4),
+						NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GL_PREVIEW_CANVAS), SetMinimalSize(256, 128), SetFill(1, 1), SetResize(1, 0),
+					EndContainer(),
+				EndContainer(),
+			EndContainer(),
+
 			/* AI, GS, NewGRF, and Terrain settings */
 			NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
 				NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, WID_GL_AI_BUTTON), SetMinimalTextLines(2, 0), SetStringTip(STR_MAPGEN_AI_SETTINGS, STR_MAPGEN_AI_SETTINGS_TOOLTIP), SetFill(1, 0),
@@ -409,8 +418,11 @@ struct GenerateLandscapeWindow : public Window {
 	uint y = 0;
 	EncodedString name{};
 	GenerateLandscapeWindowMode mode{};
-	MapPreviewData preview{};         ///< Cached map preview data.
-	bool preview_dirty = true;        ///< Preview needs regeneration.
+	MapPreviewData preview{};                  ///< Cached map preview data.
+	bool preview_dirty = true;                 ///< Preview needs regeneration.
+	std::vector<uint8_t> heightmap_cache{};    ///< Cached heightmap greyscale data for preview.
+	uint heightmap_cache_w = 0;                ///< Width of cached heightmap data.
+	uint heightmap_cache_h = 0;                ///< Height of cached heightmap data.
 
 	GenerateLandscapeWindow(WindowDesc &desc, WindowNumber number = 0) : Window(desc)
 	{
@@ -671,12 +683,32 @@ struct GenerateLandscapeWindow : public Window {
 		if (this->preview_dirty || this->preview.pixels.empty()) {
 			/* const_cast is safe here: preview is a cache, not visible state */
 			auto *mutable_this = const_cast<GenerateLandscapeWindow *>(this);
-			uint32_t seed = _settings_newgame.game_creation.generation_seed;
-			if (seed == 0) seed = InteractiveRandom();
-			GenerateMapPreview(mutable_this->preview, seed,
-				_settings_newgame.game_creation.map_x,
-				_settings_newgame.game_creation.map_y,
-				256, 128);
+
+			if (this->mode == GLWM_HEIGHTMAP && !_file_to_saveload.name.empty()) {
+				/* Load heightmap greyscale data (cached to avoid re-reading file) */
+				if (mutable_this->heightmap_cache.empty()) {
+					ReadHeightmapData(_file_to_saveload.ftype.detailed,
+						_file_to_saveload.name,
+						&mutable_this->heightmap_cache_w,
+						&mutable_this->heightmap_cache_h,
+						mutable_this->heightmap_cache);
+				}
+				if (!mutable_this->heightmap_cache.empty()) {
+					GenerateHeightmapPreview(mutable_this->preview,
+						mutable_this->heightmap_cache,
+						mutable_this->heightmap_cache_w,
+						mutable_this->heightmap_cache_h,
+						256, 128);
+				}
+			} else {
+				/* TGP preview (generate from noise) */
+				uint32_t seed = _settings_newgame.game_creation.generation_seed;
+				if (seed == 0) seed = InteractiveRandom();
+				GenerateMapPreview(mutable_this->preview, seed,
+					_settings_newgame.game_creation.map_x,
+					_settings_newgame.game_creation.map_y,
+					256, 128);
+			}
 			mutable_this->preview_dirty = false;
 		}
 

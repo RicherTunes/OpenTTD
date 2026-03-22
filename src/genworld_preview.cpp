@@ -229,3 +229,76 @@ bool GenerateMapPreview(MapPreviewData &out, uint32_t seed, uint8_t map_x, uint8
 
 	return true;
 }
+
+/**
+ * Generate a preview image from raw heightmap greyscale data.
+ * Downscales the source image to preview resolution and applies the
+ * same height-to-palette-colour mapping used by the TGP preview.
+ *
+ * @param out Output preview data (pixels, dimensions).
+ * @param greyscale Source greyscale buffer (0-255), row-major (src_w * src_h).
+ * @param src_w Width of the source heightmap in pixels.
+ * @param src_h Height of the source heightmap in pixels.
+ * @param preview_w Desired preview width in pixels.
+ * @param preview_h Desired preview height in pixels.
+ * @return True if preview was generated successfully.
+ */
+bool GenerateHeightmapPreview(MapPreviewData &out, const std::vector<uint8_t> &greyscale,
+	uint src_w, uint src_h, uint16_t preview_w, uint16_t preview_h)
+{
+	if (preview_w == 0 || preview_h == 0) return false;
+	if (src_w == 0 || src_h == 0) return false;
+	if (greyscale.size() < (size_t)src_w * src_h) return false;
+
+	out.width = preview_w;
+	out.height = preview_h;
+	out.seed = 0;
+	out.map_x = 0;
+	out.map_y = 0;
+	out.pixels.resize(preview_w * preview_h);
+
+	/* Find the maximum greyscale value for normalization */
+	uint8_t max_grey = 0;
+	for (size_t i = 0; i < (size_t)src_w * src_h; i++) {
+		if (greyscale[i] > max_grey) max_grey = greyscale[i];
+	}
+
+	int terrain_max = 15;
+
+	/* Downscale and convert to palette colours using nearest-neighbour sampling */
+	for (int dy = 0; dy < preview_h; dy++) {
+		for (int dx = 0; dx < preview_w; dx++) {
+			/* Map preview pixel to source coordinate */
+			uint sx = (uint)((uint64_t)dx * src_w / preview_w);
+			uint sy = (uint)((uint64_t)dy * src_h / preview_h);
+			if (sx >= src_w) sx = src_w - 1;
+			if (sy >= src_h) sy = src_h - 1;
+
+			uint8_t grey = greyscale[sy * src_w + sx];
+
+			/* Height 0 in heightmap is water (sea level) */
+			bool is_water = (grey == 0);
+			int tile_h = is_water ? 0 : (max_grey > 0 ? (int)((double)grey / max_grey * terrain_max) : 0);
+
+			out.pixels[dy * preview_w + dx] = HeightToPreviewColour(tile_h, terrain_max, is_water);
+		}
+	}
+
+	Debug(map, 2, "HeightmapPreview: Generated {}x{} preview from {}x{} source", preview_w, preview_h, src_w, src_h);
+
+	return true;
+}
+
+/**
+ * Convert a harbor quality score to a palette colour for minimap overlay.
+ * @param score Harbor quality score (0-255). Zero means no harbor potential.
+ * @return Palette colour index: 0 for no overlay, blue gradient for harbor quality.
+ */
+uint8_t HarborScoreToColour(uint8_t score)
+{
+	if (score == 0) return 0;       /* No overlay */
+	if (score < 64) return 0x98;    /* Light blue */
+	if (score < 128) return 0x99;   /* Medium blue */
+	if (score < 192) return 0x9A;   /* Blue */
+	return 0x9B;                    /* Bright blue */
+}

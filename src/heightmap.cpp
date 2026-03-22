@@ -528,6 +528,20 @@ bool GetHeightmapDimensions(DetailedFileType dft, std::string_view filename, uin
 }
 
 /**
+ * Read raw greyscale data from a heightmap file without applying it to the map.
+ * @param dft Type of image file.
+ * @param filename Name of the heightmap file.
+ * @param[out] x Width of the image in pixels.
+ * @param[out] y Height of the image in pixels.
+ * @param[out] map Destination buffer for greyscale pixel data (0-255).
+ * @return True if the heightmap was read successfully.
+ */
+bool ReadHeightmapData(DetailedFileType dft, std::string_view filename, uint *x, uint *y, std::vector<uint8_t> &map)
+{
+	return ReadHeightMap(dft, filename, x, y, &map);
+}
+
+/**
  * Load a heightmap from file and change the map in its current dimensions
  *  to a landscape representing the heightmap.
  * It converts pixels to height. The brighter, the higher.
