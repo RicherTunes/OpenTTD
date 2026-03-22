@@ -2934,6 +2934,169 @@ static void ResetPPDefaults()
 	_video_dof_range = 40;
 }
 
+/**
+ * Apply a named post-processing preset.
+ * Resets all settings to defaults, enables PP, then applies the preset.
+ * @param name Preset name (e.g. "retro", "cinematic", "clean").
+ * @return true if the preset was recognized and applied.
+ */
+static bool ApplyPPPreset(std::string_view name)
+{
+	/* Reset all post-processing settings to defaults first. */
+	ResetPPDefaults();
+
+	/* Enable post-processing, then apply the preset. */
+	_video_post_processing = true;
+
+	if (name == "retro") {
+		_video_crt_filter = true;
+		_video_crt_scanlines = 20;
+		_video_crt_curvature = 10;
+		_video_crt_aberration = 8;
+		_video_film_grain = true;
+		_video_grain_intensity = 6;
+	} else if (name == "cinematic") {
+		_video_vignette = true;
+		_video_vignette_intensity = 40;
+		_video_brightness = -5;
+		_video_contrast = 110;
+		_video_saturation = 90;
+		_video_film_grain = true;
+		_video_grain_intensity = 3;
+	} else if (name == "night") {
+		_video_night_mode = true;
+		_video_night_intensity = 70;
+		_video_night_blue_shift = 40;
+	} else if (name == "miniature") {
+		_video_tiltshift = true;
+		_video_tiltshift_focus_y = 45;
+		_video_tiltshift_focus_width = 20;
+		_video_tiltshift_blur = 40;
+		_video_saturation = 130;
+	} else if (name == "sharp") {
+		_video_render_scale = 75;
+		_video_upscale_mode = 2; /* FSR1 */
+		_video_sharpening = 60;
+		_video_fxaa = true;
+	} else if (name == "temporal") {
+		_video_render_scale = 67;
+		_video_upscale_mode = 3; /* Temporal */
+		_video_sharpening = 40;
+	} else if (name == "zoom") {
+		_video_auto_supersample = true;
+		_video_pixel_smoothing = true;
+		_video_pixel_smooth_amount = 60;
+		_video_fxaa = true;
+	} else if (name == "realistic") {
+		_video_fake_shadows = true;
+		_video_shadow_intensity = 35;
+		_video_shadow_angle = 135;
+		_video_shadow_length = 10;
+		_video_water_reflections = true;
+		_video_reflection_intensity = 25;
+		_video_ssao = true;
+		_video_ssao_intensity = 40;
+		_video_terrain_smooth = true;
+		_video_terrain_smooth_strength = 40;
+		_video_tree_sway = true;
+		_video_tree_sway_amount = 2;
+		_video_dynamic_lighting = true;
+		_video_fxaa = true;
+	} else if (name == "fantasy") {
+		_video_sky_clouds = true;
+		_video_cloud_density = 60;
+		_video_water_reflections = true;
+		_video_reflection_intensity = 40;
+		_video_reflection_distortion = 8;
+		_video_bloom = true;
+		_video_bloom_threshold = 50;
+		_video_bloom_intensity = 40;
+		_video_saturation = 140;
+		_video_tree_sway = true;
+		_video_tree_sway_amount = 5;
+		_video_vignette = true;
+	} else if (name == "photo") {
+		_video_depth_of_field = true;
+		_video_dof_aperture = 50;
+		_video_dof_focus_point = 50;
+		_video_dof_range = 30;
+		_video_fake_shadows = true;
+		_video_shadow_intensity = 30;
+		_video_vignette = true;
+		_video_vignette_intensity = 25;
+		_video_color_temperature = 10;
+		_video_contrast = 105;
+		_video_fxaa = true;
+	} else if (name == "stormy") {
+		_video_weather_type = 1; /* Rain */
+		_video_weather_intensity = 70;
+		_video_sky_clouds = true;
+		_video_cloud_density = 80;
+		_video_sky_brightness = 40;
+		_video_brightness = -10;
+		_video_saturation = 80;
+		_video_water_reflections = true;
+		_video_reflection_distortion = 12;
+		_video_dynamic_lighting = true;
+	} else if (name == "postcard") {
+		_video_terrain_smooth = true;
+		_video_terrain_smooth_strength = 60;
+		_video_tree_sway = true;
+		_video_fake_shadows = true;
+		_video_shadow_angle = 45;
+		_video_sky_clouds = true;
+		_video_cloud_density = 30;
+		_video_saturation = 120;
+		_video_brightness = 5;
+		_video_tiltshift = true;
+		_video_tiltshift_blur = 20;
+	} else if (name == "performance") {
+		_video_render_scale = 50;
+		_video_cpu_viewport_scaling = true;
+		_video_upscale_mode = 1; /* Bilinear */
+		_video_sharpening = 40;
+	} else if (name == "clean") {
+		/* Already reset above, just enable PP. */
+	} else {
+		return false;
+	}
+	return true;
+}
+
+/** Ordered list of presets for cycling. */
+static const char * const _pp_preset_names[] = {
+	"clean", "retro", "cinematic", "night", "miniature", "sharp",
+	"temporal", "zoom", "realistic", "fantasy", "photo", "stormy",
+	"postcard", "performance",
+};
+
+/** Number of presets available for cycling. */
+static const uint8_t _pp_preset_count = lengthof(_pp_preset_names);
+
+/** Current preset index for cycling (static state). */
+static uint8_t _pp_cycle_index = 0;
+
+/**
+ * Cycle to the next post-processing preset.
+ * Called from keyboard shortcut handler or console command.
+ */
+void CyclePPPreset()
+{
+	_pp_cycle_index = (_pp_cycle_index + 1) % _pp_preset_count;
+	const char *name = _pp_preset_names[_pp_cycle_index];
+	ApplyPPPreset(name);
+	IConsolePrint(CC_INFO, "PP Preset: {}", name);
+}
+
+/**
+ * Get the name of the currently active cycling preset.
+ * @return Name of the current preset in the cycle.
+ */
+std::string_view GetCurrentPPPresetName()
+{
+	return _pp_preset_names[_pp_cycle_index];
+}
+
 /** GPU post-processing control. @copydoc IConsoleCmdProc */
 static bool ConPostProcess(std::span<std::string_view> argv)
 {
@@ -2963,7 +3126,8 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		IConsolePrint(CC_HELP, "  DOF: dof_focus (0-100), dof_aperture (0-100), dof_range (0-100)");
 		IConsolePrint(CC_HELP, "Usage: 'pp reset' - Restore all post-processing settings to defaults.");
 		IConsolePrint(CC_HELP, "Usage: 'pp preset <name>' - Apply a predefined configuration.");
-		IConsolePrint(CC_HELP, "  Presets: retro, cinematic, night, miniature, sharp, clean");
+		IConsolePrint(CC_HELP, "  Presets: retro, cinematic, night, miniature, sharp, clean, ...");
+		IConsolePrint(CC_HELP, "Usage: 'pp cycle' - Cycle to next preset (also Ctrl+Shift+P hotkey).");
 		return true;
 	}
 
@@ -2980,7 +3144,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		IConsolePrint(CC_INFO, "  FXAA: {} (quality={}, threshold={})", _video_fxaa ? "ON" : "OFF", _video_fxaa_quality, _video_fxaa_threshold);
 		IConsolePrint(CC_INFO, "  Night mode: {} (intensity={}, blue_shift={})", _video_night_mode ? "ON" : "OFF", _video_night_intensity, _video_night_blue_shift);
 		IConsolePrint(CC_INFO, "  CRT filter: {} (scanlines={}, curvature={}, aberration={})", _video_crt_filter ? "ON" : "OFF", _video_crt_scanlines, _video_crt_curvature, _video_crt_aberration);
-		IConsolePrint(CC_INFO, "  Vignette: {} (intensity={}, radius={})", _video_vignette ? "ON" : "OFF", _video_vignette_intensity, _video_vignette_radius);
+		IConsolePrint(CC_INFO, "  Vignette: {} (intensity={}, radius={}, softness={})", _video_vignette ? "ON" : "OFF", _video_vignette_intensity, _video_vignette_radius, _video_vignette_softness);
 		IConsolePrint(CC_INFO, "  Tilt-shift: {} (focus_y={}, focus_width={}, blur={})", _video_tiltshift ? "ON" : "OFF", _video_tiltshift_focus_y, _video_tiltshift_focus_width, _video_tiltshift_blur);
 		IConsolePrint(CC_INFO, "  Film grain: {} (intensity={})", _video_film_grain ? "ON" : "OFF", _video_grain_intensity);
 		IConsolePrint(CC_INFO, "  Dynamic lighting: {}", _video_dynamic_lighting ? "ON" : "OFF");
@@ -3160,7 +3324,8 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		int32_t value = *parsed;
 
 		if (param == "render_scale") {
-			_video_render_scale = static_cast<uint8_t>(Clamp(value, 50, 200));
+			/* Wave 19: Allow 25% minimum for CPU viewport scaling. */
+			_video_render_scale = static_cast<uint8_t>(Clamp(value, 25, 200));
 			IConsolePrint(CC_INFO, "Render scale set to {}%.", _video_render_scale);
 		} else if (param == "sharpening") {
 			_video_sharpening = static_cast<uint8_t>(Clamp(value, 0, 100));
@@ -3246,7 +3411,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			_video_shadow_intensity = static_cast<uint8_t>(Clamp(value, 0, 100));
 			IConsolePrint(CC_INFO, "Shadow intensity set to {}.", _video_shadow_intensity);
 		} else if (param == "shadow_angle") {
-			_video_shadow_angle = static_cast<uint8_t>(Clamp(value, 0, 359));
+			_video_shadow_angle = static_cast<uint16_t>(Clamp(value, 0, 359));
 			IConsolePrint(CC_INFO, "Shadow angle set to {}°.", _video_shadow_angle);
 		} else if (param == "shadow_length") {
 			_video_shadow_length = static_cast<uint8_t>(Clamp(value, 1, 30));
@@ -3341,147 +3506,25 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			IConsolePrint(CC_HELP, "  photo     - Depth of field + shadows + vignette (photography)");
 			IConsolePrint(CC_HELP, "  stormy    - Rain + dark clouds + desaturated + reflections");
 			IConsolePrint(CC_HELP, "  postcard  - Smooth terrain + shadows + sky + tilt-shift");
+			IConsolePrint(CC_HELP, "  performance - CPU viewport scaling at 50%% + bilinear upscale");
 			IConsolePrint(CC_HELP, "  clean     - Disable all effects (same as reset + on)");
 			return true;
 		}
 
-		/* Reset all post-processing settings to defaults first. */
-		ResetPPDefaults();
-
-		/* Enable post-processing, then apply the preset. */
-		_video_post_processing = true;
-
-		if (argv[2] == "retro") {
-			_video_crt_filter = true;
-			_video_crt_scanlines = 20;
-			_video_crt_curvature = 10;
-			_video_crt_aberration = 8;
-			_video_film_grain = true;
-			_video_grain_intensity = 6;
-			IConsolePrint(CC_INFO, "Preset 'retro' applied: CRT + film grain.");
-		} else if (argv[2] == "cinematic") {
-			_video_vignette = true;
-			_video_vignette_intensity = 40;
-			_video_brightness = -5;
-			_video_contrast = 110;
-			_video_saturation = 90;
-			_video_film_grain = true;
-			_video_grain_intensity = 3;
-			IConsolePrint(CC_INFO, "Preset 'cinematic' applied: vignette + color grading + grain.");
-		} else if (argv[2] == "night") {
-			_video_night_mode = true;
-			_video_night_intensity = 70;
-			_video_night_blue_shift = 40;
-			IConsolePrint(CC_INFO, "Preset 'night' applied: night mode with blue tint.");
-		} else if (argv[2] == "miniature") {
-			_video_tiltshift = true;
-			_video_tiltshift_focus_y = 45;
-			_video_tiltshift_focus_width = 20;
-			_video_tiltshift_blur = 40;
-			_video_saturation = 130;
-			IConsolePrint(CC_INFO, "Preset 'miniature' applied: tilt-shift + boosted saturation.");
-		} else if (argv[2] == "sharp") {
-			_video_render_scale = 75;
-			_video_upscale_mode = 2; /* FSR1 */
-			_video_sharpening = 60;
-			_video_fxaa = true;
-			IConsolePrint(CC_INFO, "Preset 'sharp' applied: FSR1 at 75%% + FXAA.");
-		} else if (argv[2] == "temporal") {
-			_video_render_scale = 67;
-			_video_upscale_mode = 3; /* Temporal */
-			_video_sharpening = 40;
-			IConsolePrint(CC_INFO, "Preset 'temporal' applied: temporal upscale at 67%%.");
-		} else if (argv[2] == "zoom") {
-			_video_auto_supersample = true;
-			_video_pixel_smoothing = true;
-			_video_pixel_smooth_amount = 60;
-			_video_fxaa = true;
-			IConsolePrint(CC_INFO, "Preset 'zoom' applied: auto-supersample + pixel smoothing + FXAA.");
-		} else if (argv[2] == "realistic") {
-			_video_fake_shadows = true;
-			_video_shadow_intensity = 35;
-			_video_shadow_angle = 135;
-			_video_shadow_length = 10;
-			_video_water_reflections = true;
-			_video_reflection_intensity = 25;
-			_video_ssao = true;
-			_video_ssao_intensity = 40;
-			_video_terrain_smooth = true;
-			_video_terrain_smooth_strength = 40;
-			_video_tree_sway = true;
-			_video_tree_sway_amount = 2;
-			_video_dynamic_lighting = true;
-			_video_fxaa = true;
-			IConsolePrint(CC_INFO, "Preset 'realistic' applied: shadows + reflections + SSAO + sway + lighting.");
-		} else if (argv[2] == "fantasy") {
-			_video_sky_clouds = true;
-			_video_cloud_density = 60;
-			_video_water_reflections = true;
-			_video_reflection_intensity = 40;
-			_video_reflection_distortion = 8;
-			_video_bloom = true;
-			_video_bloom_threshold = 50;
-			_video_bloom_intensity = 40;
-			_video_saturation = 140;
-			_video_tree_sway = true;
-			_video_tree_sway_amount = 5;
-			_video_vignette = true;
-			IConsolePrint(CC_INFO, "Preset 'fantasy' applied: sky + reflections + bloom + vivid colors.");
-		} else if (argv[2] == "photo") {
-			_video_depth_of_field = true;
-			_video_dof_aperture = 50;
-			_video_dof_focus_point = 50;
-			_video_dof_range = 30;
-			_video_fake_shadows = true;
-			_video_shadow_intensity = 30;
-			_video_vignette = true;
-			_video_vignette_intensity = 25;
-			_video_color_temperature = 10;
-			_video_contrast = 105;
-			_video_fxaa = true;
-			IConsolePrint(CC_INFO, "Preset 'photo' applied: DOF + shadows + vignette (photography look).");
-		} else if (argv[2] == "stormy") {
-			_video_weather_type = 1; /* Rain */
-			_video_weather_intensity = 70;
-			_video_sky_clouds = true;
-			_video_cloud_density = 80;
-			_video_sky_brightness = 40;
-			_video_brightness = -10;
-			_video_saturation = 80;
-			_video_water_reflections = true;
-			_video_reflection_distortion = 12;
-			_video_dynamic_lighting = true;
-			IConsolePrint(CC_INFO, "Preset 'stormy' applied: rain + dark clouds + desaturated.");
-		} else if (argv[2] == "postcard") {
-			_video_terrain_smooth = true;
-			_video_terrain_smooth_strength = 60;
-			_video_tree_sway = true;
-			_video_fake_shadows = true;
-			_video_shadow_angle = 45;
-			_video_sky_clouds = true;
-			_video_cloud_density = 30;
-			_video_saturation = 120;
-			_video_brightness = 5;
-			_video_tiltshift = true;
-			_video_tiltshift_blur = 20;
-			IConsolePrint(CC_INFO, "Preset 'postcard' applied: smooth + sway + shadows + tilt-shift.");
-		} else if (argv[2] == "performance") {
-			_video_render_scale = 50;
-			_video_cpu_viewport_scaling = true;
-			_video_upscale_mode = 1; /* Bilinear */
-			_video_sharpening = 40;
-			IConsolePrint(CC_INFO, "Preset 'performance' applied: CPU viewport scaling at 50%% + bilinear upscale.");
-		} else if (argv[2] == "clean") {
-			/* Already reset above, just enable PP. */
-			IConsolePrint(CC_INFO, "Preset 'clean' applied: all effects off.");
-		} else {
+		if (!ApplyPPPreset(argv[2])) {
 			IConsolePrint(CC_ERROR, "Unknown preset '{}'. Use: retro, cinematic, night, miniature, sharp, temporal, zoom, clean, performance, realistic, fantasy, photo, stormy, postcard.", argv[2]);
 			return false;
 		}
+		IConsolePrint(CC_INFO, "Preset '{}' applied.", argv[2]);
 		return true;
 	}
 
-	IConsolePrint(CC_ERROR, "Unknown sub-command '{}'. Use: status, on, off, enable, disable, set, reset, preset.", argv[1]);
+	if (argv[1] == "cycle") {
+		CyclePPPreset();
+		return true;
+	}
+
+	IConsolePrint(CC_ERROR, "Unknown sub-command '{}'. Use: status, on, off, enable, disable, set, reset, preset, cycle.", argv[1]);
 	return false;
 }
 

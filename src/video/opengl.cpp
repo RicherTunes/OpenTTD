@@ -1286,8 +1286,8 @@ void OpenGLBackend::Paint()
 		new_config.bicubic_filtering = (_video_texture_filter == 2);
 
 		if (_video_post_processing) {
-			/* Core upscaling settings. */
-			new_config.render_scale = _video_render_scale;
+			/* Core upscaling settings. Wave 14: Clamp to valid range. */
+			new_config.render_scale = Clamp<uint8_t>(_video_render_scale, 25, 200);
 			uint8_t clamped_mode = Clamp<uint8_t>(_video_upscale_mode, 0, static_cast<uint8_t>(UpscaleMode::Plugin));
 			new_config.upscale_mode = static_cast<UpscaleMode>(clamped_mode);
 			new_config.sharpening = _video_sharpening;
@@ -1416,7 +1416,9 @@ void OpenGLBackend::Paint()
 		 * deferred mechanism needed — FBO rebuild is cheap (just texture realloc). */
 		bool fbo_need_changed = PostProcessNeedsFBO(new_config) != PostProcessNeedsFBO(this->pp_config);
 		bool scale_changed = (new_config.render_scale != this->pp_config.render_scale);
-		bool config_changed = fbo_need_changed || scale_changed ||
+		/* Wave 10: Reset temporal history when CPU scaling toggles. */
+		bool cpu_scale_changed = (new_config.cpu_viewport_scaling != this->pp_config.cpu_viewport_scaling);
+		bool config_changed = fbo_need_changed || scale_changed || cpu_scale_changed ||
 		                      (new_config.upscale_mode != this->pp_config.upscale_mode);
 		if (config_changed) this->pp_temporal_frame_count = 0;
 		this->pp_config = new_config;
@@ -1536,6 +1538,8 @@ void OpenGLBackend::Paint()
 		int gl_h = vp_b - vp_t;
 
 		if (gl_w > 0 && gl_h > 0 && this->pp_blit_program != 0) {
+			/* Wave 1: Ensure VAO is bound for vp_texture quad draw. */
+			_glBindVertexArray(this->vao_quad);
 			_glViewport(vp_l, gl_y, gl_w, gl_h);
 			_glUseProgram(this->pp_blit_program);
 			_glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
@@ -1543,6 +1547,9 @@ void OpenGLBackend::Paint()
 			/* Restore full render target viewport. */
 			_glViewport(0, 0, rt_w, rt_h);
 		}
+
+		/* Wave 16: Drain GL errors from CPU scaling compositing. */
+		while (_glGetError() != GL_NO_ERROR) {}
 	}
 
 	/* Dispatch MV rasterization if active (generates MV + depth textures for FSR 2). */
@@ -1870,29 +1877,19 @@ bool OpenGLBackend::SetupPostProcessFBOs(int display_w, int display_h)
 	_glGenFramebuffers(2, this->pp_fbo);
 	_glGenTextures(2, this->pp_tex);
 
-	/* FBO sizing:
-	 * - When render_scale > 100 (supersampling): FBOs at render resolution
-	 *   (larger than display), downsample pass writes to backbuffer.
-	 * - When render_scale < 100 (upscaling): FBO[0] at render resolution
-	 *   (smaller), FBO[1] at display resolution. The upscale pass (FSR/bilinear)
-	 *   expands from render to display size. Subsequent effect passes run at display.
-	 * - When render_scale == 100: Both FBOs at display resolution. */
+	/* Both FBOs at the max of render/display size to handle all cases.
+	 * For upscaling: FBOs at display size. Scene is rendered with a smaller
+	 *   viewport into FBO[0], then the upscale shader reads the reduced area
+	 *   and writes full display-size output. This avoids FBO size mismatch
+	 *   when ping-ponging after the upscale pass.
+	 * For supersampling: FBOs at render size (larger than display). */
+	Dimension fbo_size = (dims.render.width > dims.display.width) ? dims.render : dims.display;
+
 	for (int i = 0; i < 2; i++) {
-		Dimension tex_size;
-		if (dims.render.width > dims.display.width) {
-			/* Supersampling: both at render (larger) size. */
-			tex_size = dims.render;
-		} else if (dims.render.width < dims.display.width && i == 0) {
-			/* Upscaling: FBO[0] at render size (scene target). */
-			tex_size = dims.render;
-		} else {
-			/* Default or FBO[1]: display size. */
-			tex_size = dims.display;
-		}
 
 		_glBindTexture(GL_TEXTURE_2D, this->pp_tex[i]);
 		_glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
-			tex_size.width, tex_size.height,
+			fbo_size.width, fbo_size.height,
 			0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -1985,6 +1982,8 @@ bool OpenGLBackend::SetupViewportScratchBuffer(int vp_w, int vp_h, uint8_t rende
 	_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	_glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, dims.width, dims.height, 0, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, nullptr);
+	/* Wave 12: Prevent mipmap sampling on scratch texture. */
+	_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
 	_glBindTexture(GL_TEXTURE_2D, 0);
 
 	Debug(driver, 1, "OpenGL: Viewport scratch buffer {}x{} (scale {}%)", dims.width, dims.height, render_scale);
@@ -2407,18 +2406,10 @@ void OpenGLBackend::RenderPostProcess()
 
 	/* Night mode. */
 	if (this->pp_config.night_mode && this->pp_night_program != 0) {
-		float ni = this->pp_config.night_intensity / 100.0f;
-		float nb = this->pp_config.night_blue_shift / 100.0f;
-		(void)_glGetError(); /* Clear pre-existing errors. */
 		_glUseProgram(this->pp_night_program);
-		GLenum e1 = _glGetError();
-		_glUniform1f(this->pp_night_int_loc, ni);
-		_glUniform1f(this->pp_night_blue_loc, nb);
-		GLenum e2 = _glGetError();
+		_glUniform1f(this->pp_night_int_loc, this->pp_config.night_intensity / 100.0f);
+		_glUniform1f(this->pp_night_blue_loc, this->pp_config.night_blue_shift / 100.0f);
 		RunPass();
-		GLenum e3 = _glGetError();
-		Debug(driver, 0, "Night: ni={:.2f} nb={:.2f} errs=0x{:X}/0x{:X}/0x{:X} pass={}/{}",
-			ni, nb, e1, e2, e3, pass, total);
 	}
 
 	/* Vignette. */
