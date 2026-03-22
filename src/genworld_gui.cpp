@@ -692,7 +692,7 @@ struct GenerateLandscapeWindow : public Window {
 		for (int py = 0; py < draw_h; py++) {
 			for (int px = 0; px < draw_w; px++) {
 				uint8_t colour = this->preview.pixels[py * this->preview.width + px];
-				GfxFillRect(offset_x + px, offset_y + py, offset_x + px, offset_y + py, colour);
+				GfxFillRect(offset_x + px, offset_y + py, offset_x + px, offset_y + py, PixelColour(colour));
 			}
 		}
 	}
