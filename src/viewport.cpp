@@ -1821,12 +1821,18 @@ static void ViewportDrawDirtyBlocks()
 
 static void ViewportDrawStrings(ZoomLevel zoom, const StringSpriteToDrawVector *sstdv)
 {
+	/* Cache character heights per font size to avoid repeated lookups per string. */
+	int char_h_normal = GetCharacterHeight(FS_NORMAL);
+	int char_h_small = GetCharacterHeight(FS_SMALL);
+	int bevel_top = WidgetDimensions::scaled.fullbevel.top;
+	int bevel_bottom = WidgetDimensions::scaled.fullbevel.bottom;
+
 	for (const StringSpriteToDraw &ss : *sstdv) {
 		bool small = ss.flags.Test(ViewportStringFlag::Small);
 		int w = ss.width;
 		int x = UnScaleByZoom(ss.x, zoom);
 		int y = UnScaleByZoom(ss.y, zoom);
-		int h = WidgetDimensions::scaled.fullbevel.top + GetCharacterHeight(small ? FS_SMALL : FS_NORMAL) + WidgetDimensions::scaled.fullbevel.bottom;
+		int h = bevel_top + (small ? char_h_small : char_h_normal) + bevel_bottom;
 
 		TextColour colour = TC_WHITE;
 		if (ss.flags.Test(ViewportStringFlag::ColourRect)) {
@@ -1842,12 +1848,11 @@ static void ViewportDrawStrings(ZoomLevel zoom, const StringSpriteToDrawVector *
 
 		int left = x + WidgetDimensions::scaled.fullbevel.left;
 		int right = x + w - 1 - WidgetDimensions::scaled.fullbevel.right;
-		int top = y + WidgetDimensions::scaled.fullbevel.top;
+		int top = y + bevel_top;
 
 		int shadow_offset = 0;
 		if (small && ss.flags.Test(ViewportStringFlag::Shadow)) {
-			/* Shadow needs to be shifted 1 pixel. */
-			shadow_offset = WidgetDimensions::scaled.fullbevel.top;
+			shadow_offset = bevel_top;
 			DrawString(left + shadow_offset, right + shadow_offset, top, ss.string, TC_BLACK, SA_HOR_CENTER, false, FS_SMALL);
 		}
 
