@@ -161,6 +161,7 @@ The GPU post-processing pipeline adds visual enhancement to OpenTTD's OpenGL bac
 - **Phase 4 (Complete):** CPU viewport scaling -- render main viewport at reduced resolution (zoom+1/+2) into scratch buffer, GPU-upscale back, composited with full-res UI
 - **Phase 5 (Complete):** Viewport-only effect masking -- night mode, tilt-shift, water reflections apply only to viewport area, not UI elements
 - **Quality Gate 2 (Pending):** Visual A/B comparison requires manual game testing
+- **Quality Gate 3 (Complete):** Effect registry, ship/lab quarantine, sRGB pipeline, quality tiers, classification buffer, water metadata conversion
 
 ### Key Files
 - `src/video/postprocess.h/.cpp` -- Post-processing config (40+ fields), dimension math, FSR/CAS constants, viewport scratch dimensions
@@ -172,6 +173,7 @@ The GPU post-processing pipeline adds visual enhancement to OpenTTD's OpenGL bac
 - `src/benchmark.h/.cpp` -- GPU benchmark harness with CSV export, statistics, PP metadata
 - `src/video/pp_screenshot.h/.cpp` -- Post-processed framebuffer capture to BMP
 - `src/video/render_backend.h` -- Abstract rendering backend interface (Vulkan/DX11 composition)
+- `src/video/sprite_class.h/.cpp` -- Per-pixel sprite classification (UNKNOWN/TERRAIN/WATER/VEGETATION/STRUCTURE/VEHICLE/EFFECT/UI)
 - `src/video/upscale_plugin.h/.cpp` -- DLSS/FSR plugin C ABI + runtime loader
 - `src/tests/test_postprocess.cpp` -- 271 postprocess tests (558 assertions)
 - `src/tests/test_motion_vector.cpp` -- 38 motion vector tests
@@ -186,7 +188,10 @@ The GPU post-processing pipeline adds visual enhancement to OpenTTD's OpenGL bac
 - `pp info` -- Show GPU pipeline capabilities, loaded plugins, CPU scaling scratch buffer size
 - `pp on/off` -- Master post-processing toggle
 - `pp enable/disable <effect>` -- Toggle individual effects:
-  fxaa, night, crt, vignette, tiltshift, grain, smooth, supersample, cpu_scale, lighting, bloom, weather, shadows, water, ssao, terrain_smooth, tree_sway, sky, dof
+  Ship: fxaa, night, crt, vignette, tiltshift, grain, smooth, supersample, cpu_scale, lighting, bloom, weather
+  Lab: shadows, water, ssao, terrain_smooth, tree_sway, sky, dof
+- `pp debug_class on/off` -- Toggle classification buffer debug visualization (false-colour overlay)
+- `pp budget` -- Show current quality tier, pass count, and estimated GPU time
 - `pp set <param> <value>` -- Set numeric parameters:
   - Core: render_scale (25-200), sharpening (0-100), upscale (0-4), texture_filter (0-2)
   - Color: brightness (-50..50), contrast (50-200), saturation (0-200), temperature (-100..100)
@@ -210,6 +215,23 @@ The GPU post-processing pipeline adds visual enhancement to OpenTTD's OpenGL bac
 - `pp preset <name>` -- Apply effect presets:
   clean, retro, cinematic, night, miniature, sharp, temporal, zoom, realistic, fantasy, photo, stormy, postcard, performance
 - `pp_screenshot [filename]` -- Capture post-processed framebuffer to BMP
+
+### Effect Classification
+
+Effects are classified in the PPEffectDescriptor registry (`src/video/postprocess.cpp`):
+
+| Category | Effects | Access |
+|----------|---------|--------|
+| Core | fxaa, sharpening, color_grading, vignette, pixel_smooth, supersample | GUI + console + presets |
+| Presentation | bloom, lighting, weather, night, tiltshift | GUI + console + presets (High/Photo tier) |
+| Novelty | crt, grain | GUI + console (Photo tier) |
+| Lab | shadows, water, ssao, terrain_smooth, tree_sway, sky, dof | Console only, [LAB] tagged |
+| Research | temporal, plugin | Console only, not shipped |
+| PipelineMode | cpu_scale | Console only, not preset-eligible |
+
+**Renderer law:** A feature is not eligible to graduate from lab unless it improves both max-zoom appeal AND gameplay-zoom readability, with no NewGRF-specific failure mode.
+
+**sRGB pipeline policy:** All shader operations that interpret luminance, add light, threshold brightness, or modify contrast/saturation must use the shared `SrgbToLinear`/`LinearToSrgb` helpers in `_glsl_color_helpers[]`.
 
 ### CPU Viewport Scaling (Phase 4)
 
@@ -252,6 +274,11 @@ Night mode, tilt-shift, and water reflections pass a `viewport_uv` uniform (vec4
 - vid_program/remap_program use VBO quad (4 vertices, GL_TRIANGLE_STRIP)
 - Temporal history reset when CPU scaling toggles or render_scale changes
 - Viewport-only masking uses UV bounds uniform to restrict effects to viewport area
+- Quality tiers: Low (0 passes), Medium (<4 passes, <2ms), High (<10 passes, <5ms), Photo (unlimited)
+- Classification buffer follows anim_buf PBO pattern (GL_R8, lazy alloc, 40bpp_anim only)
+- Water effect uses class_tex instead of blue_excess heuristic (shimmer response, not literal reflection)
+- Temporal/DLSS/FSR classified as research-only until motion vector quality improves
+- DoF and SSAO are structurally wrong (luminance != depth) -- need real Z buffer, not just classification
 
 ### Settings Flow
 Global variables (`_video_*` in `video_driver.cpp`, 66+ vars) -> synced per-frame in `Paint()` -> `PostProcessConfig` struct (40+ fields) -> shader uniforms in `RenderPostProcess()`. Settings persisted in openttd.cfg via `misc_settings.ini`. GUI controls in `settings_gui.cpp` modify globals directly; all GPU sub-controls disabled when PP master toggle is off.
@@ -269,7 +296,7 @@ Global variables (`_video_*` in `video_driver.cpp`, 66+ vars) -> synced per-fram
 - EASU outlier taps use correct stretch factor (inv_stretch, not stretch)
 - RCAS, bicubic, CRT, DoF shaders clamp output to [0,1] for RGBA8 FBO safety
 - Dawn/dusk timing uses Gaussian peaks at correct positions (0.25/0.75)
-- Weather animation has independent time base from film grain
+- Single global animation time base (pp_anim_start_time) shared by all animated effects; per-effect speed uniforms control perceived rate
 - Plugin loader validates required function pointers (init/shutdown/evaluate)
 - Benchmark label and screenshot filename sanitized against path traversal
 - PostProcessPassCount ordering aligned with RenderPostProcess execution order
