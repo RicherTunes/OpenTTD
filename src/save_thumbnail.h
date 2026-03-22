@@ -19,5 +19,6 @@ inline constexpr uint16_t THUMBNAIL_HEIGHT = 96;
 
 bool GenerateSaveThumbnail(MapPreviewData &out);
 bool WriteThumbnailBMP(const MapPreviewData &preview, const std::string &filename);
+std::string DerivePreviewPath(const std::string &save_path);
 
 #endif /* SAVE_THUMBNAIL_H */

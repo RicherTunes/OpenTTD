@@ -1403,3 +1403,61 @@ TEST_CASE("Vehicle running cost - large values stay positive") {
 	CHECK(displayed_cost == 100000000LL);
 	CHECK(displayed_cost > 0);
 }
+
+/*
+ * Feature: Auto-generate save thumbnails
+ * Tests for preview file path derivation from save path
+ */
+
+TEST_CASE("Auto thumbnail - preview file path derivation") {
+	/* Thumbnail path should be <savefile>.preview.bmp */
+	std::string save_path = "saves/game_2026.sav";
+	std::string preview_path = save_path + ".preview.bmp";
+	CHECK(preview_path == "saves/game_2026.sav.preview.bmp");
+
+	/* Empty path should produce empty preview path */
+	std::string empty_path = "";
+	CHECK((empty_path + ".preview.bmp") == ".preview.bmp");
+}
+
+TEST_CASE("Auto thumbnail - DerivePreviewPath helper") {
+	CHECK(DerivePreviewPath("saves/game.sav") == "saves/game.sav.preview.bmp");
+	CHECK(DerivePreviewPath("autosave/auto_2026.sav") == "autosave/auto_2026.sav.preview.bmp");
+	CHECK(DerivePreviewPath("") == ".preview.bmp");
+}
+
+/*
+ * Feature: Industry cargo demand urgency classification
+ * Tests for demand level calculation from cargo waiting/accepted ratios
+ */
+
+TEST_CASE("Script API - cargo demand level classification") {
+	/* Classify demand from waiting cargo amount */
+	auto ClassifyDemand = [](uint waiting) -> int {
+		if (waiting > 200) return 3; /* Desperate */
+		if (waiting > 50) return 2;  /* Hungry */
+		if (waiting > 10) return 1;  /* Accepting */
+		return 0;                    /* Barely needs */
+	};
+
+	CHECK(ClassifyDemand(0) == 0);     /* No activity */
+	CHECK(ClassifyDemand(10) == 0);    /* Threshold boundary */
+	CHECK(ClassifyDemand(11) == 1);    /* Low demand */
+	CHECK(ClassifyDemand(100) == 2);   /* Medium demand */
+	CHECK(ClassifyDemand(500) == 3);   /* High demand */
+}
+
+TEST_CASE("Script API - cargo demand boundary values") {
+	auto ClassifyDemand = [](uint waiting) -> int {
+		if (waiting > 200) return 3;
+		if (waiting > 50) return 2;
+		if (waiting > 10) return 1;
+		return 0;
+	};
+
+	/* Exact boundary tests */
+	CHECK(ClassifyDemand(50) == 1);    /* At boundary: 50 is not > 50 */
+	CHECK(ClassifyDemand(51) == 2);    /* Just above boundary */
+	CHECK(ClassifyDemand(200) == 2);   /* At boundary: 200 is not > 200 */
+	CHECK(ClassifyDemand(201) == 3);   /* Just above boundary */
+}

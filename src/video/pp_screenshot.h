@@ -26,9 +26,13 @@ void RequestPPScreenshot(const std::string &filename);
 
 /** Callback type for reading pixels from the framebuffer. */
 using PPPixelReaderFunc = void (*)(int x, int y, int width, int height, void *data);
+/** Callback type for writing captured pixel data to disk or a test sink. */
+using PPImageWriterFunc = bool (*)(const std::string &filename, const uint8_t *data, int width, int height);
 
 /** Register the pixel reader function (called by the OpenGL backend). */
 void SetPPPixelReader(PPPixelReaderFunc reader);
+/** Register the image writer function (optional test seam; null uses the built-in BMP writer). */
+void SetPPImageWriter(PPImageWriterFunc writer);
 
 /**
  * Check if a PP screenshot is pending and capture it if so.
@@ -104,5 +108,14 @@ bool ConsumePPScreenshotFailureNotification(size_t &dropped_count, std::string &
  * @param dropped Receives the number of permanently dropped requests.
  */
 void GetPPScreenshotOutcomeTotals(size_t &completed, size_t &dropped);
+
+/**
+ * Query the current PP screenshot queue state for UI/console reporting.
+ * @param pending Receives the number of queued requests still waiting to capture.
+ * @param completed Receives the number of successfully written screenshots.
+ * @param dropped Receives the number of permanently dropped requests.
+ * @param next_basename Receives the sanitized basename of the next queued request, or empty if none.
+ */
+void GetPPScreenshotQueueState(size_t &pending, size_t &completed, size_t &dropped, std::string &next_basename);
 
 #endif /* VIDEO_PP_SCREENSHOT_H */

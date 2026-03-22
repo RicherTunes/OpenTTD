@@ -13,6 +13,7 @@
 #include "../fileio_func.h"
 
 #include <fstream>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -42,6 +43,7 @@ struct PPScreenshotRequest {
 
 static std::vector<PPScreenshotRequest> _pending_pp_screenshots;
 static PPPixelReaderFunc _pp_pixel_reader = nullptr;
+static PPImageWriterFunc _pp_image_writer = nullptr;
 static int _pp_active_frames = 0; ///< Consecutive frames with PP active for warmup gating.
 static size_t _pp_dropped_since_last_consume = 0;
 static std::string _pp_last_failure_summary;
@@ -75,9 +77,25 @@ static bool HandleCaptureFailure(std::string_view reason)
 	return false;
 }
 
+static bool TryGetCaptureBufferSize(int width, int height, size_t &buffer_size)
+{
+	if (width <= 0 || height <= 0) return false;
+
+	uint64_t pixel_count = static_cast<uint64_t>(width) * static_cast<uint64_t>(height);
+	if (pixel_count > std::numeric_limits<size_t>::max() / 4) return false;
+
+	buffer_size = static_cast<size_t>(pixel_count) * 4;
+	return true;
+}
+
 void SetPPPixelReader(PPPixelReaderFunc reader)
 {
 	_pp_pixel_reader = reader;
+}
+
+void SetPPImageWriter(PPImageWriterFunc writer)
+{
+	_pp_image_writer = writer;
 }
 
 void RequestPPScreenshot(const std::string &filename)
@@ -104,6 +122,7 @@ void ClearPendingPPScreenshots()
 	_pp_last_failure_summary.clear();
 	_pp_completed_total = 0;
 	_pp_dropped_total = 0;
+	_pp_image_writer = nullptr;
 }
 
 std::string SanitizePPScreenshotBasename(std::string_view basename)
@@ -157,6 +176,14 @@ void GetPPScreenshotOutcomeTotals(size_t &completed, size_t &dropped)
 {
 	completed = _pp_completed_total;
 	dropped = _pp_dropped_total;
+}
+
+void GetPPScreenshotQueueState(size_t &pending, size_t &completed, size_t &dropped, std::string &next_basename)
+{
+	pending = _pending_pp_screenshots.size();
+	completed = _pp_completed_total;
+	dropped = _pp_dropped_total;
+	next_basename = pending > 0 ? SanitizePPScreenshotBasename(_pending_pp_screenshots.front().filename) : std::string();
 }
 
 /**
@@ -228,12 +255,18 @@ bool CapturePPScreenshotIfPending(int width, int height)
 		return HandleCaptureFailure("no pixel reader registered");
 	}
 
-	std::vector<uint8_t> pixels(static_cast<size_t>(width) * height * 4);
+	size_t buffer_size = 0;
+	if (!TryGetCaptureBufferSize(width, height, buffer_size)) {
+		return HandleCaptureFailure(fmt::format("capture buffer too large for {}x{}", width, height));
+	}
+
+	std::vector<uint8_t> pixels(buffer_size);
 
 	Debug(misc, 0, "PP screenshot: capturing {}x{} to {}", width, height, filename);
 	_pp_pixel_reader(0, 0, width, height, pixels.data());
 
-	if (!WriteBMP(filename, pixels, width, height)) {
+	bool write_ok = _pp_image_writer != nullptr ? _pp_image_writer(filename, pixels.data(), width, height) : WriteBMP(filename, pixels, width, height);
+	if (!write_ok) {
 		return HandleCaptureFailure(fmt::format("failed to write {}", filename));
 	}
 

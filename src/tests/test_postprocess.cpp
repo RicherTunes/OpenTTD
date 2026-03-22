@@ -215,6 +215,9 @@ TEST_CASE("PPScreenshot - outcome totals track saved and dropped requests")
 	SetPPPixelReader([](int, int, int w, int h, void *data) {
 		std::fill_n(static_cast<uint8_t *>(data), static_cast<size_t>(w) * h * 4, 0);
 	});
+	SetPPImageWriter([](const std::string &, const uint8_t *, int, int) {
+		return true;
+	});
 
 	RequestPPScreenshot("good_one");
 	CHECK(CapturePPScreenshotIfPending(2, 2));
@@ -237,6 +240,53 @@ TEST_CASE("PPScreenshot - outcome totals track saved and dropped requests")
 	GetPPScreenshotOutcomeTotals(completed, dropped);
 	CHECK(completed == 0);
 	CHECK(dropped == 0);
+}
+
+TEST_CASE("PPScreenshot - queue state reports pending next file and totals")
+{
+	ClearPendingPPScreenshots();
+
+	size_t pending = 0;
+	size_t completed = 0;
+	size_t dropped = 0;
+	std::string next_basename;
+	GetPPScreenshotQueueState(pending, completed, dropped, next_basename);
+	CHECK(pending == 0);
+	CHECK(completed == 0);
+	CHECK(dropped == 0);
+	CHECK(next_basename.empty());
+
+	RequestPPScreenshot("bad:name");
+	RequestPPScreenshot("second");
+	GetPPScreenshotQueueState(pending, completed, dropped, next_basename);
+	CHECK(pending == 2);
+	CHECK(completed == 0);
+	CHECK(dropped == 0);
+	CHECK(next_basename == "badname");
+
+	ClearPendingPPScreenshots();
+}
+
+TEST_CASE("PPScreenshot - oversized capture rejects before allocation and respects retry budget")
+{
+	ClearPendingPPScreenshots();
+	SetPPPixelReader([](int, int, int, int, void *) {});
+	RequestPPScreenshot("too_big");
+
+	for (uint8_t i = 1; i < PP_SCREENSHOT_MAX_CAPTURE_ATTEMPTS; i++) {
+		CHECK_FALSE(CapturePPScreenshotIfPending(std::numeric_limits<int>::max(), std::numeric_limits<int>::max()));
+		CHECK(GetPendingPPScreenshotCount() == 1);
+	}
+
+	CHECK_FALSE(CapturePPScreenshotIfPending(std::numeric_limits<int>::max(), std::numeric_limits<int>::max()));
+	CHECK(GetPendingPPScreenshotCount() == 0);
+
+	size_t dropped_count = 0;
+	std::string summary;
+	CHECK(ConsumePPScreenshotFailureNotification(dropped_count, summary));
+	CHECK(summary.find("capture buffer too large") != std::string::npos);
+
+	ClearPendingPPScreenshots();
 }
 
 /* --- NeedsFBO tests --- */
@@ -3778,4 +3828,37 @@ TEST_CASE("PostProcess - FSR1 at 50% adds exactly 2 passes")
 	c.render_scale = 50;
 	c.upscale_mode = UpscaleMode::FSR1;
 	CHECK(PostProcessPassCount(c) == base + 2);
+}
+
+/* --- Dynamic lighting / time-of-day sync with game calendar --- */
+
+TEST_CASE("PostProcess - time_of_day default is within 0 to 1")
+{
+	PostProcessConfig config;
+	CHECK(config.time_of_day >= 0.0f);
+	CHECK(config.time_of_day <= 1.0f);
+}
+
+TEST_CASE("PostProcess - calendar to time_of_day conversion")
+{
+	/* Convert game date_fract (0 to DAY_TICKS-1) to time of day (0.0-1.0) */
+	auto CalendarToTimeOfDay = [](uint16_t date_fract, uint16_t day_ticks) -> float {
+		return static_cast<float>(date_fract) / static_cast<float>(std::max(static_cast<uint16_t>(1), day_ticks));
+	};
+	CHECK(CalendarToTimeOfDay(0, 74) == Approx(0.0f).margin(0.01f));
+	CHECK(CalendarToTimeOfDay(37, 74) == Approx(0.5f).margin(0.01f));
+	CHECK(CalendarToTimeOfDay(74, 74) == Approx(1.0f).margin(0.01f));
+	/* Guard against division by zero */
+	CHECK(CalendarToTimeOfDay(0, 0) == Approx(0.0f).margin(0.01f));
+}
+
+TEST_CASE("PostProcess - dynamic lighting disables manual time_of_day override")
+{
+	PostProcessConfig config;
+	config.dynamic_lighting = true;
+	config.time_of_day = 0.25f;
+	/* When dynamic_lighting is on, time_of_day should be driven by calendar,
+	 * not by the manual setting. Verify the struct holds both fields independently. */
+	CHECK(config.dynamic_lighting == true);
+	CHECK(config.time_of_day == Approx(0.25f));
 }

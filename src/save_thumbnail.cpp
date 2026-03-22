@@ -71,6 +71,18 @@ bool GenerateSaveThumbnail(MapPreviewData &out)
 }
 
 /**
+ * Derive the preview thumbnail path from a save game path.
+ * Simply appends ".preview.bmp" to the save path.
+ *
+ * @param save_path The path to the save game file.
+ * @return The derived preview file path.
+ */
+std::string DerivePreviewPath(const std::string &save_path)
+{
+	return save_path + ".preview.bmp";
+}
+
+/**
  * Write a little-endian 16-bit value to a buffer.
  * @param buf Target buffer.
  * @param val Value to write.
