@@ -129,6 +129,15 @@ uint8_t GetHarborScore(TileIndex tile)
 }
 
 /**
+ * Check if harbor scores have been computed and are available.
+ * @return True if harbor scores are available for querying.
+ */
+bool HasValidHarborScores()
+{
+	return !_harbor_scores.empty();
+}
+
+/**
  * Free the harbor scores array after generation is complete.
  */
 void FreeHarborScores()

@@ -51,6 +51,8 @@
 #include "timer/timer_game_economy.h"
 #include "timer/timer_game_tick.h"
 
+#include "harbor_gen.h"
+
 #include "table/strings.h"
 #include "table/industry_land.h"
 #include "table/build_industry.h"
@@ -2380,9 +2382,52 @@ static uint GetNumberOfIndustries()
 }
 
 /**
+ * Check if an industry type is port-like (requires or prefers water adjacency).
+ * Port-type industries benefit from harbor score biasing during map generation.
+ * @param type The industry type to check.
+ * @return True if the industry is a port-type.
+ */
+static bool IsPortTypeIndustry(IndustryType type)
+{
+	const IndustrySpec *indspec = GetIndustrySpec(type);
+	return indspec->check_proc == CHECK_REFINERY
+		|| indspec->check_proc == CHECK_OIL_RIG
+		|| indspec->behaviour.Test(IndustryBehaviour::BuiltOnWater);
+}
+
+/**
+ * Select a tile biased toward high harbor scores for port-type industries.
+ * Tries multiple random tiles and picks the one with the highest harbor score.
+ * Falls back to a random tile if no scored tiles are found.
+ * @return A tile index biased toward good harbor locations.
+ */
+static TileIndex SelectHarborBiasedTile()
+{
+	static constexpr uint HARBOR_CANDIDATES = 8; ///< Number of random candidates to evaluate.
+
+	TileIndex best_tile = RandomTile();
+	uint8_t best_score = GetHarborScore(best_tile);
+
+	for (uint i = 1; i < HARBOR_CANDIDATES; i++) {
+		TileIndex candidate = RandomTile();
+		uint8_t score = GetHarborScore(candidate);
+		if (score > best_score) {
+			best_tile = candidate;
+			best_score = score;
+		}
+	}
+
+	return best_tile;
+}
+
+/**
  * Try to place the industry in the game.
  * Since there is no feedback why placement fails, there is no other option
  * than to try a few times before concluding it does not work.
+ *
+ * For port-type industries during map generation, tile selection is biased
+ * toward tiles with high harbor scores (sheltered bays and inlets).
+ *
  * @param type     Industry type of the desired industry.
  * @param creation_type The circumstances the industry is created under.
  * @param try_hard Try very hard to find a place. (Used to place at least one industry per type.)
@@ -2390,9 +2435,17 @@ static uint GetNumberOfIndustries()
  */
 static Industry *PlaceIndustry(IndustryType type, IndustryAvailabilityCallType creation_type, bool try_hard)
 {
+	bool use_harbor_bias = _generating_world && IsPortTypeIndustry(type) && HasValidHarborScores();
+
 	uint tries = try_hard ? 10000u : 2000u;
 	for (; tries > 0; tries--) {
-		Industry *ind = CreateNewIndustry(RandomTile(), type, creation_type);
+		TileIndex tile;
+		if (use_harbor_bias) {
+			tile = SelectHarborBiasedTile();
+		} else {
+			tile = RandomTile();
+		}
+		Industry *ind = CreateNewIndustry(tile, type, creation_type);
 		if (ind != nullptr) return ind;
 	}
 	return nullptr;

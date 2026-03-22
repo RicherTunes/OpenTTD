@@ -128,11 +128,47 @@ static void PlantTreesOnTile(TileIndex tile, TreeType treetype, uint count, Tree
 }
 
 /**
+ * Bias a tree seed value based on simulated temperature from tile altitude.
+ * Cold tiles (high altitude) bias toward lower seed values (conifers),
+ * warm tiles (low altitude) bias toward higher seed values (deciduous/tropical).
+ *
+ * The bias is a weighted average: biased_seed = seed * (1 - strength) + temp_seed * strength
+ * where temp_seed is the temperature-derived target and strength controls how strong
+ * the altitude effect is (0.6 = 60% altitude influence, 40% pure random).
+ *
+ * @param seed The original random seed in [0, 255].
+ * @param tile The tile whose altitude determines temperature.
+ * @return The biased seed, still in [0, 255].
+ */
+static uint BiasTreeSeedByTemperature(uint seed, TileIndex tile)
+{
+	uint h = GetTileZ(tile);
+	uint max_h = std::max<uint>(1u, _settings_game.construction.map_height_limit);
+
+	/* Temperature decreases linearly with altitude: temp in [0.0, 1.0] where 1.0 = warm (low). */
+	double temp = 1.0 - static_cast<double>(std::min(h, max_h)) / max_h;
+
+	/* Target seed based on temperature: warm tiles aim for higher seeds, cold for lower. */
+	double temp_seed = temp * 255.0;
+
+	/* Blend: 60% altitude influence, 40% pure random for natural variety. */
+	static constexpr double BIAS_STRENGTH = 0.6;
+	double biased = seed * (1.0 - BIAS_STRENGTH) + temp_seed * BIAS_STRENGTH;
+
+	return Clamp(static_cast<uint>(biased + 0.5), 0u, 255u);
+}
+
+/**
  * Get a random TreeType for the given tile based on a given seed
  *
  * This function returns a random TreeType which can be placed on the given tile.
  * The seed for randomness must be less or equal 256, use #GB on the value of Random()
  * to get such a value.
+ *
+ * When the biome model is TemperatureBased and the world is being generated,
+ * the seed is biased by the tile's altitude so that cold (high) tiles
+ * get lower tree type indices (conifers) and warm (low) tiles get higher
+ * indices (deciduous / tropical).
  *
  * @param tile The tile to get a random TreeType from
  * @param seed The seed for randomness, must be less or equal 256
@@ -140,6 +176,11 @@ static void PlantTreesOnTile(TileIndex tile, TreeType treetype, uint count, Tree
  */
 static TreeType GetRandomTreeType(TileIndex tile, uint seed)
 {
+	/* Bias tree type by simulated temperature when biome model is active during generation. */
+	if (_generating_world && _settings_game.game_creation.biome_model == BiomeModel::TemperatureBased) {
+		seed = BiasTreeSeedByTemperature(seed, tile);
+	}
+
 	switch (_settings_game.game_creation.landscape) {
 		case LandscapeType::Temperate:
 			return static_cast<TreeType>(seed * TREE_COUNT_TEMPERATE / 256 + TREE_TEMPERATE);

@@ -14,6 +14,7 @@
 
 void ComputeHarborScores();
 uint8_t GetHarborScore(TileIndex tile);
+bool HasValidHarborScores();
 void FreeHarborScores();
 
 #endif /* HARBOR_GEN_H */
