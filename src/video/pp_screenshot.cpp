@@ -9,6 +9,7 @@
 
 #include "../stdafx.h"
 #include "pp_screenshot.h"
+#include "video_driver.hpp"
 #include "../debug.h"
 #include "../fileio_func.h"
 
@@ -34,7 +35,13 @@ static inline void WriteLE16(uint8_t *buf, int16_t val)
 	buf[1] = static_cast<uint8_t>(val >> 8);
 }
 
-static std::vector<std::string> _pending_pp_screenshots;
+/** Queued screenshot with its settings snapshot. */
+struct PPScreenshotRequest {
+	std::string filename;
+	PPSettingsSnapshot settings;
+};
+
+static std::vector<PPScreenshotRequest> _pending_pp_screenshots;
 static PPPixelReaderFunc _pp_pixel_reader = nullptr;
 
 void SetPPPixelReader(PPPixelReaderFunc reader)
@@ -47,9 +54,74 @@ void SetPPPixelReader(PPPixelReaderFunc reader)
  * Multiple requests are queued and each captures on a separate frame.
  * @param filename Output filename (without extension).
  */
+PPSettingsSnapshot CapturePPSettings()
+{
+	PPSettingsSnapshot s;
+	s.post_processing = _video_post_processing;
+	s.render_scale = _video_render_scale;
+	s.upscale_mode = _video_upscale_mode;
+	s.sharpening = _video_sharpening;
+	s.texture_filter = _video_texture_filter;
+	s.fxaa = _video_fxaa;
+	s.night_mode = _video_night_mode;
+	s.crt_filter = _video_crt_filter;
+	s.vignette = _video_vignette;
+	s.tiltshift = _video_tiltshift;
+	s.film_grain = _video_film_grain;
+	s.brightness = _video_brightness;
+	s.contrast = _video_contrast;
+	s.saturation = _video_saturation;
+	s.color_temperature = _video_color_temperature;
+	s.night_intensity = _video_night_intensity;
+	s.night_blue_shift = _video_night_blue_shift;
+	s.crt_scanlines = _video_crt_scanlines;
+	s.crt_curvature = _video_crt_curvature;
+	s.crt_aberration = _video_crt_aberration;
+	s.vignette_intensity = _video_vignette_intensity;
+	s.vignette_radius = _video_vignette_radius;
+	s.tiltshift_focus_y = _video_tiltshift_focus_y;
+	s.tiltshift_focus_width = _video_tiltshift_focus_width;
+	s.tiltshift_blur = _video_tiltshift_blur;
+	s.grain_intensity = _video_grain_intensity;
+	return s;
+}
+
+void RestorePPSettings(const PPSettingsSnapshot &s)
+{
+	_video_post_processing = s.post_processing;
+	_video_render_scale = s.render_scale;
+	_video_upscale_mode = s.upscale_mode;
+	_video_sharpening = s.sharpening;
+	_video_texture_filter = s.texture_filter;
+	_video_fxaa = s.fxaa;
+	_video_night_mode = s.night_mode;
+	_video_crt_filter = s.crt_filter;
+	_video_vignette = s.vignette;
+	_video_tiltshift = s.tiltshift;
+	_video_film_grain = s.film_grain;
+	_video_brightness = s.brightness;
+	_video_contrast = s.contrast;
+	_video_saturation = s.saturation;
+	_video_color_temperature = s.color_temperature;
+	_video_night_intensity = s.night_intensity;
+	_video_night_blue_shift = s.night_blue_shift;
+	_video_crt_scanlines = s.crt_scanlines;
+	_video_crt_curvature = s.crt_curvature;
+	_video_crt_aberration = s.crt_aberration;
+	_video_vignette_intensity = s.vignette_intensity;
+	_video_vignette_radius = s.vignette_radius;
+	_video_tiltshift_focus_y = s.tiltshift_focus_y;
+	_video_tiltshift_focus_width = s.tiltshift_focus_width;
+	_video_tiltshift_blur = s.tiltshift_blur;
+	_video_grain_intensity = s.grain_intensity;
+}
+
 void RequestPPScreenshot(const std::string &filename)
 {
-	_pending_pp_screenshots.push_back(filename);
+	PPScreenshotRequest req;
+	req.filename = filename;
+	req.settings = CapturePPSettings();
+	_pending_pp_screenshots.push_back(std::move(req));
 	Debug(misc, 0, "PP screenshot requested: {} (queue: {})", filename, _pending_pp_screenshots.size());
 }
 
@@ -113,13 +185,22 @@ static bool WriteBMP(const std::string &filename, const std::vector<uint8_t> &da
  * @param width Current framebuffer width.
  * @param height Current framebuffer height.
  */
+void ApplyNextPPScreenshotSettings()
+{
+	if (_pending_pp_screenshots.empty()) return;
+	RestorePPSettings(_pending_pp_screenshots.front().settings);
+}
+
 void CapturePPScreenshotIfPending(int width, int height)
 {
 	if (_pending_pp_screenshots.empty()) return;
 
-	/* Dequeue one screenshot per frame. */
-	std::string basename = _pending_pp_screenshots.front();
+	/* Dequeue one screenshot per frame. Restore its settings snapshot
+	 * so the PP pipeline renders with the correct effect state. */
+	PPScreenshotRequest req = std::move(_pending_pp_screenshots.front());
 	_pending_pp_screenshots.erase(_pending_pp_screenshots.begin());
+	/* Settings were already applied at Paint() start via ApplyNextPPScreenshotSettings(). */
+	std::string basename = req.filename;
 
 	/* Sanitize filename: strip path separators and special characters. */
 	std::string safe_name;
