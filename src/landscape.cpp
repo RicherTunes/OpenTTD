@@ -1807,10 +1807,13 @@ static void CreateDesertOrRainForestWithBiomes()
 	double inv_max_h = 1.0 / max_h;
 	double noise_factor = 0.25;
 
-	/* First pass: compute temperature and mark desert */
+	/* First pass: compute per-tile temperature as a uint8 (0=cold, 255=hot)
+	 * and build a histogram to find the temperature threshold for the desired
+	 * desert coverage. This avoids sorting all tiles (O(n log n) + O(n) memory)
+	 * in favour of a histogram approach (O(n) time, O(1) extra memory). */
+	static constexpr int TEMP_BINS = 256;
+	uint histogram[TEMP_BINS] = {};
 	uint land_tiles = 0;
-	std::vector<std::pair<TileIndex, double>> tile_temps;
-	tile_temps.reserve(Map::Size() / 2);
 
 	for (const auto tile : Map::Iterate()) {
 		if ((tile % update_freq) == 0) IncreaseGeneratingWorldProgress(GWP_LANDSCAPE);
@@ -1819,30 +1822,46 @@ static void CreateDesertOrRainForestWithBiomes()
 		if (h == 0) continue;
 		land_tiles++;
 
-		/* Temperature: lower altitude = hotter (for desert) */
-		double base_temp = (double)h * inv_max_h;
+		uint x = TileX(tile);
+		uint y = TileY(tile);
+		uint noise_val = ((x * 374761393u + y * 668265263u) ^ (x * y * 1274126177u)) & 0xFF;
+		double noise = ((double)noise_val / 255.0 - 0.5) * 2.0;
+		double temperature = Clamp(1.0 - (double)h * inv_max_h + noise_factor * noise, 0.0, 1.0);
+		histogram[Clamp((int)(temperature * 255.0), 0, 255)]++;
+	}
+
+	/* Find temperature threshold: accumulate from hottest bin (255) downward
+	 * until we reach the desired desert coverage percentage. */
+	uint desert_goal = land_tiles * coverage / 100;
+	uint accumulated = 0;
+	int temp_threshold = TEMP_BINS; /* Start above max — nothing is desert yet. */
+	for (int i = TEMP_BINS - 1; i >= 0; i--) {
+		accumulated += histogram[i];
+		if (accumulated >= desert_goal) {
+			temp_threshold = i;
+			break;
+		}
+	}
+
+	/* Second pass: mark tiles with temperature >= threshold as desert. */
+	uint desert_count = 0;
+	for (const auto tile : Map::Iterate()) {
+		if (desert_count >= desert_goal) break;
+		if (!IsValidTile(tile)) continue;
+		uint h = TileHeight(tile);
+		if (h == 0) continue;
 
 		uint x = TileX(tile);
 		uint y = TileY(tile);
 		uint noise_val = ((x * 374761393u + y * 668265263u) ^ (x * y * 1274126177u)) & 0xFF;
 		double noise = ((double)noise_val / 255.0 - 0.5) * 2.0;
+		double temperature = Clamp(1.0 - (double)h * inv_max_h + noise_factor * noise, 0.0, 1.0);
+		int temp_bin = Clamp((int)(temperature * 255.0), 0, 255);
 
-		double temperature = Clamp(1.0 - base_temp + noise_factor * noise, 0.0, 1.0);
-		tile_temps.push_back({tile, temperature});
-	}
-
-	/* Sort by temperature descending to find the hottest coverage% */
-	std::sort(tile_temps.begin(), tile_temps.end(),
-		[](const auto &a, const auto &b) { return a.second > b.second; });
-
-	uint desert_goal = land_tiles * coverage / 100;
-	uint desert_count = 0;
-
-	for (const auto &[tile, temp] : tile_temps) {
-		if (desert_count >= desert_goal) break;
-		if (IsTileType(tile, TileType::Water)) continue;
-		SetTropicZone(tile, TROPICZONE_DESERT);
-		desert_count++;
+		if (temp_bin >= temp_threshold && !IsTileType(tile, TileType::Water)) {
+			SetTropicZone(tile, TROPICZONE_DESERT);
+			desert_count++;
+		}
 	}
 
 	/* Run tile loop to let desert spread */

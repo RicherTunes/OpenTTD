@@ -114,9 +114,13 @@ int PostProcessPassCount(const PostProcessConfig &config)
 {
 	int passes = 0;
 
-	/* Upscaling passes. */
-	if (config.upscale_mode == UpscaleMode::FSR1) {
+	/* Upscaling passes.
+	 * FSR1 EASU only runs when render_scale < 100 (actual upscaling needed).
+	 * At >= 100%, FSR1 mode falls back to CAS sharpening to avoid EASU blur. */
+	if (config.upscale_mode == UpscaleMode::FSR1 && config.render_scale < 100) {
 		passes += 2; /* EASU + RCAS */
+	} else if (config.upscale_mode == UpscaleMode::FSR1 && config.render_scale >= 100) {
+		if (config.sharpening > 0) passes += 1; /* CAS fallback for sharpening. */
 	} else if (config.upscale_mode == UpscaleMode::Temporal) {
 		passes += 1; /* Temporal accumulation pass. */
 	} else if (config.upscale_mode == UpscaleMode::Plugin) {

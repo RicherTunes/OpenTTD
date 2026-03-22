@@ -2072,34 +2072,22 @@ void OpenGLBackend::RenderPostProcess()
 
 	int src = 0;
 	int pass = 0;
-	int total = PostProcessPassCount(this->pp_config);
 
-	if (total == 0) {
-		/* No passes but FBO was bound -- just blit to screen. */
-		_glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		_glViewport(0, 0, this->pp_display_size.width, this->pp_display_size.height);
-		_glClear(GL_COLOR_BUFFER_BIT);
-		_glActiveTexture(GL_TEXTURE0);
-		_glBindTexture(GL_TEXTURE_2D, this->pp_scene_tex != 0 ? this->pp_scene_tex : this->pp_tex[0]);
-		if (this->pp_blit_program == 0) {
-			/* Blit shader not available -- unbind FBO and return. */
-			return;
-		}
-		_glUseProgram(this->pp_blit_program);
-		_glBindVertexArray(this->vao_quad);
-		_glDrawArrays(GL_TRIANGLES, 0, 3);
-		return;
-	}
-
-	/* Count actual passes (only those with valid shader programs). */
+	/* Count actual passes (only those with valid shader programs and loaded plugins).
+	 * This may differ from PostProcessPassCount() which counts theoretical passes. */
 	auto WillRun = [&](bool enabled, GLuint program) -> bool {
 		return enabled && program != 0;
 	};
 
-	total = 0;
-	if (this->pp_config.upscale_mode == UpscaleMode::FSR1) {
+	int total = 0;
+	/* FSR1 EASU is an upscale filter — only useful when render < display.
+	 * At render_scale >= 100 it becomes a blur. Skip EASU, only run RCAS for sharpening. */
+	if (this->pp_config.upscale_mode == UpscaleMode::FSR1 && this->pp_config.render_scale < 100) {
 		if (this->pp_fsr_easu_program != 0) total++;
 		if (this->pp_fsr_rcas_program != 0) total++;
+	} else if (this->pp_config.upscale_mode == UpscaleMode::FSR1 && this->pp_config.render_scale >= 100) {
+		/* At native or supersampled resolution, use CAS sharpening instead of FSR RCAS. */
+		if (this->pp_config.sharpening > 0 && this->pp_cas_program != 0) total++;
 	} else if (this->pp_config.upscale_mode == UpscaleMode::Bilinear && this->pp_config.render_scale < 100) {
 		if (this->pp_config.bicubic_filtering && this->pp_bicubic_program != 0) {
 			total++;
@@ -2177,8 +2165,10 @@ void OpenGLBackend::RenderPostProcess()
 	float texel_w = 1.0f / std::max(1u, work_size.width);
 	float texel_h = 1.0f / std::max(1u, work_size.height);
 
-	/* Upscaling passes. */
-	if (this->pp_config.upscale_mode == UpscaleMode::FSR1 && this->pp_fsr_easu_program != 0) {
+	/* Upscaling passes.
+	 * FSR1 EASU is an upscale filter — only useful when render < display.
+	 * At render_scale >= 100 it acts as a blur, so skip EASU and use CAS instead. */
+	if (this->pp_config.upscale_mode == UpscaleMode::FSR1 && this->pp_config.render_scale < 100 && this->pp_fsr_easu_program != 0) {
 		float con0[4], con1[4], con2[4], con3[4];
 		ComputeFsrEasuConstants(con0, con1, con2, con3,
 			(float)this->pp_render_size.width, (float)this->pp_render_size.height,
@@ -2192,13 +2182,20 @@ void OpenGLBackend::RenderPostProcess()
 		RunPass();
 
 		if (this->pp_fsr_rcas_program != 0) {
-			/* RCAS sharpening: use user value directly. 0 maps to 2.0 (no sharpening),
-			 * which effectively makes this a passthrough. */
 			_glUseProgram(this->pp_fsr_rcas_program);
 			_glUniform2f(this->pp_rcas_texel_loc, texel_w, texel_h);
 			_glUniform1f(this->pp_rcas_con_loc, MapSharpeningToFsrRcas(this->pp_config.sharpening));
 			RunPass();
 		}
+	} else if (this->pp_config.upscale_mode == UpscaleMode::FSR1 && this->pp_config.render_scale >= 100 && this->pp_config.sharpening > 0 && this->pp_cas_program != 0) {
+		/* FSR1 at native/supersampled res: use CAS sharpening only (no EASU blur). */
+		float cas_con[4];
+		ComputeCasConstant(cas_con, MapSharpeningToCas(this->pp_config.sharpening),
+			(float)work_size.width, (float)work_size.height);
+		_glUseProgram(this->pp_cas_program);
+		_glUniform1f(this->pp_cas_sharp_loc, cas_con[0]);
+		_glUniform2f(this->pp_cas_texel_loc, cas_con[1], cas_con[2]);
+		RunPass();
 	} else if (this->pp_config.upscale_mode == UpscaleMode::Bilinear && this->pp_config.render_scale < 100) {
 		if (this->pp_config.bicubic_filtering && this->pp_bicubic_program != 0) {
 			/* Bicubic (Catmull-Rom) upscale pass. texel_size is the input (render-resolution)
@@ -2655,15 +2652,16 @@ void OpenGLBackend::RenderPostProcess()
 		RunPass();
 	}
 
-	/* Safety: if no passes actually ran (e.g. all shader programs failed to compile),
-	 * blit the FBO content to screen to avoid a black frame. */
+	/* Safety: if no passes actually ran (e.g. all shader programs failed to compile,
+	 * or upscale plugin not loaded), blit the FBO content to screen to avoid a black frame.
+	 * When render_scale < 100%, the scene is in pp_scene_tex (not pp_tex[0]). */
 	if (pass == 0) {
 		_glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		_glViewport(0, 0, this->pp_display_size.width, this->pp_display_size.height);
 		_glClear(GL_COLOR_BUFFER_BIT);
 		if (this->pp_blit_program != 0) {
 			_glActiveTexture(GL_TEXTURE0);
-			_glBindTexture(GL_TEXTURE_2D, this->pp_tex[0]);
+			_glBindTexture(GL_TEXTURE_2D, this->pp_scene_tex != 0 ? this->pp_scene_tex : this->pp_tex[0]);
 			_glUseProgram(this->pp_blit_program);
 			_glBindVertexArray(this->vao_quad);
 			_glDrawArrays(GL_TRIANGLES, 0, 3);
