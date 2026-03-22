@@ -1669,6 +1669,10 @@ void OpenGLBackend::Paint()
 	int capture_w = this->pp_active ? (int)this->pp_display_size.width : _screen.width;
 	int capture_h = this->pp_active ? (int)this->pp_display_size.height : _screen.height;
 	CapturePPScreenshotIfPending(capture_w, capture_h);
+
+	/* If exit was deferred for screenshot queue drain, check if done. */
+	extern void CheckDeferredExit();
+	CheckDeferredExit();
 }
 
 /**

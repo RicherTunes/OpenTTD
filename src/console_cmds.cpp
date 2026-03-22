@@ -1927,6 +1927,8 @@ static bool ConDebugLevel(std::span<std::string_view> argv)
 	return true;
 }
 
+static bool _exit_after_screenshots = false; ///< Deferred exit: set when exit is requested with pending PP screenshots.
+
 /** Exit the game, i.e. exit the complete application. @copydoc IConsoleCmdProc */
 static bool ConExit(std::span<std::string_view> argv)
 {
@@ -1937,8 +1939,29 @@ static bool ConExit(std::span<std::string_view> argv)
 
 	if (_game_mode == GM_NORMAL && _settings_client.gui.autosave_on_exit) DoExitSave();
 
+	/* Defer exit if PP screenshots are still queued.  Each screenshot
+	 * needs one paint frame to capture via glReadPixels.  The main loop
+	 * will keep running until the queue drains, then exit. */
+	if (HasPendingPPScreenshots()) {
+		_exit_after_screenshots = true;
+		IConsolePrint(CC_INFO, "Exit deferred: {} PP screenshot(s) still queued.", 0 /* placeholder */);
+		return true;
+	}
+
 	_exit_game = true;
 	return true;
+}
+
+/**
+ * Check if deferred exit should now proceed (all screenshots captured).
+ * Called from the main paint loop after CapturePPScreenshotIfPending.
+ */
+void CheckDeferredExit()
+{
+	if (_exit_after_screenshots && !HasPendingPPScreenshots()) {
+		_exit_after_screenshots = false;
+		_exit_game = true;
+	}
 }
 
 /** Part the game, i.e. go back to the main menu. @copydoc IConsoleCmdProc */

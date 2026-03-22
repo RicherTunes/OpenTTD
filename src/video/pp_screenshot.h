@@ -55,6 +55,12 @@ void SetPPPixelReader(PPPixelReaderFunc reader);
 void CapturePPScreenshotIfPending(int width, int height);
 
 /**
+ * Check if there are pending PP screenshots waiting to be captured.
+ * @return True if the queue is non-empty.
+ */
+bool HasPendingPPScreenshots();
+
+/**
  * If screenshots are queued, restore the next screenshot's settings.
  * Call this at the START of Paint() before config sync.
  * This ensures the PP pipeline renders with the correct settings

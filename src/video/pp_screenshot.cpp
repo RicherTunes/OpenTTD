@@ -302,6 +302,17 @@ void RequestPPScreenshot(const std::string &filename)
 }
 
 /**
+ * Check if there are pending PP screenshots waiting to be captured.
+ * Used by the exit handler to defer shutdown until all queued
+ * screenshots have been processed (one per paint frame).
+ * @return True if the queue is non-empty.
+ */
+bool HasPendingPPScreenshots()
+{
+	return !_pending_pp_screenshots.empty();
+}
+
+/**
  * Write a BMP file from raw RGBA pixel data.
  * @param filename Output path.
  * @param data RGBA pixel data (bottom-up).
