@@ -2048,8 +2048,9 @@ static constexpr std::initializer_list<NWidgetPart> _nested_game_options_widgets
 				NWidget(NWID_SPACER), SetFill(1, 1), SetResize(1, 1), // Allows this pane to resize
 			EndContainer(),
 
-			/* Graphics tab */
-			NWidget(NWID_VERTICAL), SetPadding(WidgetDimensions::unscaled.sparse_resize),
+			/* Graphics tab — scrollable to accommodate all GPU rendering controls. */
+			NWidget(NWID_HORIZONTAL),
+				NWidget(WWT_PANEL, GAME_OPTIONS_BACKGROUND), SetFill(1, 1), SetResize(1, 1), SetScrollbar(WID_GO_GRAPHICS_SCROLL), SetPadding(WidgetDimensions::unscaled.sparse_resize),
 				NWidget(NWID_VERTICAL), SetPIP(0, WidgetDimensions::unscaled.vsep_wide, 0),
 					NWidget(WWT_FRAME, GAME_OPTIONS_BACKGROUND), SetStringTip(STR_GAME_OPTIONS_INTERFACE), SetTextStyle(GAME_OPTIONS_FRAME),
 						NWidget(NWID_VERTICAL), SetPIP(0, WidgetDimensions::unscaled.vsep_normal, 0),
@@ -2270,7 +2271,10 @@ static constexpr std::initializer_list<NWidgetPart> _nested_game_options_widgets
 						EndContainer(),
 					EndContainer(),
 				EndContainer(),
-				NWidget(NWID_SPACER), SetFill(1, 1), SetResize(1, 1), // Allows this pane to resize
+				NWidget(NWID_SPACER), SetFill(1, 1), SetResize(1, 1),
+				EndContainer(),
+				EndContainer(),
+				NWidget(NWID_VSCROLLBAR, GAME_OPTIONS_BACKGROUND, WID_GO_GRAPHICS_SCROLL),
 			EndContainer(),
 
 			/* Sound/Music tab */
