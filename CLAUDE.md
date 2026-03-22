@@ -154,7 +154,7 @@ Always use a TDD (Test-Driven Development) approach: write tests first, then imp
 The GPU post-processing pipeline adds visual enhancement to OpenTTD's OpenGL backend.
 
 ### Current Status
-- **Phase 1 (Complete):** FBO pipeline, 15+ shader effects, render scaling (50-200%), settings UI
+- **Phase 1 (Complete):** FBO pipeline, 25+ shader effects, render scaling (50-200%), settings UI
 - **Phase 2a (Complete):** Motion vector recording, tile-based compute shader rasterization, jitter sequence
 - **Phase 2b (Complete):** Temporal accumulation shader, history buffer, full pipeline wiring
 - **Phase 3 (Complete):** RenderBackend abstraction, DLSS/FSR plugin C ABI, plugin auto-discovery, plugin dispatch in pipeline
