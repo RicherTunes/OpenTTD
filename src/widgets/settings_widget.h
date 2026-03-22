@@ -112,6 +112,18 @@ enum GameOptionsWidgets : WidgetID {
 	WID_GO_VIDEO_GRAIN_PARAMS_SEL,       ///< Selection container for film grain sub-parameter.
 	WID_GO_VIDEO_BLOOM_PARAMS_SEL,       ///< Selection container for bloom sub-parameters.
 	WID_GO_VIDEO_WEATHER_PARAMS_SEL,     ///< Selection container for weather sub-parameter.
+	WID_GO_VIDEO_FAKE_SHADOWS_BUTTON,    ///< Toggle for fake shadows.
+	WID_GO_VIDEO_FAKE_SHADOWS_TEXT,      ///< Text for fake shadows toggle.
+	WID_GO_VIDEO_SHADOW_PARAMS_SEL,      ///< Selection container for shadow sub-parameters.
+	WID_GO_VIDEO_SHADOW_INTENSITY,       ///< Shadow intensity slider.
+	WID_GO_VIDEO_SHADOW_ANGLE,           ///< Shadow angle slider.
+	WID_GO_VIDEO_SHADOW_LENGTH,          ///< Shadow length slider.
+	WID_GO_VIDEO_SHADOW_SOFTNESS,        ///< Shadow softness slider.
+	WID_GO_VIDEO_WATER_REFLECT_BUTTON,   ///< Toggle for water reflections.
+	WID_GO_VIDEO_WATER_REFLECT_TEXT,     ///< Text for water reflections toggle.
+	WID_GO_VIDEO_WATER_PARAMS_SEL,       ///< Selection container for water sub-parameters.
+	WID_GO_VIDEO_REFLECTION_INTENSITY,   ///< Reflection intensity slider.
+	WID_GO_VIDEO_REFLECTION_DISTORTION,  ///< Reflection distortion slider.
 	WID_GO_REFRESH_RATE_DROPDOWN,  ///< Dropdown for all available refresh rates.
 	WID_GO_VIDEO_DRIVER_INFO,      ///< Label showing details about the current video driver.
 	WID_GO_GRAPHICS_SCROLL,        ///< Scrollbar for the Graphics/Sound tab content.

@@ -1160,6 +1160,22 @@ STR_GAME_OPTIONS_WEATHER_RAIN                                   :Rain
 STR_GAME_OPTIONS_WEATHER_SNOW                                   :Snow
 STR_GAME_OPTIONS_WEATHER_INTENSITY                              :Weather intensity
 STR_GAME_OPTIONS_WEATHER_INTENSITY_TOOLTIP                      :{BLACK}Strength of the weather particle effect
+STR_GAME_OPTIONS_FAKE_SHADOWS                                   :Fake shadows
+STR_GAME_OPTIONS_FAKE_SHADOWS_TOOLTIP                           :{BLACK}Directional shadows cast by buildings and terrain features
+STR_GAME_OPTIONS_SHADOW_INTENSITY                               :Shadow darkness
+STR_GAME_OPTIONS_SHADOW_INTENSITY_TOOLTIP                       :{BLACK}How dark the shadows are. 0 = invisible
+STR_GAME_OPTIONS_SHADOW_ANGLE                                   :Shadow angle
+STR_GAME_OPTIONS_SHADOW_ANGLE_TOOLTIP                           :{BLACK}Direction of the light source (0-255 = full rotation)
+STR_GAME_OPTIONS_SHADOW_LENGTH                                  :Shadow length
+STR_GAME_OPTIONS_SHADOW_LENGTH_TOOLTIP                          :{BLACK}How far shadows extend from their source
+STR_GAME_OPTIONS_SHADOW_SOFTNESS                                :Shadow softness
+STR_GAME_OPTIONS_SHADOW_SOFTNESS_TOOLTIP                        :{BLACK}Edge softness of the shadow. Higher = softer penumbra
+STR_GAME_OPTIONS_WATER_REFLECTIONS                              :Water reflections
+STR_GAME_OPTIONS_WATER_REFLECTIONS_TOOLTIP                      :{BLACK}Screen-space reflections on water surfaces
+STR_GAME_OPTIONS_REFLECTION_INTENSITY                           :Reflection strength
+STR_GAME_OPTIONS_REFLECTION_INTENSITY_TOOLTIP                   :{BLACK}How visible the reflections are
+STR_GAME_OPTIONS_REFLECTION_DISTORTION                          :Wave distortion
+STR_GAME_OPTIONS_REFLECTION_DISTORTION_TOOLTIP                  :{BLACK}How much the water surface distorts reflections
 
 STR_GAME_OPTIONS_INTERFACE                                      :Interface
 

@@ -753,10 +753,10 @@ static const char *_frag_shader_pp_bloom_threshold[] = {
 	"in vec2 tex_coord;",
 	"out vec4 frag_colour;",
 	"void main() {",
-	"  vec3 c = texture(source_tex, tex_coord).rgb;",
-	"  float luma = dot(c, vec3(0.2126, 0.7152, 0.0722));",
+	"  vec4 src = texture(source_tex, tex_coord);",
+	"  float luma = dot(src.rgb, vec3(0.2126, 0.7152, 0.0722));",
 	"  float contrib = max(0.0, luma - bloom_threshold) / max(1.0 - bloom_threshold, 0.001);",
-	"  frag_colour = vec4(c * contrib * bloom_intensity, 1.0);",
+	"  frag_colour = vec4(src.rgb * contrib * bloom_intensity, src.a);",
 	"}",
 };
 
@@ -768,6 +768,7 @@ static const char *_frag_shader_pp_bloom_blur_h[] = {
 	"in vec2 tex_coord;",
 	"out vec4 frag_colour;",
 	"void main() {",
+	"  float src_alpha = texture(source_tex, tex_coord).a;",
 	"  float w[4] = float[](0.3829, 0.2417, 0.0606, 0.0060);",
 	"  vec3 sum = texture(source_tex, tex_coord).rgb * w[0];",
 	"  for (int i = 1; i < 4; i++) {",
@@ -775,7 +776,7 @@ static const char *_frag_shader_pp_bloom_blur_h[] = {
 	"    sum += texture(source_tex, tex_coord + off).rgb * w[i];",
 	"    sum += texture(source_tex, tex_coord - off).rgb * w[i];",
 	"  }",
-	"  frag_colour = vec4(sum, 1.0);",
+	"  frag_colour = vec4(sum, src_alpha);",
 	"}",
 };
 
@@ -787,6 +788,7 @@ static const char *_frag_shader_pp_bloom_blur_v[] = {
 	"in vec2 tex_coord;",
 	"out vec4 frag_colour;",
 	"void main() {",
+	"  float src_alpha = texture(source_tex, tex_coord).a;",
 	"  float w[4] = float[](0.3829, 0.2417, 0.0606, 0.0060);",
 	"  vec3 sum = texture(source_tex, tex_coord).rgb * w[0];",
 	"  for (int i = 1; i < 4; i++) {",
@@ -794,7 +796,7 @@ static const char *_frag_shader_pp_bloom_blur_v[] = {
 	"    sum += texture(source_tex, tex_coord + off).rgb * w[i];",
 	"    sum += texture(source_tex, tex_coord - off).rgb * w[i];",
 	"  }",
-	"  frag_colour = vec4(sum, 1.0);",
+	"  frag_colour = vec4(sum, src_alpha);",
 	"}",
 };
 
@@ -809,7 +811,7 @@ static const char *_frag_shader_pp_bloom_composite[] = {
 	"void main() {",
 	"  vec3 bloom = texture(source_tex, tex_coord).rgb;",
 	"  vec4 original = texture(bloom_original, tex_coord);",
-	"  frag_colour = vec4(original.rgb + bloom, original.a);",
+	"  frag_colour = vec4(clamp(original.rgb + bloom, 0.0, 1.0), original.a);",
 	"}",
 };
 
