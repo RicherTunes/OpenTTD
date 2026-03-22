@@ -11,6 +11,7 @@
 #define VIDEO_POSTPROCESS_H
 
 #include "../core/geometry_type.hpp"
+#include <span>
 #include <string_view>
 
 /** Upscale mode for post-processing pipeline. */
@@ -179,6 +180,7 @@ enum class EffectCategory : uint8_t {
 struct PPEffectDescriptor {
 	std::string_view key;            ///< Internal key: "fxaa", "shadows", etc.
 	std::string_view console_name;   ///< User-facing console name.
+	bool console_toggle;             ///< Whether `pp enable/disable` may toggle this entry.
 	EffectCategory category;         ///< Effect classification.
 	bool gui_visible;                ///< Whether shown in settings GUI.
 	bool preset_eligible;            ///< Whether presets may activate this effect.
@@ -189,6 +191,7 @@ struct PPEffectDescriptor {
 };
 
 const PPEffectDescriptor *GetPPEffectDescriptor(std::string_view key);
+std::span<const PPEffectDescriptor> GetPPEffectDescriptors();
 bool IsLabEffect(std::string_view key);
 bool IsPresetEligible(std::string_view key);
 

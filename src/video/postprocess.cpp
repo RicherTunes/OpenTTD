@@ -257,39 +257,51 @@ void ComputeCasConstant(float con[4], float sharpening_pct, float input_w, float
 /** Central registry of all post-processing effects. */
 static const PPEffectDescriptor _pp_effect_registry[] = {
 	/* Core shipping (Medium+ tier, default candidates) */
-	{"fxaa",          "fxaa",          EffectCategory::Core,         true,  true,  false, true,  true,  1},
-	{"sharpening",    "sharpening",    EffectCategory::Core,         true,  true,  false, true,  true,  1},
-	{"color_grading", "color_grading", EffectCategory::Core,         true,  true,  false, true,  true,  1},
-	{"vignette",      "vignette",      EffectCategory::Core,         true,  true,  false, true,  true,  1},
-	{"pixel_smooth",  "smooth",        EffectCategory::Core,         true,  true,  false, true,  true,  1},
-	{"supersample",   "supersample",   EffectCategory::Core,         true,  true,  false, true,  true,  2},
+	{"fxaa",          "fxaa",          true,  EffectCategory::Core,         true,  true,  false, true,  true,  1},
+	{"sharpening",    "sharpening",    false, EffectCategory::Core,         true,  true,  false, true,  true,  1},
+	{"color_grading", "color_grading", false, EffectCategory::Core,         true,  true,  false, true,  true,  1},
+	{"vignette",      "vignette",      true,  EffectCategory::Core,         true,  true,  false, true,  true,  1},
+	{"pixel_smooth",  "smooth",        true,  EffectCategory::Core,         true,  true,  false, true,  true,  1},
+	{"supersample",   "supersample",   true,  EffectCategory::Core,         true,  true,  false, true,  true,  2},
 
 	/* Presentation extras (High/Photo tier) */
-	{"bloom",         "bloom",         EffectCategory::Presentation, true,  true,  false, true,  false, 2},
-	{"lighting",      "lighting",      EffectCategory::Presentation, true,  true,  false, true,  false, 2},
-	{"weather",       "weather",       EffectCategory::Presentation, true,  true,  false, true,  false, 2},
-	{"night",         "night",         EffectCategory::Presentation, true,  true,  false, true,  false, 2},
-	{"tiltshift",     "tiltshift",     EffectCategory::Presentation, true,  true,  false, true,  false, 2},
+	{"bloom",         "bloom",         true,  EffectCategory::Presentation, true,  true,  false, true,  false, 2},
+	{"lighting",      "lighting",      true,  EffectCategory::Presentation, true,  true,  false, true,  false, 2},
+	{"weather",       "weather",       true,  EffectCategory::Presentation, true,  true,  false, true,  false, 2},
+	{"night",         "night",         true,  EffectCategory::Presentation, true,  true,  false, true,  false, 2},
+	{"tiltshift",     "tiltshift",     true,  EffectCategory::Presentation, true,  true,  false, true,  false, 2},
 
 	/* Novelty (Photo tier only) */
-	{"crt",           "crt",           EffectCategory::Novelty,      true,  true,  false, true,  false, 3},
-	{"grain",         "grain",         EffectCategory::Novelty,      true,  true,  false, true,  false, 3},
+	{"crt",           "crt",           true,  EffectCategory::Novelty,      true,  true,  false, true,  false, 3},
+	{"grain",         "grain",         true,  EffectCategory::Novelty,      true,  true,  false, true,  false, 3},
 
 	/* Lab effects (quarantined, console-only) */
-	{"shadows",       "shadows",       EffectCategory::Lab,          false, false, true,  true,  false, 3},
-	{"water",         "water",         EffectCategory::Lab,          false, false, true,  true,  false, 3},
-	{"ssao",          "ssao",          EffectCategory::Lab,          false, false, true,  false, false, 3},
-	{"terrain_smooth","terrain_smooth",EffectCategory::Lab,          false, false, true,  true,  false, 3},
-	{"tree_sway",     "tree_sway",     EffectCategory::Lab,          false, false, true,  true,  false, 3},
-	{"sky",           "sky",           EffectCategory::Lab,          false, false, false, true,  false, 3},
-	{"dof",           "dof",           EffectCategory::Lab,          false, false, true,  false, false, 3},
+	{"shadows",       "shadows",       true,  EffectCategory::Lab,          false, false, true,  true,  false, 3},
+	{"water",         "water",         true,  EffectCategory::Lab,          false, false, true,  true,  false, 3},
+	{"ssao",          "ssao",          true,  EffectCategory::Lab,          false, false, true,  false, false, 3},
+	{"terrain_smooth","terrain_smooth",true,  EffectCategory::Lab,          false, false, true,  true,  false, 3},
+	{"tree_sway",     "tree_sway",     true,  EffectCategory::Lab,          false, false, true,  true,  false, 3},
+	{"sky",           "sky",           true,  EffectCategory::Lab,          false, false, false, true,  false, 3},
+	{"dof",           "dof",           true,  EffectCategory::Lab,          false, false, true,  false, false, 3},
 
 	/* Research-only */
-	{"temporal",      "temporal",      EffectCategory::Research,     false, false, false, true,  false, 3},
-	{"plugin",        "plugin",        EffectCategory::Research,     false, false, false, true,  false, 3},
+	{"temporal",      "temporal",      false, EffectCategory::Research,     false, false, false, true,  false, 3},
+	{"plugin",        "plugin",        false, EffectCategory::Research,     false, false, false, true,  false, 3},
 
 	/* Pipeline mode */
-	{"cpu_scale",     "cpu_scale",     EffectCategory::PipelineMode, true,  false, false, true,  false, 0},
+	{"cpu_scale",     "cpu_scale",     true,  EffectCategory::PipelineMode, true,  false, false, true,  false, 0},
+};
+
+/** Console aliases accepted by the `pp enable/disable` command. */
+static constexpr std::pair<std::string_view, std::string_view> _pp_effect_aliases[] = {
+	{"dynamic_lighting",   "lighting"},
+	{"pixel_smooth",       "smooth"},
+	{"cpu_viewport_scaling","cpu_scale"},
+	{"fake_shadows",       "shadows"},
+	{"water_reflections",  "water"},
+	{"sway",               "tree_sway"},
+	{"sky_clouds",         "sky"},
+	{"depth_of_field",     "dof"},
 };
 
 /**
@@ -302,7 +314,25 @@ const PPEffectDescriptor *GetPPEffectDescriptor(std::string_view key)
 	for (const auto &desc : _pp_effect_registry) {
 		if (desc.key == key || desc.console_name == key) return &desc;
 	}
+
+	for (const auto &[alias, canonical] : _pp_effect_aliases) {
+		if (alias != key) continue;
+		for (const auto &desc : _pp_effect_registry) {
+			if (desc.key == canonical) return &desc;
+		}
+		break;
+	}
+
 	return nullptr;
+}
+
+/**
+ * Enumerate all registered post-processing effects.
+ * @return Read-only span over the registry entries.
+ */
+std::span<const PPEffectDescriptor> GetPPEffectDescriptors()
+{
+	return _pp_effect_registry;
 }
 
 /**

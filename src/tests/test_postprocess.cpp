@@ -3015,6 +3015,28 @@ TEST_CASE("PostProcess - IsLabEffect helper works correctly")
 	CHECK(!IsLabEffect("nonexistent"));
 }
 
+TEST_CASE("PostProcess - registry lookup resolves console aliases")
+{
+	CHECK(GetPPEffectDescriptor("dynamic_lighting") == GetPPEffectDescriptor("lighting"));
+	CHECK(GetPPEffectDescriptor("pixel_smooth") == GetPPEffectDescriptor("smooth"));
+	CHECK(GetPPEffectDescriptor("cpu_viewport_scaling") == GetPPEffectDescriptor("cpu_scale"));
+	CHECK(GetPPEffectDescriptor("fake_shadows") == GetPPEffectDescriptor("shadows"));
+	CHECK(GetPPEffectDescriptor("water_reflections") == GetPPEffectDescriptor("water"));
+	CHECK(GetPPEffectDescriptor("sway") == GetPPEffectDescriptor("tree_sway"));
+	CHECK(GetPPEffectDescriptor("sky_clouds") == GetPPEffectDescriptor("sky"));
+	CHECK(GetPPEffectDescriptor("depth_of_field") == GetPPEffectDescriptor("dof"));
+}
+
+TEST_CASE("PostProcess - lab-effect helpers accept console aliases")
+{
+	CHECK(IsLabEffect("fake_shadows"));
+	CHECK(IsLabEffect("water_reflections"));
+	CHECK(IsLabEffect("sway"));
+	CHECK(IsLabEffect("sky_clouds"));
+	CHECK(IsLabEffect("depth_of_field"));
+	CHECK(!IsLabEffect("dynamic_lighting"));
+}
+
 TEST_CASE("PostProcess - IsPresetEligible helper works correctly")
 {
 	CHECK(IsPresetEligible("fxaa"));

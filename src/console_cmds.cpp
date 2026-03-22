@@ -51,8 +51,12 @@
 /* opengl.h requires GL type definitions (GLuint, GLsync, etc.). */
 #ifdef WITH_OPENGL
 #	if defined(_WIN32)
-#		define WINGDIAPI
-#		define APIENTRY
+#		ifndef WINGDIAPI
+#			define WINGDIAPI
+#		endif
+#		ifndef APIENTRY
+#			define APIENTRY
+#		endif
 #	endif
 #	define GL_GLEXT_PROTOTYPES
 #	if defined(__APPLE__)
@@ -2934,6 +2938,8 @@ static void ResetPPDefaults()
 	_video_dof_range = 40;
 }
 
+static void SyncPPPresetCycleIndex(std::string_view name);
+
 /**
  * Apply a named post-processing preset.
  * Resets all settings to defaults, enables PP, then applies the preset.
@@ -3070,13 +3076,15 @@ static bool ApplyPPPreset(std::string_view name)
 	} else {
 		return false;
 	}
+
+	SyncPPPresetCycleIndex(name);
 	return true;
 }
 
 /** Ordered list of presets for cycling. */
 static const char * const _pp_preset_names[] = {
 	"clean", "retro", "cinematic", "night", "miniature", "sharp",
-	"temporal", "zoom", "realistic", "fantasy", "photo", "stormy",
+	"zoom", "realistic", "fantasy", "photo", "stormy",
 	"postcard", "performance",
 };
 
@@ -3085,6 +3093,44 @@ static const uint8_t _pp_preset_count = lengthof(_pp_preset_names);
 
 /** Current preset index for cycling (static state). */
 static uint8_t _pp_cycle_index = 0;
+
+/**
+ * Build a comma-separated list of effects for console help/error output.
+ * @param include_lab True to list quarantined lab effects, false to list shipping toggle effects.
+ * @return Comma-separated effect names in registry order.
+ */
+static std::string BuildPPEffectList(bool include_lab)
+{
+	std::string list;
+
+	for (const auto &desc : GetPPEffectDescriptors()) {
+		if (!desc.console_toggle) continue;
+
+		bool matches = include_lab ? desc.category == EffectCategory::Lab :
+			(desc.category != EffectCategory::Lab && desc.category != EffectCategory::Research);
+		if (!matches) continue;
+
+		if (!list.empty()) list += ", ";
+		list += desc.console_name;
+	}
+
+	return list;
+}
+
+/**
+ * Keep preset cycling in sync when a cycle-eligible preset is applied directly.
+ * Research presets like "temporal" are intentionally excluded from the cycle list.
+ * @param name Applied preset name.
+ */
+static void SyncPPPresetCycleIndex(std::string_view name)
+{
+	for (uint8_t i = 0; i < _pp_preset_count; i++) {
+		if (_pp_preset_names[i] == name) {
+			_pp_cycle_index = i;
+			return;
+		}
+	}
+}
 
 /**
  * Cycle to the next post-processing preset.
@@ -3111,13 +3157,15 @@ std::string_view GetCurrentPPPresetName()
 static bool ConPostProcess(std::span<std::string_view> argv)
 {
 	if (argv.size() < 2) {
+		const std::string ship_effects = BuildPPEffectList(false);
+		const std::string lab_effects = BuildPPEffectList(true);
 		IConsolePrint(CC_HELP, "GPU post-processing control.");
 		IConsolePrint(CC_HELP, "Usage: 'pp status' - Show current effect states.");
 		IConsolePrint(CC_HELP, "Usage: 'pp info' - Show GPU pipeline capabilities.");
 		IConsolePrint(CC_HELP, "Usage: 'pp on/off' - Toggle master post-processing switch.");
 		IConsolePrint(CC_HELP, "Usage: 'pp enable/disable <effect>' - Toggle an effect.");
-		IConsolePrint(CC_HELP, "  Ship: fxaa, night, crt, vignette, tiltshift, grain, smooth, supersample, lighting, bloom, weather, cpu_scale");
-		IConsolePrint(CC_HELP, "  Lab:  shadows, water, ssao, terrain_smooth, tree_sway, sky, dof");
+		IConsolePrint(CC_HELP, "  Ship: {}", ship_effects);
+		IConsolePrint(CC_HELP, "  Lab:  {}", lab_effects);
 		IConsolePrint(CC_HELP, "Usage: 'pp set <param> <value>' - Set a parameter.");
 		IConsolePrint(CC_HELP, "  Core: render_scale (50-200), sharpening (0-100), upscale (0-4), texture_filter (0-2)");
 		IConsolePrint(CC_HELP, "  Color: brightness (-50..50), contrast (50-200), saturation (0-200), temperature (-100..100)");
@@ -3248,9 +3296,11 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 
 	if (argv[1] == "enable" || argv[1] == "disable") {
 		if (argv.size() < 3) {
+			const std::string ship_effects = BuildPPEffectList(false);
+			const std::string lab_effects = BuildPPEffectList(true);
 			IConsolePrint(CC_ERROR, "Usage: 'pp {} <effect>'", argv[1]);
-			IConsolePrint(CC_ERROR, "  Ship: fxaa, night, crt, vignette, tiltshift, grain, smooth, supersample, lighting, bloom, weather, cpu_scale");
-			IConsolePrint(CC_ERROR, "  Lab:  shadows, water, ssao, terrain_smooth, tree_sway, sky, dof");
+			IConsolePrint(CC_ERROR, "  Ship: {}", ship_effects);
+			IConsolePrint(CC_ERROR, "  Lab:  {}", lab_effects);
 			return false;
 		}
 		bool enable = (argv[1] == "enable");
@@ -3299,23 +3349,21 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		} else if (effect == "cpu_scale" || effect == "cpu_viewport_scaling") {
 			_video_cpu_viewport_scaling = enable;
 		} else {
+			const std::string ship_effects = BuildPPEffectList(false);
+			const std::string lab_effects = BuildPPEffectList(true);
 			IConsolePrint(CC_ERROR, "Unknown effect '{}'.", effect);
-			IConsolePrint(CC_ERROR, "  Ship: fxaa, night, crt, vignette, tiltshift, grain, smooth, supersample, lighting, bloom, weather, cpu_scale");
-			IConsolePrint(CC_ERROR, "  Lab:  shadows, water, ssao, terrain_smooth, tree_sway, sky, dof");
+			IConsolePrint(CC_ERROR, "  Ship: {}", ship_effects);
+			IConsolePrint(CC_ERROR, "  Lab:  {}", lab_effects);
 			return false;
 		}
 
 		IConsolePrint(CC_INFO, "Effect '{}' {}.", effect, enable ? "enabled" : "disabled");
 
 		/* Warn if a lab-mode effect was just enabled. */
-		if (enable) {
-			static const std::string_view lab_effects[] = {"shadows", "fake_shadows", "water", "water_reflections", "ssao", "terrain_smooth", "tree_sway", "sway", "sky", "sky_clouds", "dof", "depth_of_field"};
-			for (auto lab : lab_effects) {
-				if (effect == lab) {
-					IConsolePrint(CC_WARNING, "Note: '{}' is a lab-mode effect using colour heuristics. Results may vary with different graphics sets.", effect);
-					break;
-				}
-			}
+		if (enable && IsLabEffect(effect)) {
+			const PPEffectDescriptor *desc = GetPPEffectDescriptor(effect);
+			std::string_view effect_name = desc != nullptr ? desc->console_name : effect;
+			IConsolePrint(CC_WARNING, "Note: '{}' is a lab-mode effect using colour heuristics. Results may vary with different graphics sets.", effect_name);
 		}
 
 		return true;
@@ -3526,7 +3574,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			IConsolePrint(CC_HELP, "  night     - Night mode with blue tint");
 			IConsolePrint(CC_HELP, "  miniature - Tilt-shift miniature effect");
 			IConsolePrint(CC_HELP, "  sharp     - FSR1 upscale + CAS sharpening at 75% render scale");
-			IConsolePrint(CC_HELP, "  temporal  - Temporal upscale at 67% render scale");
+			IConsolePrint(CC_HELP, "  temporal  - Temporal upscale at 67% render scale [LAB]");
 			IConsolePrint(CC_HELP, "  zoom      - Auto-supersample + pixel smoothing for close zoom");
 			IConsolePrint(CC_HELP, "  realistic - Dynamic lighting + FXAA (lab effects quarantined)");
 			IConsolePrint(CC_HELP, "  fantasy   - Bloom + vivid colours + vignette (lab effects quarantined)");
@@ -3543,6 +3591,9 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			return false;
 		}
 		IConsolePrint(CC_INFO, "Preset '{}' applied.", argv[2]);
+		if (argv[2] == "temporal") {
+			IConsolePrint(CC_WARNING, "Note: 'temporal' is a research preset. Expect instability and validate it under motion before treating it as shippable.");
+		}
 		return true;
 	}
 
