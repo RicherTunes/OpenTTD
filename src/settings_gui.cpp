@@ -1903,6 +1903,16 @@ struct GameOptionsWindow : Window {
 		this->SetWidgetLoweredState(WID_GO_VIDEO_FILM_GRAIN_BUTTON, _video_film_grain);
 		this->SetWidgetLoweredState(WID_GO_VIDEO_DYNAMIC_LIGHTING_BUTTON, _video_dynamic_lighting);
 		this->SetWidgetLoweredState(WID_GO_VIDEO_BLOOM_BUTTON, _video_bloom);
+
+		/* Collapse sub-parameter sections when parent effect is off. */
+		this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_NIGHT_PARAMS_SEL)->SetDisplayedPlane(_video_night_mode ? 0 : SZSP_NONE);
+		this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_CRT_PARAMS_SEL)->SetDisplayedPlane(_video_crt_filter ? 0 : SZSP_NONE);
+		this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_VIGNETTE_PARAMS_SEL)->SetDisplayedPlane(_video_vignette ? 0 : SZSP_NONE);
+		this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_TILTSHIFT_PARAMS_SEL)->SetDisplayedPlane(_video_tiltshift ? 0 : SZSP_NONE);
+		this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_GRAIN_PARAMS_SEL)->SetDisplayedPlane(_video_film_grain ? 0 : SZSP_NONE);
+		this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_BLOOM_PARAMS_SEL)->SetDisplayedPlane(_video_bloom ? 0 : SZSP_NONE);
+		this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_WEATHER_PARAMS_SEL)->SetDisplayedPlane(_video_weather_type > 0 ? 0 : SZSP_NONE);
+
 		bool gpu_enabled = _video_hw_accel && _video_post_processing;
 		this->SetWidgetDisabledState(WID_GO_VIDEO_RENDER_SCALE, !gpu_enabled);
 		this->SetWidgetDisabledState(WID_GO_VIDEO_UPSCALE_DROPDOWN, !gpu_enabled);
@@ -2191,71 +2201,87 @@ static constexpr std::initializer_list<NWidgetPart> _nested_game_options_widgets
 									EndContainer(),
 								EndContainer(),
 							EndContainer(),
-							/* Vignette + sub-parameters */
+							/* Vignette + collapsible sub-parameters */
 							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
 								NWidget(WWT_BOOLBTN, GAME_OPTIONS_BACKGROUND, WID_GO_VIDEO_VIGNETTE_BUTTON), SetAlternateColourTip(GAME_OPTIONS_BUTTON, STR_GAME_OPTIONS_VIGNETTE_TOOLTIP),
 								NWidget(WWT_TEXT, INVALID_COLOUR, WID_GO_VIDEO_VIGNETTE_TEXT), SetFill(1, 0), SetResize(1, 0), SetTextStyle(GAME_OPTIONS_LABEL),
 							EndContainer(),
-							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
-								NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_VIGNETTE_INTENSITY), SetTextStyle(GAME_OPTIONS_LABEL),
-								NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_VIGNETTE_INTENSITY), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_VIGNETTE_INTENSITY_TOOLTIP),
+							NWidget(NWID_SELECTION, INVALID_COLOUR, WID_GO_VIDEO_VIGNETTE_PARAMS_SEL),
+								NWidget(NWID_VERTICAL), SetPIP(0, WidgetDimensions::unscaled.vsep_normal, 0),
+									NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+										NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_VIGNETTE_INTENSITY), SetTextStyle(GAME_OPTIONS_LABEL),
+										NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_VIGNETTE_INTENSITY), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_VIGNETTE_INTENSITY_TOOLTIP),
+									EndContainer(),
+									NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+										NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_VIGNETTE_RADIUS), SetTextStyle(GAME_OPTIONS_LABEL),
+										NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_VIGNETTE_RADIUS), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_VIGNETTE_RADIUS_TOOLTIP),
+									EndContainer(),
+								EndContainer(),
 							EndContainer(),
-							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
-								NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_VIGNETTE_RADIUS), SetTextStyle(GAME_OPTIONS_LABEL),
-								NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_VIGNETTE_RADIUS), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_VIGNETTE_RADIUS_TOOLTIP),
-							EndContainer(),
-							/* Tilt-shift + sub-parameters */
+							/* Tilt-shift + collapsible sub-parameters */
 							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
 								NWidget(WWT_BOOLBTN, GAME_OPTIONS_BACKGROUND, WID_GO_VIDEO_TILTSHIFT_BUTTON), SetAlternateColourTip(GAME_OPTIONS_BUTTON, STR_GAME_OPTIONS_TILTSHIFT_TOOLTIP),
 								NWidget(WWT_TEXT, INVALID_COLOUR, WID_GO_VIDEO_TILTSHIFT_TEXT), SetFill(1, 0), SetResize(1, 0), SetTextStyle(GAME_OPTIONS_LABEL),
 							EndContainer(),
-							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
-								NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_TILTSHIFT_FOCUS_Y), SetTextStyle(GAME_OPTIONS_LABEL),
-								NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_TILTSHIFT_FOCUS_Y), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_TILTSHIFT_FOCUS_Y_TOOLTIP),
+							NWidget(NWID_SELECTION, INVALID_COLOUR, WID_GO_VIDEO_TILTSHIFT_PARAMS_SEL),
+								NWidget(NWID_VERTICAL), SetPIP(0, WidgetDimensions::unscaled.vsep_normal, 0),
+									NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+										NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_TILTSHIFT_FOCUS_Y), SetTextStyle(GAME_OPTIONS_LABEL),
+										NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_TILTSHIFT_FOCUS_Y), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_TILTSHIFT_FOCUS_Y_TOOLTIP),
+									EndContainer(),
+									NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+										NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_TILTSHIFT_FOCUS_WIDTH), SetTextStyle(GAME_OPTIONS_LABEL),
+										NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_TILTSHIFT_FOCUS_WIDTH), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_TILTSHIFT_FOCUS_WIDTH_TOOLTIP),
+									EndContainer(),
+									NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+										NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_TILTSHIFT_BLUR), SetTextStyle(GAME_OPTIONS_LABEL),
+										NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_TILTSHIFT_BLUR), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_TILTSHIFT_BLUR_TOOLTIP),
+									EndContainer(),
+								EndContainer(),
 							EndContainer(),
-							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
-								NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_TILTSHIFT_FOCUS_WIDTH), SetTextStyle(GAME_OPTIONS_LABEL),
-								NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_TILTSHIFT_FOCUS_WIDTH), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_TILTSHIFT_FOCUS_WIDTH_TOOLTIP),
-							EndContainer(),
-							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
-								NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_TILTSHIFT_BLUR), SetTextStyle(GAME_OPTIONS_LABEL),
-								NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_TILTSHIFT_BLUR), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_TILTSHIFT_BLUR_TOOLTIP),
-							EndContainer(),
-							/* Film grain + sub-parameter */
+							/* Film grain + collapsible sub-parameter */
 							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
 								NWidget(WWT_BOOLBTN, GAME_OPTIONS_BACKGROUND, WID_GO_VIDEO_FILM_GRAIN_BUTTON), SetAlternateColourTip(GAME_OPTIONS_BUTTON, STR_GAME_OPTIONS_FILM_GRAIN_TOOLTIP),
 								NWidget(WWT_TEXT, INVALID_COLOUR, WID_GO_VIDEO_FILM_GRAIN_TEXT), SetFill(1, 0), SetResize(1, 0), SetTextStyle(GAME_OPTIONS_LABEL),
 							EndContainer(),
-							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
-								NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_GRAIN_INTENSITY), SetTextStyle(GAME_OPTIONS_LABEL),
-								NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_GRAIN_INTENSITY), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_GRAIN_INTENSITY_TOOLTIP),
+							NWidget(NWID_SELECTION, INVALID_COLOUR, WID_GO_VIDEO_GRAIN_PARAMS_SEL),
+								NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+									NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_GRAIN_INTENSITY), SetTextStyle(GAME_OPTIONS_LABEL),
+									NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_GRAIN_INTENSITY), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_GRAIN_INTENSITY_TOOLTIP),
+								EndContainer(),
 							EndContainer(),
-							/* Dynamic lighting */
+							/* Dynamic lighting (no sub-parameters) */
 							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
 								NWidget(WWT_BOOLBTN, GAME_OPTIONS_BACKGROUND, WID_GO_VIDEO_DYNAMIC_LIGHTING_BUTTON), SetAlternateColourTip(GAME_OPTIONS_BUTTON, STR_GAME_OPTIONS_DYNAMIC_LIGHTING_TOOLTIP),
 								NWidget(WWT_TEXT, INVALID_COLOUR, WID_GO_VIDEO_DYNAMIC_LIGHTING_TEXT), SetFill(1, 0), SetResize(1, 0), SetTextStyle(GAME_OPTIONS_LABEL),
 							EndContainer(),
-							/* Bloom + sub-parameters */
+							/* Bloom + collapsible sub-parameters */
 							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
 								NWidget(WWT_BOOLBTN, GAME_OPTIONS_BACKGROUND, WID_GO_VIDEO_BLOOM_BUTTON), SetAlternateColourTip(GAME_OPTIONS_BUTTON, STR_GAME_OPTIONS_BLOOM_TOOLTIP),
 								NWidget(WWT_TEXT, INVALID_COLOUR, WID_GO_VIDEO_BLOOM_TEXT), SetFill(1, 0), SetResize(1, 0), SetTextStyle(GAME_OPTIONS_LABEL),
 							EndContainer(),
-							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
-								NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_BLOOM_THRESHOLD), SetTextStyle(GAME_OPTIONS_LABEL),
-								NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_BLOOM_THRESHOLD), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_BLOOM_THRESHOLD_TOOLTIP),
+							NWidget(NWID_SELECTION, INVALID_COLOUR, WID_GO_VIDEO_BLOOM_PARAMS_SEL),
+								NWidget(NWID_VERTICAL), SetPIP(0, WidgetDimensions::unscaled.vsep_normal, 0),
+									NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+										NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_BLOOM_THRESHOLD), SetTextStyle(GAME_OPTIONS_LABEL),
+										NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_BLOOM_THRESHOLD), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_BLOOM_THRESHOLD_TOOLTIP),
+									EndContainer(),
+									NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+										NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_BLOOM_INTENSITY), SetTextStyle(GAME_OPTIONS_LABEL),
+										NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_BLOOM_INTENSITY), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_BLOOM_INTENSITY_TOOLTIP),
+									EndContainer(),
+								EndContainer(),
 							EndContainer(),
-							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
-								NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_BLOOM_INTENSITY), SetTextStyle(GAME_OPTIONS_LABEL),
-								NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_BLOOM_INTENSITY), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_BLOOM_INTENSITY_TOOLTIP),
-							EndContainer(),
-							/* Weather overlay */
+							/* Weather overlay + collapsible sub-parameter */
 							NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize), SetPIP(0, WidgetDimensions::unscaled.hsep_normal, 0),
 								NWidget(WWT_TEXT, INVALID_COLOUR), SetFill(1, 0), SetResize(1, 0), SetStringTip(STR_GAME_OPTIONS_WEATHER_TYPE), SetTextStyle(GAME_OPTIONS_LABEL),
 								NWidget(WWT_DROPDOWN, GAME_OPTIONS_BUTTON, WID_GO_VIDEO_WEATHER_DROPDOWN), SetFill(1, 0), SetToolTip(STR_GAME_OPTIONS_WEATHER_TYPE_TOOLTIP),
 							EndContainer(),
-							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
-								NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_WEATHER_INTENSITY), SetTextStyle(GAME_OPTIONS_LABEL),
-								NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_WEATHER_INTENSITY), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_WEATHER_INTENSITY_TOOLTIP),
+							NWidget(NWID_SELECTION, INVALID_COLOUR, WID_GO_VIDEO_WEATHER_PARAMS_SEL),
+								NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+									NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_WEATHER_INTENSITY), SetTextStyle(GAME_OPTIONS_LABEL),
+									NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_WEATHER_INTENSITY), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_WEATHER_INTENSITY_TOOLTIP),
+								EndContainer(),
 							EndContainer(),
 						EndContainer(),
 					EndContainer(),
