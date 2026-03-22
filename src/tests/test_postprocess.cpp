@@ -3124,3 +3124,101 @@ TEST_CASE("PostProcess - GetTierName returns readable strings")
 	CHECK(GetTierName(QualityTier::High) == "High");
 	CHECK(GetTierName(QualityTier::Photo) == "Photo");
 }
+
+TEST_CASE("PostProcess - sprite classification not needed for default config")
+{
+	PostProcessConfig config;
+	CHECK(!PostProcessNeedsSpriteClassification(config));
+}
+
+TEST_CASE("PostProcess - debug class requires sprite classification")
+{
+	PostProcessConfig config;
+	config.debug_class = true;
+	CHECK(PostProcessNeedsSpriteClassification(config));
+}
+
+TEST_CASE("PostProcess - metadata-backed lab effects require sprite classification")
+{
+	PostProcessConfig config;
+	config.water_reflections = true;
+	CHECK(PostProcessNeedsSpriteClassification(config));
+
+	config = {};
+	config.tree_sway = true;
+	CHECK(PostProcessNeedsSpriteClassification(config));
+}
+
+/* --- Toon/Cartoon rendering tests --- */
+
+TEST_CASE("PostProcess - toon_rendering defaults to false")
+{
+	PostProcessConfig config;
+	CHECK(!config.toon_rendering);
+}
+
+TEST_CASE("PostProcess - toon_rendering triggers NeedsFBO")
+{
+	PostProcessConfig config;
+	config.toon_rendering = true;
+	CHECK(PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("PostProcess - toon_rendering adds 1 pass")
+{
+	PostProcessConfig base;
+	int base_passes = PostProcessPassCount(base);
+	PostProcessConfig config;
+	config.toon_rendering = true;
+	CHECK(PostProcessPassCount(config) == base_passes + 1);
+}
+
+TEST_CASE("PostProcess - toon parameter defaults")
+{
+	PostProcessConfig config;
+	CHECK(config.toon_edge_threshold >= 1);
+	CHECK(config.toon_edge_threshold <= 50);
+	CHECK(config.toon_color_levels >= 2);
+	CHECK(config.toon_color_levels <= 16);
+}
+
+/* --- Heat Haze tests --- */
+
+TEST_CASE("PostProcess - heat_haze defaults to false")
+{
+	PostProcessConfig config;
+	CHECK(!config.heat_haze);
+}
+
+TEST_CASE("PostProcess - heat_haze triggers NeedsFBO")
+{
+	PostProcessConfig config;
+	config.heat_haze = true;
+	CHECK(PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("PostProcess - heat_haze adds 1 pass")
+{
+	PostProcessConfig base;
+	int base_passes = PostProcessPassCount(base);
+	PostProcessConfig config;
+	config.heat_haze = true;
+	CHECK(PostProcessPassCount(config) == base_passes + 1);
+}
+
+TEST_CASE("PostProcess - heat_haze parameter defaults")
+{
+	PostProcessConfig config;
+	CHECK(config.haze_intensity <= 100);
+	CHECK(config.haze_distortion >= 1);
+	CHECK(config.haze_distortion <= 20);
+}
+
+TEST_CASE("PostProcess - toon and heat_haze combined")
+{
+	PostProcessConfig config;
+	config.toon_rendering = true;
+	config.heat_haze = true;
+	CHECK(PostProcessPassCount(config) == 2);
+	CHECK(PostProcessNeedsFBO(config));
+}
