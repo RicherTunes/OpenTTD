@@ -149,40 +149,55 @@ Primary pathfinder is YAPF (Yet Another Pathfinder) in `pathfinder/yapf/`. `wate
 
 Always use a TDD (Test-Driven Development) approach: write tests first, then implement, then verify. This applies to all new features, bug fixes, and refactoring.
 
-## GPU Post-Processing Pipeline (In Progress)
+## GPU Post-Processing Pipeline
 
-The GPU post-processing pipeline adds visual enhancement to OpenTTD's OpenGL backend.
+The GPU post-processing pipeline adds visual enhancement to OpenTTD's OpenGL backend. 29 shader programs, 66+ configurable globals, 400+ unit tests.
 
 ### Current Status
-- **Phase 1 (Complete):** FBO pipeline, 25+ shader effects, render scaling (50-200%), settings UI
+- **Phase 1 (Complete):** FBO pipeline, 29 shader effects, render scaling (25-200%), settings UI
 - **Phase 2a (Complete):** Motion vector recording, tile-based compute shader rasterization, jitter sequence
 - **Phase 2b (Complete):** Temporal accumulation shader, history buffer, full pipeline wiring
 - **Phase 3 (Complete):** RenderBackend abstraction, DLSS/FSR plugin C ABI, plugin auto-discovery, plugin dispatch in pipeline
+- **Phase 4 (Complete):** CPU viewport scaling -- render main viewport at reduced resolution (zoom+1/+2) into scratch buffer, GPU-upscale back, composited with full-res UI
+- **Phase 5 (Complete):** Viewport-only effect masking -- night mode, tilt-shift, water reflections apply only to viewport area, not UI elements
 - **Quality Gate 2 (Pending):** Visual A/B comparison requires manual game testing
 
 ### Key Files
-- `src/video/postprocess.h/.cpp` -- Post-processing config, dimension math, FSR/CAS constants
+- `src/video/postprocess.h/.cpp` -- Post-processing config (40+ fields), dimension math, FSR/CAS constants, viewport scratch dimensions
 - `src/video/motion_vector.h/.cpp` -- Draw-command recording, tile-based spatial binning (MAX_COMMANDS=16384)
 - `src/video/temporal_upscale.h/.cpp` -- Jitter sequence, temporal upscale interface
-- `src/table/postprocess_shader.h` -- All GLSL shader source (25+ effects + compute + bicubic + pixel smooth)
-- `src/video/opengl.h/.cpp` -- FBO pipeline, shader compilation, render dispatch
-- `src/benchmark.h/.cpp` -- GPU benchmark harness with CSV export and statistics
-- `src/tests/test_postprocess.cpp` -- 240+ postprocess tests (incl. 27 for new effects)
-- `src/tests/test_motion_vector.cpp` -- 45+ motion vector tests
-- `src/tests/test_temporal_upscale.cpp` -- 12 temporal upscale tests
+- `src/table/postprocess_shader.h` -- All GLSL shader source (29 fragment shaders + compute + vertex)
+- `src/video/opengl.h/.cpp` -- FBO pipeline, shader compilation, render dispatch, CPU viewport compositing
+- `src/video/viewport_cpu_scale.h` -- GL-free interface for CPU viewport scaling (used by viewport.cpp)
+- `src/benchmark.h/.cpp` -- GPU benchmark harness with CSV export, statistics, PP metadata
+- `src/video/pp_screenshot.h/.cpp` -- Post-processed framebuffer capture to BMP
 - `src/video/render_backend.h` -- Abstract rendering backend interface (Vulkan/DX11 composition)
 - `src/video/upscale_plugin.h/.cpp` -- DLSS/FSR plugin C ABI + runtime loader
-- `src/tests/test_upscale_plugin.cpp` -- 10 plugin interface tests
+- `src/tests/test_postprocess.cpp` -- 271 postprocess tests (558 assertions)
+- `src/tests/test_motion_vector.cpp` -- 38 motion vector tests
+- `src/tests/test_temporal_upscale.cpp` -- 14 temporal upscale tests
+- `src/tests/test_upscale_plugin.cpp` -- 14 plugin interface tests
 
 ### Console Commands
 - `benchmark start [N] [warmup=M] [label=X]` -- Capture N frames of GPU timing to CSV
 - `benchmark stop/abort/status` -- Control benchmark recording
-- `pp status/on/off` -- Master post-processing toggle
-- `pp info` -- Show GPU pipeline capabilities and loaded plugins
+- `benchmark compare` -- A/B testing workflow guide
+- `pp status` -- Show all current effect states and estimated pass count
+- `pp info` -- Show GPU pipeline capabilities, loaded plugins, CPU scaling scratch buffer size
+- `pp on/off` -- Master post-processing toggle
 - `pp enable/disable <effect>` -- Toggle individual effects:
-  - Original: fxaa, night, crt, vignette, tiltshift, grain, smooth, supersample, lighting, bloom, weather
-  - New: shadows, water, ssao, terrain_smooth, tree_sway, sky, dof
-- `pp set <param> <value>` -- Set numeric parameters (render_scale, sharpening, brightness, etc.)
+  fxaa, night, crt, vignette, tiltshift, grain, smooth, supersample, cpu_scale, lighting, bloom, weather, shadows, water, ssao, terrain_smooth, tree_sway, sky, dof
+- `pp set <param> <value>` -- Set numeric parameters:
+  - Core: render_scale (25-200), sharpening (0-100), upscale (0-4), texture_filter (0-2)
+  - Color: brightness (-50..50), contrast (50-200), saturation (0-200), temperature (-100..100)
+  - Night: night_intensity (20-100), night_blue_shift (0-80)
+  - CRT: crt_scanlines (0-50), crt_curvature (0-50), crt_aberration (0-30)
+  - Vignette: vignette_intensity (0-100), vignette_radius (50-150), vignette_softness (10-80)
+  - Tilt-shift: tiltshift_focus (0-100), tiltshift_width (5-80), tiltshift_blur (10-60)
+  - Smooth: smooth_amount (0-100)
+  - Grain: grain_intensity (1-20)
+  - Bloom: bloom_threshold (0-100), bloom_intensity (0-100)
+  - Weather: weather_type (0=off, 1=rain, 2=snow), weather_intensity (0-100)
   - Shadows: shadow_intensity (0-100), shadow_angle (0-359), shadow_length (1-30), shadow_softness (1-10)
   - Water: reflection_intensity (0-100), reflection_distortion (0-20)
   - SSAO: ssao_radius (1-15), ssao_intensity (0-100), ssao_samples (4-16)
@@ -190,27 +205,51 @@ The GPU post-processing pipeline adds visual enhancement to OpenTTD's OpenGL bac
   - Sway: tree_sway_amount (1-10), tree_sway_speed (10-100)
   - Sky: cloud_density (0-100), cloud_speed (0-100), sky_brightness (0-100)
   - DOF: dof_focus (0-100), dof_aperture (0-100), dof_range (0-100)
+  - FXAA: fxaa_quality (0-100), fxaa_threshold (1-50)
 - `pp reset` -- Restore all PP settings to defaults
 - `pp preset <name>` -- Apply effect presets:
-  - Original: retro, cinematic, night, miniature, sharp, temporal, zoom, clean
-  - New: realistic, fantasy, photo, stormy, postcard
+  clean, retro, cinematic, night, miniature, sharp, temporal, zoom, realistic, fantasy, photo, stormy, postcard, performance
 - `pp_screenshot [filename]` -- Capture post-processed framebuffer to BMP
-- `benchmark compare` -- A/B testing workflow guide
+
+### CPU Viewport Scaling (Phase 4)
+
+Reduces CPU blitter work by rendering the main viewport at reduced resolution, then GPU-upscaling it back. UI stays at full resolution.
+
+**How it works:**
+1. `DrawViewportCPUScaled()` intercepts main viewport draw for `WC_MAIN_WINDOW`
+2. Temporarily swaps `_screen` to a heap-allocated scratch buffer via `AutoRestoreBackup`
+3. Creates a temp `Viewport` at zoom+N with halved dimensions but same virtual extents
+4. `ViewportDraw()` writes fewer pixels into the smaller buffer
+5. In `Paint()`, scratch buffer is uploaded to `vp_texture` and drawn over the viewport area
+6. `_screen` stays at display resolution throughout -- mouse, UI, dirty rects all unaffected
+
+**Activation:** `pp enable cpu_scale` + `pp set render_scale 50` (or 25). Also available as `pp preset performance`.
+
+**Zoom steps:** 50% = zoom+1 (4x fewer pixels), 25% = zoom+2 (16x fewer pixels). No intermediate values.
+
+**Trade-off:** Palette animation disabled in viewport (water shimmer, blinking signals) via `_screen_disable_anim = true`.
+
+**Key files:** `src/video/viewport_cpu_scale.h`, `src/viewport.cpp` (DrawViewportCPUScaled), `src/video/opengl.cpp` (compositing in Paint)
 
 ### Design Decisions
 - All features default to OFF (zero overhead when disabled)
 - Motion vectors generated via draw-command recording at ViewportDrawParentSprites level (no blitter modifications)
+- Motion vectors disabled when CPU viewport scaling is active (MV coords assume display resolution)
 - Tile-based spatial binning (16x16) for efficient GPU compute dispatch
 - 8bpp blitter guard prevents PP on palette-indexed buffers
 - Cursor rendered after PP at display resolution (position corrected for render scaling)
 - DLSS requires plugin architecture with C ABI boundary for GPLv2 compliance
+- CPU viewport scaling uses heap buffer (not PBO) since scratch buffer is small (~2MB at 1080p 50%)
+- PP shaders use gl_VertexID fullscreen triangle (3 vertices, GL_TRIANGLES) -- no VBO needed
+- vid_program/remap_program use VBO quad (4 vertices, GL_TRIANGLE_STRIP)
+- Temporal history reset when CPU scaling toggles or render_scale changes
 
 ### Settings Flow
-Global variables (`_video_*` in `video_driver.cpp`) → synced per-frame in `Paint()` → `PostProcessConfig` struct → shader uniforms in `RenderPostProcess()`. Settings persisted in openttd.cfg via `misc_settings.ini`. GUI controls in `settings_gui.cpp` modify globals directly; all 30+ GPU sub-controls disabled when PP master toggle is off.
+Global variables (`_video_*` in `video_driver.cpp`, 66+ vars) -> synced per-frame in `Paint()` -> `PostProcessConfig` struct (40+ fields) -> shader uniforms in `RenderPostProcess()`. Settings persisted in openttd.cfg via `misc_settings.ini`. GUI controls in `settings_gui.cpp` modify globals directly; all GPU sub-controls disabled when PP master toggle is off.
 
 ### Tech Debt Paid
 - All uniform locations cached at init time (no per-frame string lookups)
-- FBO ping-pong both at display resolution (prevents corruption with >2 passes)
+- FBO ping-pong at appropriate resolution (render-size for supersampling, display-size otherwise)
 - Config sync properly gates on PP master toggle
 - Shader compilation failures logged per-shader with graceful fallback
 - Division-by-zero guards on all constant computations
@@ -219,13 +258,13 @@ Global variables (`_video_*` in `video_driver.cpp`) → synced per-frame in `Pai
 - Benchmark harness uses std::atomic for thread-safe active flag + deferred auto-stop
 - Bloom composite saves pre-bloom scene into history texture before blur destroys it
 - EASU outlier taps use correct stretch factor (inv_stretch, not stretch)
-- RCAS, bicubic, and CRT shaders clamp output to [0,1] for RGBA8 FBO safety
+- RCAS, bicubic, CRT, DoF shaders clamp output to [0,1] for RGBA8 FBO safety
 - Dawn/dusk timing uses Gaussian peaks at correct positions (0.25/0.75)
 - Weather animation has independent time base from film grain
 - Plugin loader validates required function pointers (init/shutdown/evaluate)
 - Benchmark label and screenshot filename sanitized against path traversal
 - PostProcessPassCount ordering aligned with RenderPostProcess execution order
-- GL error drain loop at end of RenderPostProcess catches all queued errors
+- GL error drain loop at end of RenderPostProcess and CPU scaling compositing
 - PostProcessConfig has defaulted operator== for clean comparison
 - ResetPPDefaults() helper eliminates duplicated reset code in console commands
 - Bloom history texture allocated on demand (works without temporal mode)
@@ -234,29 +273,29 @@ Global variables (`_video_*` in `video_driver.cpp`) → synced per-frame in `Pai
 - Scene cut detection resets temporal history on viewport jumps
 - Auto-supersampling boosts render_scale at In4x/In2x zoom levels
 - Pixel art smoothing shader with EPX-inspired edge detection
-- FSR EASU con1.zw stores pixel dimensions (not reciprocal) for correct UV-to-texel math
-- GPU timer queries double-buffered (read previous frame, no GPU stall)
 - Blitter depth cached per Paint() frame (avoid repeated virtual calls)
 - Film grain time base is member variable (not function-local static)
 - Motion vectors activated from Paint() when compute shaders available
 - Safety blit fallback when all PP shader programs fail (prevents black screen)
-- Benchmark CSV reports all 28+ PP settings as metadata
+- Benchmark CSV reports all PP settings as metadata + scratch buffer dimensions
 - Bicubic upscale uses render-resolution texel pitch (not display-resolution)
-- Render scale slider skips frame during resize to prevent FBO state corruption
-- DoF blur shader clamps output to [0,1] for RGBA8 FBO safety
+- Render scale slider supports 25-200% range for CPU viewport scaling
 - SSAO uses luminance-based pseudo-depth (no separate depth buffer needed)
 - Water reflection detects water by blue_excess = b - max(r,g) with smoothstep
 - Tree sway uses green_excess detection with position-keyed sine phase
 - Sky clouds use FBM noise with brightness/saturation-based sky detection
 - Fake shadows cast directional edge-detection blur with configurable angle
-- All 7 new effects default to OFF, persist in openttd.cfg, expose in GUI + console
-- Named constants ROUGHNESS_BASE/ROUGHNESS_PER_SMOOTHNESS replace magic numbers in tgp.cpp
-- HeightMapSmoothSlopes uses direct pointer arithmetic instead of accessor calls
-- Precomputed tile cache freed on both normal and abort generation paths
+- CPU viewport scaling: scratch buffer destroyed on Resize(), zoom clamped to ZoomLevel::Max
+- CPU viewport scaling: GL context loss guard on texture deletion
+- CPU viewport scaling: vp_texture uses GL_TEXTURE_MAX_LEVEL=0 (no mipmaps)
+- CPU viewport scaling: viewport rect clamped to display bounds before coordinate mapping
+- Update rect clamped to screen bounds in ReleaseVideoBuffer (prevents OOB texSubImage)
+- Viewport string rendering caches font metrics and bevel dimensions
+- Night mode, tilt-shift, water reflections apply to viewport only (not UI)
 
 ## Map Generation Improvements
 
-7 new terrain generation features with TDD tests, all defaulting to OFF for backward compatibility.
+8 terrain generation features with TDD tests, all defaulting to OFF for backward compatibility.
 
 ### Features
 - **Continent Shapes** -- Multiplicative heightmap masks: Island, Archipelago, Fjords, Scattered, Peninsula
@@ -266,17 +305,18 @@ Global variables (`_video_*` in `video_driver.cpp`) → synced per-frame in `Pai
 - **Natural Harbor Scoring** -- Ray-cast coastline concavity analysis for town/port placement bias
 - **Biome System** -- Temperature-based snow/desert zones using altitude + spatial noise
 - **Voronoi Town Placement** -- Grid-based Lloyd relaxation for even town distribution
+- **River Deltas** -- Delta generation at river mouths where rivers meet the sea
 
 ### Key Files
 - `src/tgp.cpp` -- Continent shapes, mountain ranges, improved Perlin, pipeline profiling
 - `src/tgp_func.h` -- Exposed TGP functions (quintic smoothstep) for testing
-- `src/landscape.cpp` -- Lake creation, harbor scoring, biome zones
+- `src/landscape.cpp` -- Lake creation, harbor scoring, biome zones, river deltas
 - `src/lake_gen.cpp/.h` -- Lake detection via BFS flood fill
 - `src/harbor_gen.cpp/.h` -- Coastline concavity scoring with lifecycle management
 - `src/town_cmd.cpp` -- Voronoi town placement with Lloyd relaxation
 - `src/genworld_cache.cpp/.h` -- Precomputed valid tile lists for tree/town generation
 - `src/terrain_advanced_gui.cpp/.h` -- Terrain Options sub-window (8 dropdowns)
-- `src/tests/test_terrain_gen.cpp` -- Terrain generation tests
+- `src/tests/test_terrain_gen.cpp` -- 50 terrain generation tests
 - `src/tests/test_town_placement.cpp` -- Town placement tests
 
 ### Settings (SLV_TERRAIN_GENERATION_V2 = 365)
@@ -290,10 +330,10 @@ All stored in `GameCreationSettings` struct, persisted via `world_settings.ini`:
 
 ### Generation Pipeline (updated order)
 ```
-tgp.cpp: HeightMapGenerate → MountainRanges → HeightMapNormalize
-  (Normalize: AdjustWaterLevel → ContinentShape → CoastLines → SmoothSlopes → SmoothCoasts → SmoothSlopes → SineTransform → Curves)
-landscape.cpp: FixSlopes → Water → Lakes → HarborScores → Biomes → Rivers
-genworld.cpp: BuildTileCache → Towns → Industries → FreeHarbors → Trees → FreeTileCache
+tgp.cpp: HeightMapGenerate -> MountainRanges -> HeightMapNormalize
+  (Normalize: AdjustWaterLevel -> ContinentShape -> CoastLines -> SmoothSlopes -> SmoothCoasts -> SmoothSlopes -> SineTransform -> Curves)
+landscape.cpp: FixSlopes -> Water -> Lakes -> HarborScores -> Biomes -> Rivers -> RiverDeltas
+genworld.cpp: BuildTileCache -> Towns -> Industries -> FreeHarbors -> Trees -> FreeTileCache
 ```
 
 ## Performance Optimizations
@@ -312,10 +352,11 @@ genworld.cpp: BuildTileCache → Towns → Industries → FreeHarbors → Trees 
 | Tile slope cache | -- | viewport.cpp | Per-frame unordered_map cache for GetTilePixelSlope |
 | SmoothSlopes pointer | -- | tgp.cpp | Direct pointer arithmetic, boundary separation |
 | Cargo dedup | *(kept linear)* | economy.cpp | Benchmark proved hash set slower for small N |
+| CPU viewport scaling | **up to 4x** | viewport.cpp | Render viewport at zoom+1 into half-size scratch buffer |
 
 ### Key Files
 - `src/tests/test_optimization_benchmarks.cpp` -- 9 benchmark tests with 1000+ assertions
-- `src/viewport.cpp` -- Binned sorter, vector prealloc, slope cache, early culling
+- `src/viewport.cpp` -- Binned sorter, vector prealloc, slope cache, early culling, CPU viewport scaling
 - `src/tgp.cpp` -- Sine LUT, SmoothSlopes optimization, Debug timing instrumentation
 - `src/landscape.cpp` -- River bitset visited tracking
 - `src/genworld_cache.cpp` -- Precomputed valid tile lists
@@ -330,6 +371,17 @@ TGP: Normalize: 38ms
 TGP: TransferToTiles: 8ms
 TGP: Total generation: 103ms
 ```
+
+## Test Suite Summary
+
+| Test File | Tests | What |
+|---|---|---|
+| test_postprocess.cpp | 271 | PP config, dimensions, pass count, NeedsFBO, shader math, CPU scaling |
+| test_terrain_gen.cpp | 50 | Continent shapes, mountain ranges, Perlin, biomes, harbors, deltas |
+| test_motion_vector.cpp | 38 | Draw commands, tile binning, depth computation, scroll delta |
+| test_temporal_upscale.cpp | 14 | Halton jitter, frame cycling, jitter gating, params |
+| test_upscale_plugin.cpp | 14 | Plugin API, quality modes, capabilities, dispatch params |
+| test_optimization_benchmarks.cpp | 9 | Performance regression guards (1000+ assertions) |
 
 ## Documentation
 
