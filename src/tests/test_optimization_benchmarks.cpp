@@ -734,3 +734,58 @@ TEST_CASE("Benchmark - Persistent slope cache vs per-frame clear") {
 	CHECK(optimized_lookups < baseline_lookups);
 	CHECK(optimized_us <= baseline_us);
 }
+
+/*
+ * Benchmark 11: GPU tier classification from frame time
+ *
+ * Classify GPU performance into tiers based on measured frame time.
+ * Used by the 'pp autodetect' console command to recommend optimal presets.
+ *   Tier 1 (high-end):    < 4ms  -> realistic preset
+ *   Tier 2 (mid-range):   4-8ms  -> sharp preset (FSR + FXAA)
+ *   Tier 3 (low-end):     8-16ms -> performance preset
+ *   Tier 4 (integrated): > 16ms  -> clean (no effects)
+ */
+
+TEST_CASE("Benchmark - GPU tier classification from frame time") {
+	/* Classify GPU performance into tiers based on frame time */
+	/* Tier 1 (high-end): < 4ms -> realistic preset */
+	/* Tier 2 (mid-range): 4-8ms -> clean preset with FXAA */
+	/* Tier 3 (low-end): 8-16ms -> performance preset */
+	/* Tier 4 (integrated): > 16ms -> clean (no effects) */
+
+	auto ClassifyGpuTier = [](double frame_time_ms) -> int {
+		if (frame_time_ms < 4.0) return 1;
+		if (frame_time_ms < 8.0) return 2;
+		if (frame_time_ms < 16.0) return 3;
+		return 4;
+	};
+
+	CHECK(ClassifyGpuTier(2.0) == 1);  /* High-end: RTX 3070+ */
+	CHECK(ClassifyGpuTier(5.0) == 2);  /* Mid-range: GTX 1060 */
+	CHECK(ClassifyGpuTier(12.0) == 3); /* Low-end: integrated + old discrete */
+	CHECK(ClassifyGpuTier(25.0) == 4); /* Very low: old integrated */
+
+	/* Boundary checks */
+	CHECK(ClassifyGpuTier(3.99) == 1);
+	CHECK(ClassifyGpuTier(4.0) == 2);
+	CHECK(ClassifyGpuTier(7.99) == 2);
+	CHECK(ClassifyGpuTier(8.0) == 3);
+	CHECK(ClassifyGpuTier(15.99) == 3);
+	CHECK(ClassifyGpuTier(16.0) == 4);
+}
+
+TEST_CASE("Benchmark - Preset recommendation from GPU tier") {
+	auto RecommendPreset = [](int tier) -> std::string {
+		switch (tier) {
+			case 1: return "realistic";
+			case 2: return "sharp";
+			case 3: return "performance";
+			default: return "clean";
+		}
+	};
+
+	CHECK(RecommendPreset(1) == "realistic");
+	CHECK(RecommendPreset(2) == "sharp");
+	CHECK(RecommendPreset(3) == "performance");
+	CHECK(RecommendPreset(4) == "clean");
+}
