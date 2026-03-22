@@ -1,0 +1,64 @@
+; ===============================================================
+; Classification Buffer Validation Script
+; ===============================================================
+;
+; PURPOSE: Verify the sprite classification buffer and metadata-
+; backed water effect work correctly.
+;
+; HOW TO RUN:
+;   1. Start OpenTTD and create/load a game with water visible
+;   2. Open console (~)
+;   3. Type: exec scripts/validate_classification.scr
+;   4. Screenshots saved to OpenTTD user directory
+;   5. Compare screenshots against expected behaviour
+;
+; EXPECTED RESULTS:
+;   - vc_01_baseline: Normal rendering (reference)
+;   - vc_02_debug_class: False-colour classification overlay
+;     -> water=blue, trees=green, buildings=gray, vehicles=red,
+;        terrain=brown, effects=yellow, unknown=dark gray
+;   - vc_03_water_heuristic_off: PP on but water disabled
+;   - vc_04_water_metadata: Water effect using class_tex
+;     -> shimmer should appear ONLY on water tiles
+;     -> no shimmer on blue roofs, vehicles, or UI
+;   - vc_05_water_plus_night: Water + night mode combined
+;     -> water shimmer should still work (no false positives)
+;   - vc_06_restore: Should be identical to baseline
+;
+; ===============================================================
+
+; === STEP 1: Baseline (PP off) ===
+pp off
+pp_screenshot vc_01_baseline
+
+; === STEP 2: Classification debug view ===
+pp on
+pp debug_class on
+pp_screenshot vc_02_debug_class
+
+; === STEP 3: PP on, water off (baseline with PP) ===
+pp debug_class off
+pp disable water
+pp_screenshot vc_03_water_heuristic_off
+
+; === STEP 4: Water effect with classification metadata ===
+pp enable water
+pp_screenshot vc_04_water_metadata
+
+; === STEP 5: Water + night mode (regression test for blue-tint false positives) ===
+pp enable night
+pp_screenshot vc_05_water_plus_night
+
+; === STEP 6: Restore baseline ===
+pp disable night
+pp disable water
+pp off
+pp_screenshot vc_06_restore
+
+; === STEP 7: Budget check ===
+pp on
+pp budget
+
+; === Done ===
+pp off
+echo "Classification validation complete. Check screenshots in user directory."
