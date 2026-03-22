@@ -1071,8 +1071,8 @@ static const char *_frag_shader_pp_terrain_smooth[] = {
 	"      weight_sum += w;",
 	"    }",
 	"  }",
-	"  vec3 smoothed = sum / weight_sum;",
-	"  frag_colour = vec4(mix(center.rgb, smoothed, smooth_strength), center.a);",
+	"  vec3 smoothed = sum / max(weight_sum, 0.001);",
+	"  frag_colour = vec4(clamp(mix(center.rgb, smoothed, smooth_strength), 0.0, 1.0), center.a);",
 	"}",
 };
 
@@ -1155,7 +1155,7 @@ static const char *_frag_shader_pp_sky[] = {
 	"  float cloud = fbm(cloud_uv);",
 	"  cloud = smoothstep(1.0 - cloud_density, 1.0, cloud);",
 	"  sky = mix(sky, vec3(0.95), cloud * 0.6);",
-	"  frag_colour = vec4(mix(base.rgb, sky, is_sky * 0.5), base.a);",
+	"  frag_colour = vec4(clamp(mix(base.rgb, sky, is_sky * 0.5), 0.0, 1.0), base.a);",
 	"}",
 };
 

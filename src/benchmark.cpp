@@ -310,6 +310,9 @@ void BenchmarkHarness::WriteCSV() const
 	fmt::print(*f, "# DoF Aperture: {}\n", _video_dof_aperture);
 	fmt::print(*f, "# DoF Range: {}\n", _video_dof_range);
 	fmt::print(*f, "# CPU Viewport Scaling: {}\n", _video_cpu_viewport_scaling ? "on" : "off");
+	if (IsViewportCPUScalingActive()) {
+		fmt::print(*f, "# VP Scratch Buffer: {}x{}\n", GetViewportCPUScratchWidth(), GetViewportCPUScratchHeight());
+	}
 
 	fmt::print(*f, "# Vsync: forced off\n");
 	fmt::print(*f, "# Warmup: {} frames\n", this->warmup_frames);

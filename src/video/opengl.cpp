@@ -1452,8 +1452,9 @@ void OpenGLBackend::Paint()
 		this->DestroyViewportScratchBuffer();
 	}
 
-	/* Activate motion vector recording when compute shader MV rasterization is available. */
-	_motion_vectors.active = _video_post_processing && this->mv_compute_supported;
+	/* Activate motion vector recording when compute shader MV rasterization is available.
+	 * Wave 21: Disable MV when CPU viewport scaling is active — MV coords assume display resolution. */
+	_motion_vectors.active = _video_post_processing && this->mv_compute_supported && !this->vp_cpu_scaling;
 
 	/* Cache blitter properties to avoid repeated virtual calls per frame. */
 	Blitter *blitter = BlitterFactory::GetCurrentBlitter();
