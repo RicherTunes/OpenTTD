@@ -2414,8 +2414,8 @@ void OpenGLBackend::RenderPostProcess()
 		/* Upload viewport UV bounds so water reflections don't affect the UI. */
 		const Window *vp_win = GetMainWindow();
 		if (vp_win != nullptr && vp_win->viewport != nullptr && this->pp_water_reflect_viewport_loc >= 0) {
-			float sw = (float)work_size.width;
-			float sh = (float)work_size.height;
+			float sw = (float)_screen.width;
+			float sh = (float)_screen.height;
 			float uv_left = (float)vp_win->left / sw;
 			float uv_top = 1.0f - (float)(vp_win->top + vp_win->height) / sh;
 			float uv_right = (float)(vp_win->left + vp_win->width) / sw;
@@ -2462,8 +2462,8 @@ void OpenGLBackend::RenderPostProcess()
 			/* Upload viewport UV bounds so tilt-shift doesn't blur the UI. */
 			const Window *vp_win = GetMainWindow();
 			if (vp_win != nullptr && vp_win->viewport != nullptr && this->pp_ts_viewport_loc[i] >= 0) {
-				float sw = (float)work_size.width;
-				float sh = (float)work_size.height;
+				float sw = (float)_screen.width;
+				float sh = (float)_screen.height;
 				float uv_left = (float)vp_win->left / sw;
 				float uv_top = 1.0f - (float)(vp_win->top + vp_win->height) / sh;
 				float uv_right = (float)(vp_win->left + vp_win->width) / sw;
@@ -2494,8 +2494,8 @@ void OpenGLBackend::RenderPostProcess()
 		/* Compute viewport UV bounds so the effect doesn't tint the UI. */
 		const Window *vp_win = GetMainWindow();
 		if (vp_win != nullptr && vp_win->viewport != nullptr && this->pp_night_viewport_loc >= 0) {
-			float sw = (float)work_size.width;
-			float sh = (float)work_size.height;
+			float sw = (float)_screen.width;
+			float sh = (float)_screen.height;
 			/* Convert screen-space viewport rect to UV [0,1] coordinates.
 			 * Note: OpenGL UV Y=0 is bottom, screen Y=0 is top. */
 			float uv_left = (float)vp_win->left / sw;
