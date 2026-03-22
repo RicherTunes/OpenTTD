@@ -19,10 +19,10 @@ add_test_files(
     test_network_crypto.cpp
     test_optimization_benchmarks.cpp
     test_postprocess.cpp
-    test_terrain_gen.cpp
-    test_temporal_upscale.cpp
-    test_upscale_plugin.cpp
     test_script_admin.cpp
+    test_temporal_upscale.cpp
+    test_terrain_gen.cpp
+    test_upscale_plugin.cpp
     test_window_desc.cpp
     tilearea.cpp
     utf8.cpp
