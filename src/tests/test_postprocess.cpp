@@ -2121,3 +2121,336 @@ TEST_CASE("PostProcess - all effects including shadows and reflections")
 	CHECK(total >= 17); /* At least EASU+RCAS+pixel+FXAA+tilt*2+color+night+vig+grain+light+bloom*4+CRT+weather+shadow+water */
 	CHECK(total <= 25); /* Sanity upper bound */
 }
+
+/* ====== SSAO tests ====== */
+
+TEST_CASE("PostProcess - ssao defaults")
+{
+	PostProcessConfig config;
+	CHECK_FALSE(config.ssao);
+	CHECK(config.ssao_radius == 4);
+	CHECK(config.ssao_intensity == 50);
+	CHECK(config.ssao_samples == 8);
+}
+
+TEST_CASE("PostProcess - ssao needs FBO")
+{
+	PostProcessConfig config;
+	config.ssao = true;
+	CHECK(PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("PostProcess - ssao adds one pass")
+{
+	PostProcessConfig config;
+	config.ssao = true;
+	CHECK(PostProcessPassCount(config) == 1);
+}
+
+TEST_CASE("PostProcess - ssao with other effects stacks")
+{
+	PostProcessConfig config;
+	config.ssao = true;
+	config.fxaa = true;
+	CHECK(PostProcessPassCount(config) == 2);
+}
+
+/* ====== Terrain smooth tests ====== */
+
+TEST_CASE("PostProcess - terrain_smooth defaults")
+{
+	PostProcessConfig config;
+	CHECK_FALSE(config.terrain_smooth);
+	CHECK(config.terrain_smooth_radius == 2);
+	CHECK(config.terrain_smooth_strength == 50);
+}
+
+TEST_CASE("PostProcess - terrain_smooth needs FBO")
+{
+	PostProcessConfig config;
+	config.terrain_smooth = true;
+	CHECK(PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("PostProcess - terrain_smooth adds one pass")
+{
+	PostProcessConfig config;
+	config.terrain_smooth = true;
+	CHECK(PostProcessPassCount(config) == 1);
+}
+
+TEST_CASE("PostProcess - terrain_smooth with other effects stacks")
+{
+	PostProcessConfig config;
+	config.terrain_smooth = true;
+	config.color_grading = true;
+	CHECK(PostProcessPassCount(config) == 2);
+}
+
+/* ====== Tree sway tests ====== */
+
+TEST_CASE("PostProcess - tree_sway defaults")
+{
+	PostProcessConfig config;
+	CHECK_FALSE(config.tree_sway);
+	CHECK(config.tree_sway_amount == 3);
+	CHECK(config.tree_sway_speed == 50);
+}
+
+TEST_CASE("PostProcess - tree_sway needs FBO")
+{
+	PostProcessConfig config;
+	config.tree_sway = true;
+	CHECK(PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("PostProcess - tree_sway adds one pass")
+{
+	PostProcessConfig config;
+	config.tree_sway = true;
+	CHECK(PostProcessPassCount(config) == 1);
+}
+
+TEST_CASE("PostProcess - tree_sway with other effects stacks")
+{
+	PostProcessConfig config;
+	config.tree_sway = true;
+	config.night_mode = true;
+	CHECK(PostProcessPassCount(config) == 2);
+}
+
+/* ====== Sky clouds tests ====== */
+
+TEST_CASE("PostProcess - sky_clouds defaults")
+{
+	PostProcessConfig config;
+	CHECK_FALSE(config.sky_clouds);
+	CHECK(config.cloud_density == 50);
+	CHECK(config.cloud_speed == 30);
+	CHECK(config.sky_brightness == 70);
+}
+
+TEST_CASE("PostProcess - sky_clouds needs FBO")
+{
+	PostProcessConfig config;
+	config.sky_clouds = true;
+	CHECK(PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("PostProcess - sky_clouds adds one pass")
+{
+	PostProcessConfig config;
+	config.sky_clouds = true;
+	CHECK(PostProcessPassCount(config) == 1);
+}
+
+TEST_CASE("PostProcess - sky_clouds with other effects stacks")
+{
+	PostProcessConfig config;
+	config.sky_clouds = true;
+	config.vignette = true;
+	CHECK(PostProcessPassCount(config) == 2);
+}
+
+/* ====== Depth-of-field tests ====== */
+
+TEST_CASE("PostProcess - depth_of_field defaults")
+{
+	PostProcessConfig config;
+	CHECK_FALSE(config.depth_of_field);
+	CHECK(config.dof_focus_point == 50);
+	CHECK(config.dof_aperture == 30);
+	CHECK(config.dof_range == 40);
+}
+
+TEST_CASE("PostProcess - depth_of_field needs FBO")
+{
+	PostProcessConfig config;
+	config.depth_of_field = true;
+	CHECK(PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("PostProcess - depth_of_field adds one pass")
+{
+	PostProcessConfig config;
+	config.depth_of_field = true;
+	CHECK(PostProcessPassCount(config) == 1);
+}
+
+TEST_CASE("PostProcess - depth_of_field with other effects stacks")
+{
+	PostProcessConfig config;
+	config.depth_of_field = true;
+	config.film_grain = true;
+	CHECK(PostProcessPassCount(config) == 2);
+}
+
+/* ====== Comprehensive cross-cutting tests for all 7 new effects ====== */
+
+TEST_CASE("PostProcess - new effects default to OFF")
+{
+	PostProcessConfig config;
+	CHECK(!config.fake_shadows);
+	CHECK(!config.water_reflections);
+	CHECK(!config.ssao);
+	CHECK(!config.terrain_smooth);
+	CHECK(!config.tree_sway);
+	CHECK(!config.sky_clouds);
+	CHECK(!config.depth_of_field);
+}
+
+TEST_CASE("PostProcess - new effects require FBO")
+{
+	PostProcessConfig config;
+
+	config.fake_shadows = true;
+	CHECK(PostProcessNeedsFBO(config));
+	config.fake_shadows = false;
+
+	config.water_reflections = true;
+	CHECK(PostProcessNeedsFBO(config));
+	config.water_reflections = false;
+
+	config.ssao = true;
+	CHECK(PostProcessNeedsFBO(config));
+	config.ssao = false;
+
+	config.terrain_smooth = true;
+	CHECK(PostProcessNeedsFBO(config));
+	config.terrain_smooth = false;
+
+	config.tree_sway = true;
+	CHECK(PostProcessNeedsFBO(config));
+	config.tree_sway = false;
+
+	config.sky_clouds = true;
+	CHECK(PostProcessNeedsFBO(config));
+	config.sky_clouds = false;
+
+	config.depth_of_field = true;
+	CHECK(PostProcessNeedsFBO(config));
+	config.depth_of_field = false;
+}
+
+TEST_CASE("PostProcess - new effects add correct pass counts")
+{
+	PostProcessConfig base;
+	int base_passes = PostProcessPassCount(base);
+	CHECK(base_passes == 0);
+
+	PostProcessConfig c;
+
+	c = base; c.fake_shadows = true;
+	CHECK(PostProcessPassCount(c) == base_passes + 1);
+
+	c = base; c.water_reflections = true;
+	CHECK(PostProcessPassCount(c) == base_passes + 1);
+
+	c = base; c.ssao = true;
+	CHECK(PostProcessPassCount(c) == base_passes + 1);
+
+	c = base; c.terrain_smooth = true;
+	CHECK(PostProcessPassCount(c) == base_passes + 1);
+
+	c = base; c.tree_sway = true;
+	CHECK(PostProcessPassCount(c) == base_passes + 1);
+
+	c = base; c.sky_clouds = true;
+	CHECK(PostProcessPassCount(c) == base_passes + 1);
+
+	c = base; c.depth_of_field = true;
+	CHECK(PostProcessPassCount(c) == base_passes + 1);
+}
+
+TEST_CASE("PostProcess - all new effects combined pass count")
+{
+	PostProcessConfig config;
+	config.fake_shadows = true;
+	config.water_reflections = true;
+	config.ssao = true;
+	config.terrain_smooth = true;
+	config.tree_sway = true;
+	config.sky_clouds = true;
+	config.depth_of_field = true;
+
+	int passes = PostProcessPassCount(config);
+	CHECK(passes == 7); /* Each new effect is 1 pass */
+}
+
+TEST_CASE("PostProcess - new effect parameter defaults are within valid ranges")
+{
+	PostProcessConfig config;
+
+	/* Shadow params */
+	CHECK(config.shadow_intensity <= 100);
+	CHECK(config.shadow_angle <= 359);
+	CHECK(config.shadow_length >= 1);
+	CHECK(config.shadow_length <= 30);
+	CHECK(config.shadow_softness >= 1);
+	CHECK(config.shadow_softness <= 10);
+
+	/* Water reflection params */
+	CHECK(config.reflection_intensity <= 100);
+	CHECK(config.reflection_distortion <= 20);
+
+	/* SSAO params */
+	CHECK(config.ssao_radius >= 1);
+	CHECK(config.ssao_radius <= 15);
+	CHECK(config.ssao_intensity <= 100);
+	CHECK(config.ssao_samples >= 4);
+	CHECK(config.ssao_samples <= 16);
+
+	/* Terrain smooth params */
+	CHECK(config.terrain_smooth_radius >= 1);
+	CHECK(config.terrain_smooth_radius <= 5);
+	CHECK(config.terrain_smooth_strength <= 100);
+
+	/* Tree sway params */
+	CHECK(config.tree_sway_amount >= 1);
+	CHECK(config.tree_sway_amount <= 10);
+	CHECK(config.tree_sway_speed >= 10);
+	CHECK(config.tree_sway_speed <= 100);
+
+	/* Sky params */
+	CHECK(config.cloud_density <= 100);
+	CHECK(config.cloud_speed <= 100);
+	CHECK(config.sky_brightness <= 100);
+
+	/* DOF params */
+	CHECK(config.dof_focus_point <= 100);
+	CHECK(config.dof_aperture <= 100);
+	CHECK(config.dof_range <= 100);
+}
+
+TEST_CASE("PostProcess - config equality includes new effects")
+{
+	PostProcessConfig a, b;
+	CHECK(a == b);
+
+	a.fake_shadows = true;
+	CHECK(!(a == b));
+	b.fake_shadows = true;
+	CHECK(a == b);
+
+	a.ssao = true;
+	CHECK(!(a == b));
+	b.ssao = true;
+	CHECK(a == b);
+
+	a.tree_sway_amount = 7;
+	CHECK(!(a == b));
+	b.tree_sway_amount = 7;
+	CHECK(a == b);
+
+	a.dof_aperture = 60;
+	CHECK(!(a == b));
+	b.dof_aperture = 60;
+	CHECK(a == b);
+}
+
+TEST_CASE("PostProcess - no FBO needed with all defaults")
+{
+	PostProcessConfig config;
+	CHECK(!PostProcessNeedsFBO(config));
+	CHECK(PostProcessPassCount(config) == 0);
+}

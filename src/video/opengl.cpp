@@ -2220,10 +2220,18 @@ void OpenGLBackend::RenderPostProcess()
 
 	/* Night mode. */
 	if (this->pp_config.night_mode && this->pp_night_program != 0) {
+		float ni = this->pp_config.night_intensity / 100.0f;
+		float nb = this->pp_config.night_blue_shift / 100.0f;
+		(void)_glGetError(); /* Clear pre-existing errors. */
 		_glUseProgram(this->pp_night_program);
-		_glUniform1f(this->pp_night_int_loc, this->pp_config.night_intensity / 100.0f);
-		_glUniform1f(this->pp_night_blue_loc, this->pp_config.night_blue_shift / 100.0f);
+		GLenum e1 = _glGetError();
+		_glUniform1f(this->pp_night_int_loc, ni);
+		_glUniform1f(this->pp_night_blue_loc, nb);
+		GLenum e2 = _glGetError();
 		RunPass();
+		GLenum e3 = _glGetError();
+		Debug(driver, 0, "Night: ni={:.2f} nb={:.2f} errs=0x{:X}/0x{:X}/0x{:X} pass={}/{}",
+			ni, nb, e1, e2, e3, pass, total);
 	}
 
 	/* Vignette. */

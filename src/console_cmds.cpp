@@ -2940,7 +2940,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		IConsolePrint(CC_HELP, "Usage: 'pp info' - Show GPU pipeline capabilities.");
 		IConsolePrint(CC_HELP, "Usage: 'pp on/off' - Toggle master post-processing switch.");
 		IConsolePrint(CC_HELP, "Usage: 'pp enable/disable <effect>' - Toggle an effect.");
-		IConsolePrint(CC_HELP, "  Effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather, smooth, supersample, shadows, water");
+		IConsolePrint(CC_HELP, "  Effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather, smooth, supersample, shadows, water, ssao, terrain_smooth, tree_sway, sky, dof");
 		IConsolePrint(CC_HELP, "Usage: 'pp set <param> <value>' - Set a parameter.");
 		IConsolePrint(CC_HELP, "  Core: render_scale (50-200), sharpening (0-100), upscale (0-4), texture_filter (0-2)");
 		IConsolePrint(CC_HELP, "  Color: brightness (-50..50), contrast (50-200), saturation (0-200), temperature (-100..100)");
@@ -2951,6 +2951,13 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		IConsolePrint(CC_HELP, "  Smooth: smooth_amount (0-100)");
 		IConsolePrint(CC_HELP, "  Other: grain_intensity (1-20), bloom_threshold (0-100), bloom_intensity (0-100)");
 		IConsolePrint(CC_HELP, "  Weather: weather_type (0-2), weather_intensity (0-100)");
+		IConsolePrint(CC_HELP, "  Shadows: shadow_intensity (0-100), shadow_angle (0-359), shadow_length (1-30), shadow_softness (1-10)");
+		IConsolePrint(CC_HELP, "  Water: reflection_intensity (0-100), reflection_distortion (0-20)");
+		IConsolePrint(CC_HELP, "  SSAO: ssao_radius (1-15), ssao_intensity (0-100), ssao_samples (4-16)");
+		IConsolePrint(CC_HELP, "  Terrain: terrain_smooth_radius (1-5), terrain_smooth_strength (0-100)");
+		IConsolePrint(CC_HELP, "  Sway: tree_sway_amount (1-10), tree_sway_speed (10-100)");
+		IConsolePrint(CC_HELP, "  Sky: cloud_density (0-100), cloud_speed (0-100), sky_brightness (0-100)");
+		IConsolePrint(CC_HELP, "  DOF: dof_focus (0-100), dof_aperture (0-100), dof_range (0-100)");
 		IConsolePrint(CC_HELP, "Usage: 'pp reset' - Restore all post-processing settings to defaults.");
 		IConsolePrint(CC_HELP, "Usage: 'pp preset <name>' - Apply a predefined configuration.");
 		IConsolePrint(CC_HELP, "  Presets: retro, cinematic, night, miniature, sharp, clean");
@@ -2983,7 +2990,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		IConsolePrint(CC_INFO, "  SSAO: {} (radius={}, intensity={}, samples={})", _video_ssao ? "ON" : "OFF", _video_ssao_radius, _video_ssao_intensity, _video_ssao_samples);
 		IConsolePrint(CC_INFO, "  Terrain smooth: {} (radius={}, strength={})", _video_terrain_smooth ? "ON" : "OFF", _video_terrain_smooth_radius, _video_terrain_smooth_strength);
 		IConsolePrint(CC_INFO, "  Tree sway: {} (amount={}, speed={})", _video_tree_sway ? "ON" : "OFF", _video_tree_sway_amount, _video_tree_sway_speed);
-		IConsolePrint(CC_INFO, "  Sky clouds: {} (brightness={})", _video_sky_clouds ? "ON" : "OFF", _video_sky_brightness);
+		IConsolePrint(CC_INFO, "  Sky clouds: {} (density={}, speed={}, brightness={})", _video_sky_clouds ? "ON" : "OFF", _video_cloud_density, _video_cloud_speed, _video_sky_brightness);
 		IConsolePrint(CC_INFO, "  Depth of field: {} (focus={}, aperture={}, range={})", _video_depth_of_field ? "ON" : "OFF", _video_dof_focus_point, _video_dof_aperture, _video_dof_range);
 		IConsolePrint(CC_INFO, "  Brightness: {}", _video_brightness);
 		IConsolePrint(CC_INFO, "  Contrast: {}", _video_contrast);
@@ -3055,7 +3062,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 
 	if (argv[1] == "enable" || argv[1] == "disable") {
 		if (argv.size() < 3) {
-			IConsolePrint(CC_ERROR, "Usage: 'pp {} <effect>' - Effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather, smooth, supersample, shadows, water", argv[1]);
+			IConsolePrint(CC_ERROR, "Usage: 'pp {} <effect>' - Effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather, smooth, supersample, shadows, water, ssao, terrain_smooth, tree_sway, sky, dof", argv[1]);
 			return false;
 		}
 		bool enable = (argv[1] == "enable");
@@ -3091,7 +3098,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			_video_ssao = enable;
 		} else if (effect == "terrain_smooth") {
 			_video_terrain_smooth = enable;
-		} else if (effect == "tree_sway") {
+		} else if (effect == "tree_sway" || effect == "sway") {
 			_video_tree_sway = enable;
 		} else if (effect == "sky" || effect == "sky_clouds") {
 			_video_sky_clouds = enable;
@@ -3252,6 +3259,12 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		} else if (param == "tree_sway_speed") {
 			_video_tree_sway_speed = static_cast<uint8_t>(Clamp(value, 10, 100));
 			IConsolePrint(CC_INFO, "Tree sway speed set to {}.", _video_tree_sway_speed);
+		} else if (param == "cloud_density") {
+			_video_cloud_density = static_cast<uint8_t>(Clamp(value, 0, 100));
+			IConsolePrint(CC_INFO, "Cloud density set to {}.", _video_cloud_density);
+		} else if (param == "cloud_speed") {
+			_video_cloud_speed = static_cast<uint8_t>(Clamp(value, 0, 100));
+			IConsolePrint(CC_INFO, "Cloud speed set to {}.", _video_cloud_speed);
 		} else if (param == "sky_brightness") {
 			_video_sky_brightness = static_cast<uint8_t>(Clamp(value, 0, 100));
 			IConsolePrint(CC_INFO, "Sky brightness set to {}.", _video_sky_brightness);
