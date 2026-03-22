@@ -313,6 +313,10 @@ void BenchmarkHarness::WriteCSV() const
 	if (IsViewportCPUScalingActive()) {
 		fmt::print(*f, "# VP Scratch Buffer: {}x{}\n", GetViewportCPUScratchWidth(), GetViewportCPUScratchHeight());
 	}
+	fmt::print(*f, "# Toon Rendering: {} (edge={}, levels={})\n", _video_toon_rendering ? "on" : "off", _video_toon_edge_threshold, _video_toon_color_levels);
+	fmt::print(*f, "# Heat Haze: {} (intensity={}, distortion={})\n", _video_heat_haze ? "on" : "off", _video_haze_intensity, _video_haze_distortion);
+	fmt::print(*f, "# Water Waves: {} (amplitude={}, speed={})\n", _video_water_waves ? "on" : "off", _video_wave_amplitude, _video_wave_speed);
+	fmt::print(*f, "# Seasonal Vegetation: {} (intensity={})\n", _video_seasonal_vegetation ? "on" : "off", _video_season_intensity);
 
 	fmt::print(*f, "# Vsync: forced off\n");
 	fmt::print(*f, "# Warmup: {} frames\n", this->warmup_frames);
