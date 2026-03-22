@@ -21,6 +21,7 @@ add_test_files(
     test_optimization_benchmarks.cpp
     test_postprocess.cpp
     test_script_admin.cpp
+    test_sprite_class.cpp
     test_temporal_upscale.cpp
     test_terrain_gen.cpp
     test_upscale_plugin.cpp

@@ -92,6 +92,7 @@
 #include "viewport_cmd.h"
 #include "video/motion_vector.h"
 #include "video/viewport_cpu_scale.h"
+#include "video/sprite_class.h"
 
 #include <algorithm>
 #include <forward_list>
@@ -1338,6 +1339,34 @@ static void ViewportAddLandscape()
 				_vd.last_foundation_child[0] = LAST_CHILD_NONE;
 				_vd.last_foundation_child[1] = LAST_CHILD_NONE;
 
+				/* Set sprite classification based on tile type for metadata buffer. */
+				if (_sprite_class.active) {
+					switch (tile_type) {
+						case TileType::Clear:
+						case TileType::Void:
+							_sprite_class.current_class = SPRITE_CLASS_TERRAIN;
+							break;
+						case TileType::Water:
+							_sprite_class.current_class = SPRITE_CLASS_WATER;
+							break;
+						case TileType::Trees:
+							_sprite_class.current_class = SPRITE_CLASS_VEGETATION;
+							break;
+						case TileType::House:
+						case TileType::Industry:
+						case TileType::Object:
+						case TileType::Railway:
+						case TileType::Road:
+						case TileType::Station:
+						case TileType::TunnelBridge:
+							_sprite_class.current_class = SPRITE_CLASS_STRUCTURE;
+							break;
+						default:
+							_sprite_class.current_class = SPRITE_CLASS_TERRAIN;
+							break;
+					}
+				}
+
 				_tile_type_procs[tile_type]->draw_tile_proc(&_cur_ti);
 				if (_cur_ti.tile != INVALID_TILE) DrawTileSelection(&_cur_ti);
 			}
@@ -1887,8 +1916,13 @@ void ViewportDoDraw(const Viewport &vp, int left, int top, int right, int bottom
 	AutoRestoreBackup dpi_backup(_cur_dpi, &_vd.dpi);
 
 	ViewportAddLandscape();
+
+	/* Classify vehicle sprites for metadata buffer. */
+	if (_sprite_class.active) _sprite_class.current_class = SPRITE_CLASS_VEHICLE;
 	ViewportAddVehicles(&_vd.dpi);
 
+	/* Classify signs and text effects for metadata buffer. */
+	if (_sprite_class.active) _sprite_class.current_class = SPRITE_CLASS_EFFECT;
 	ViewportAddKdtreeSigns(&_vd.dpi);
 
 	DrawTextEffects(&_vd.dpi);

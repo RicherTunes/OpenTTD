@@ -51,6 +51,11 @@ private:
 	GLuint anim_pbo = 0; ///< Pixel buffer object storing the memory used for the animation buffer.
 	GLuint anim_texture = 0; ///< Texture handle for the animation buffer texture.
 
+	void *class_buffer = nullptr;       ///< Pointer to the mapped classification buffer.
+	GLuint class_pbo = 0;               ///< PBO for classification buffer upload.
+	GLuint class_texture = 0;           ///< GL_R8 texture for classification data.
+	GLsync sync_class_mapping{};        ///< Sync object for classification buffer mapping.
+
 	GLuint remap_program = 0; ///< Shader program for blending and rendering a RGBA + remap texture.
 	GLint  remap_sprite_loc = 0; ///< Uniform location for sprite parameters.
 	GLint  remap_screen_loc = 0; ///< Uniform location for screen size.
@@ -307,8 +312,10 @@ public:
 
 	void *GetVideoBuffer();
 	uint8_t *GetAnimBuffer();
+	uint8_t *GetClassBuffer();
 	void ReleaseVideoBuffer(const Rect &update_rect);
 	void ReleaseAnimBuffer(const Rect &update_rect);
+	void ReleaseClassBuffer(const Rect &update_rect);
 
 	/* SpriteEncoder */
 

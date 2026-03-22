@@ -28,6 +28,7 @@
 #include "../3rdparty/opengl/glext.h"
 
 #include "opengl.h"
+#include "sprite_class.h"
 #include "viewport_cpu_scale.h"
 #include "video_driver.hpp"
 #include "motion_vector.h"
@@ -652,6 +653,7 @@ OpenGLBackend::~OpenGLBackend()
 		_glDeleteBuffers(1, &this->vbo_quad);
 		_glDeleteBuffers(1, &this->vid_pbo);
 		_glDeleteBuffers(1, &this->anim_pbo);
+		_glDeleteBuffers(1, &this->class_pbo);
 	}
 	if (_glDeleteTextures != nullptr) {
 		this->InternalClearCursorCache();
@@ -659,7 +661,11 @@ OpenGLBackend::~OpenGLBackend()
 
 		_glDeleteTextures(1, &this->vid_texture);
 		_glDeleteTextures(1, &this->anim_texture);
+		_glDeleteTextures(1, &this->class_texture);
 		_glDeleteTextures(1, &this->pal_texture);
+	}
+	if (_glDeleteSync != nullptr && this->sync_class_mapping != nullptr) {
+		_glDeleteSync(this->sync_class_mapping);
 	}
 }
 
@@ -774,6 +780,17 @@ std::optional<std::string_view> OpenGLBackend::Init(const Dimension &screen_res)
 	_glBindTexture(GL_TEXTURE_2D, 0);
 	if (_glGetError() != GL_NO_ERROR) return "Can't generate animation buffer texture";
 
+	/* Setup classification buffer texture (GL_R8, same dimensions as screen). */
+	_glGenTextures(1, &this->class_texture);
+	_glBindTexture(GL_TEXTURE_2D, this->class_texture);
+	_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+	_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	_glBindTexture(GL_TEXTURE_2D, 0);
+	if (_glGetError() != GL_NO_ERROR) return "Can't generate classification buffer texture";
+
 	/* Setup palette texture. */
 	_glGenTextures(1, &this->pal_texture);
 	_glBindTexture(GL_TEXTURE_1D, this->pal_texture);
@@ -839,11 +856,13 @@ std::optional<std::string_view> OpenGLBackend::Init(const Dimension &screen_res)
 	_glUniform1i(pal_location, 3);     // Texture unit 3.
 	(void)_glGetError(); // Clear errors.
 
-	/* Create pixel buffer object as video buffer storage. */
+	/* Create pixel buffer objects as video/anim/classification buffer storage. */
 	_glGenBuffers(1, &this->vid_pbo);
 	_glBindBuffer(GL_PIXEL_UNPACK_BUFFER, this->vid_pbo);
 	_glGenBuffers(1, &this->anim_pbo);
 	_glBindBuffer(GL_PIXEL_UNPACK_BUFFER, this->anim_pbo);
+	_glGenBuffers(1, &this->class_pbo);
+	_glBindBuffer(GL_PIXEL_UNPACK_BUFFER, this->class_pbo);
 	if (_glGetError() != GL_NO_ERROR) return "Can't allocate pixel buffer for video buffer";
 
 	/* Prime vertex buffer with a full-screen quad and store
@@ -1197,6 +1216,33 @@ bool OpenGLBackend::Resize(int w, int h, bool force)
 		_glBindTexture(GL_TEXTURE_2D, this->anim_texture);
 		_glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, 1, 1, 0, GL_RED, GL_UNSIGNED_BYTE, &dummy);
 	}
+
+	/* Allocate classification buffer (GL_R8, same layout as anim buffer).
+	 * Always allocated when PP is supported -- classification data is only
+	 * written when _sprite_class.active is set in Paint(). */
+	this->class_buffer = nullptr;
+	if (this->persistent_mapping_supported) {
+		_glDeleteBuffers(1, &this->class_pbo);
+		_glGenBuffers(1, &this->class_pbo);
+		_glBindBuffer(GL_PIXEL_UNPACK_BUFFER, this->class_pbo);
+		_glBufferStorage(GL_PIXEL_UNPACK_BUFFER, line_pixel_count, nullptr, GL_MAP_READ_BIT | GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT | GL_CLIENT_STORAGE_BIT);
+	} else {
+		_glBindBuffer(GL_PIXEL_UNPACK_BUFFER, this->class_pbo);
+		_glBufferData(GL_PIXEL_UNPACK_BUFFER, line_pixel_count, nullptr, GL_STREAM_DRAW);
+	}
+
+	/* Initialize classification buffer as SPRITE_CLASS_UNKNOWN (0). */
+	if (_glClearBufferSubData != nullptr) {
+		uint8_t b = 0;
+		_glClearBufferSubData(GL_PIXEL_UNPACK_BUFFER, GL_R8, 0, line_pixel_count, GL_RED, GL_UNSIGNED_BYTE, &b);
+	} else {
+		ClearPixelBuffer<uint8_t>(line_pixel_count, 0);
+	}
+
+	_glPixelStorei(GL_UNPACK_ROW_LENGTH, pitch);
+	_glBindTexture(GL_TEXTURE_2D, this->class_texture);
+	_glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, render_w, render_h, 0, GL_RED, GL_UNSIGNED_BYTE, nullptr);
+	_glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
 	_glBindTexture(GL_TEXTURE_2D, 0);
 
@@ -2901,6 +2947,21 @@ void *OpenGLBackend::GetVideoBuffer()
 		this->vid_buffer = _glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, static_cast<GLsizeiptr>(_screen.pitch) * _screen.height * vid_bpp / 8, GL_MAP_READ_BIT | GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
 	}
 
+	/* Activate sprite classification buffer for the upcoming CPU draw phase.
+	 * Only active when post-processing is enabled and blitter is 32bpp. */
+	Blitter *cls_blitter = BlitterFactory::GetCurrentBlitter();
+	if (this->pp_active && this->class_pbo != 0 &&
+	    cls_blitter != nullptr && cls_blitter->GetScreenDepth() != 8) {
+		uint8_t *cls_buf = this->GetClassBuffer();
+		if (cls_buf != nullptr) {
+			std::fill_n(cls_buf, static_cast<size_t>(_screen.pitch) * _screen.height, static_cast<uint8_t>(SPRITE_CLASS_UNKNOWN));
+			_sprite_class.class_buf = cls_buf;
+			_sprite_class.buf_pitch = _screen.pitch;
+			_sprite_class.current_class = SPRITE_CLASS_UNKNOWN;
+			_sprite_class.active = true;
+		}
+	}
+
 	return this->vid_buffer;
 }
 
@@ -2934,6 +2995,15 @@ uint8_t *OpenGLBackend::GetAnimBuffer()
 void OpenGLBackend::ReleaseVideoBuffer(const Rect &update_rect)
 {
 	assert(this->vid_pbo != 0);
+
+	/* Release sprite classification buffer after CPU draw phase. */
+	if (_sprite_class.active) {
+		_sprite_class.active = false;
+		_sprite_class.class_buf = nullptr;
+		_sprite_class.buf_pitch = 0;
+		_sprite_class.current_class = SPRITE_CLASS_UNKNOWN;
+		this->ReleaseClassBuffer(update_rect);
+	}
 
 	_glBindBuffer(GL_PIXEL_UNPACK_BUFFER, this->vid_pbo);
 	if (!this->persistent_mapping_supported) {
@@ -3002,6 +3072,63 @@ void OpenGLBackend::ReleaseAnimBuffer(const Rect &update_rect)
 
 #ifndef NO_GL_BUFFER_SYNC
 		if (this->persistent_mapping_supported) this->sync_anim_mapping = _glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+#endif
+	}
+}
+
+/**
+ * Get a pointer to the memory for the sprite classification buffer.
+ * @return Pointer to draw on, or nullptr if classification PBO is not allocated.
+ */
+uint8_t *OpenGLBackend::GetClassBuffer()
+{
+	if (this->class_pbo == 0) return nullptr;
+
+#ifndef NO_GL_BUFFER_SYNC
+	if (this->sync_class_mapping != nullptr) _glClientWaitSync(this->sync_class_mapping, GL_SYNC_FLUSH_COMMANDS_BIT, 100000000); // 100ms timeout.
+#endif
+
+	if (!this->persistent_mapping_supported) {
+		_glBindBuffer(GL_PIXEL_UNPACK_BUFFER, this->class_pbo);
+		this->class_buffer = _glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_READ_WRITE);
+	} else if (this->class_buffer == nullptr) {
+		_glBindBuffer(GL_PIXEL_UNPACK_BUFFER, this->class_pbo);
+		this->class_buffer = _glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, static_cast<GLsizeiptr>(_screen.pitch) * _screen.height, GL_MAP_READ_BIT | GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
+	}
+
+	return (uint8_t *)this->class_buffer;
+}
+
+/**
+ * Update classification buffer texture after the classification buffer was filled.
+ * @param update_rect Rectangle encompassing the dirty region of the classification buffer.
+ */
+void OpenGLBackend::ReleaseClassBuffer(const Rect &update_rect)
+{
+	if (this->class_pbo == 0) return;
+
+	_glBindBuffer(GL_PIXEL_UNPACK_BUFFER, this->class_pbo);
+	if (!this->persistent_mapping_supported) {
+		_glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
+		this->class_buffer = nullptr;
+	}
+
+#ifndef NO_GL_BUFFER_SYNC
+	if (this->persistent_mapping_supported) {
+		_glDeleteSync(this->sync_class_mapping);
+		this->sync_class_mapping = nullptr;
+	}
+#endif
+
+	/* Update changed rect of the classification buffer texture. */
+	if (update_rect.left != update_rect.right) {
+		_glActiveTexture(GL_TEXTURE0);
+		_glBindTexture(GL_TEXTURE_2D, this->class_texture);
+		_glPixelStorei(GL_UNPACK_ROW_LENGTH, _screen.pitch);
+		_glTexSubImage2D(GL_TEXTURE_2D, 0, update_rect.left, update_rect.top, update_rect.right - update_rect.left, update_rect.bottom - update_rect.top, GL_RED, GL_UNSIGNED_BYTE, (GLvoid *)(size_t)(update_rect.top * _screen.pitch + update_rect.left));
+
+#ifndef NO_GL_BUFFER_SYNC
+		if (this->persistent_mapping_supported) this->sync_class_mapping = _glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
 #endif
 	}
 }

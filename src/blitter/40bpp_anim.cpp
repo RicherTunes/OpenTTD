@@ -11,6 +11,7 @@
 #include "../zoom_func.h"
 #include "../settings_type.h"
 #include "../video/video_driver.hpp"
+#include "../video/sprite_class.h"
 #include "../palette_func.h"
 #include "40bpp_anim.hpp"
 #include "common.hpp"
@@ -113,6 +114,11 @@ inline void Blitter_40bppAnim::Draw(const Blitter::BlitterParams *bp, ZoomLevel 
 	assert(VideoDriver::GetInstance()->GetAnimBuffer() != nullptr);
 	uint8_t *anim = VideoDriver::GetInstance()->GetAnimBuffer() + ((uint32_t *)bp->dst - (uint32_t *)_screen.dst_ptr) + bp->top * bp->pitch + bp->left;
 
+	/* Classification buffer pointer, or nullptr when classification is disabled. */
+	uint8_t *cls = (_sprite_class.active && _sprite_class.class_buf != nullptr) ?
+		(_sprite_class.class_buf + ((uint32_t *)bp->dst - (uint32_t *)_screen.dst_ptr) + bp->top * bp->pitch + bp->left) : nullptr;
+	const SpriteClass cur_cls = _sprite_class.current_class;
+
 	/* store so we don't have to access it via bp every time (compiler assumes pointer aliasing) */
 	const uint8_t *remap = bp->remap;
 
@@ -120,6 +126,7 @@ inline void Blitter_40bppAnim::Draw(const Blitter::BlitterParams *bp, ZoomLevel 
 		/* next dst line begins here */
 		Colour *dst_ln = dst + bp->pitch;
 		uint8_t *anim_ln = anim + bp->pitch;
+		uint8_t *cls_ln = (cls != nullptr) ? cls + bp->pitch : nullptr;
 
 		/* next src line begins here */
 		const Colour *src_px_ln = (const Colour *)((const uint8_t *)src_px + *(const uint32_t *)src_px);
@@ -143,7 +150,11 @@ inline void Blitter_40bppAnim::Draw(const Blitter::BlitterParams *bp, ZoomLevel 
 				src_px++;
 				src_n++;
 
-				if (dst > dst_end) anim += dst - dst_end;
+				if (dst > dst_end) {
+					uint skip = dst - dst_end;
+					anim += skip;
+					if (cls != nullptr) cls += skip;
+				}
 			} else {
 				if (dst + n > dst_end) {
 					uint d = dst_end - dst;
@@ -172,6 +183,7 @@ inline void Blitter_40bppAnim::Draw(const Blitter::BlitterParams *bp, ZoomLevel 
 
 			if (src_px->a == 0) {
 				anim += n;
+				if (cls != nullptr) cls += n;
 				dst += n;
 				src_px++;
 				src_n++;
@@ -190,14 +202,17 @@ inline void Blitter_40bppAnim::Draw(const Blitter::BlitterParams *bp, ZoomLevel 
 							if (m == 0) {
 								*dst = mode == BlitterMode::CrashRemap ? this->MakeDark(*src_px) : *src_px;
 								*anim = 0;
+								if (cls != nullptr) *cls = cur_cls;
 							} else {
 								uint r = remap[m];
 								if (r != 0) {
 									*dst = src_px->data;
 									*anim = r;
+									if (cls != nullptr) *cls = cur_cls;
 								}
 							}
 							anim++;
+							if (cls != nullptr) cls++;
 							dst++;
 							src_px++;
 							src_n++;
@@ -210,14 +225,17 @@ inline void Blitter_40bppAnim::Draw(const Blitter::BlitterParams *bp, ZoomLevel 
 								Colour c = mode == BlitterMode::CrashRemap ? this->MakeDark(*src_px) : *src_px;
 								*dst = this->ComposeColourRGBANoCheck(c.r, c.g, c.b, src_px->a, b);
 								*anim = 0;
+								if (cls != nullptr) *cls = cur_cls;
 							} else {
 								uint r = remap[m];
 								if (r != 0) {
 									*dst = this->ComposeColourPANoCheck(this->LookupColourInPalette(r), src_px->a, b);
 									*anim = 0; // Animation colours don't work with alpha-blending.
+									if (cls != nullptr) *cls = cur_cls;
 								}
 							}
 							anim++;
+							if (cls != nullptr) cls++;
 							dst++;
 							src_px++;
 							src_n++;
@@ -228,6 +246,7 @@ inline void Blitter_40bppAnim::Draw(const Blitter::BlitterParams *bp, ZoomLevel 
 				case BlitterMode::BlackRemap:
 					do {
 						*anim++ = 0;
+						if (cls != nullptr) { *cls = cur_cls; cls++; }
 						*dst++ = _black_colour;
 						src_px++;
 						src_n++;
@@ -235,7 +254,8 @@ inline void Blitter_40bppAnim::Draw(const Blitter::BlitterParams *bp, ZoomLevel 
 					break;
 
 				case BlitterMode::Transparent:
-					/* Make the current colour a bit more black, so it looks like this image is transparent */
+					/* Make the current colour a bit more black, so it looks like this image is transparent.
+					 * Do NOT write classification -- preserve underlying tile's class. */
 					src_n += n;
 					if (src_px->a == 255) {
 						src_px += n;
@@ -246,6 +266,7 @@ inline void Blitter_40bppAnim::Draw(const Blitter::BlitterParams *bp, ZoomLevel 
 							Colour b = *anim != 0 ? Colour(GetColourBrightness(*dst), 0, 0) : *dst;
 							*dst = this->MakeTransparent(b, 3, 4);
 							anim++;
+							if (cls != nullptr) cls++;
 							dst++;
 						} while (--n != 0);
 					} else {
@@ -254,6 +275,7 @@ inline void Blitter_40bppAnim::Draw(const Blitter::BlitterParams *bp, ZoomLevel 
 							*dst = this->MakeTransparent(b, (256 * 4 - src_px->a), 256 * 4);
 							*anim = 0; // Animation colours don't work with alpha-blending.
 							anim++;
+							if (cls != nullptr) cls++;
 							dst++;
 							src_px++;
 						} while (--n != 0);
@@ -261,7 +283,8 @@ inline void Blitter_40bppAnim::Draw(const Blitter::BlitterParams *bp, ZoomLevel 
 					break;
 
 				case BlitterMode::TransparentRemap:
-					/* Apply custom transparency remap. */
+					/* Apply custom transparency remap.
+					 * Do NOT write classification -- preserve underlying tile's class. */
 					src_n += n;
 					if (src_px->a != 0) {
 						src_px += n;
@@ -273,11 +296,13 @@ inline void Blitter_40bppAnim::Draw(const Blitter::BlitterParams *bp, ZoomLevel 
 								*anim = 0;
 							}
 							anim++;
+							if (cls != nullptr) cls++;
 							dst++;
 						} while (--n != 0);
 					} else {
 						dst += n;
 						anim += n;
+						if (cls != nullptr) cls += n;
 						src_px += n;
 					}
 					break;
@@ -286,6 +311,7 @@ inline void Blitter_40bppAnim::Draw(const Blitter::BlitterParams *bp, ZoomLevel 
 					if (src_px->a == 255) {
 						do {
 							*anim++ = GB(*src_n, 0, 8);
+							if (cls != nullptr) { *cls = cur_cls; cls++; }
 							*dst++ = src_px->data;
 							src_px++;
 							src_n++;
@@ -303,8 +329,10 @@ inline void Blitter_40bppAnim::Draw(const Blitter::BlitterParams *bp, ZoomLevel 
 								*dst = this->ComposeColourPANoCheck(this->LookupColourInPalette(m), src_px->a, b);
 								*anim = m;
 							}
+							if (cls != nullptr) *cls = cur_cls;
 
 							anim++;
+							if (cls != nullptr) cls++;
 							dst++;
 							src_px++;
 							src_n++;
@@ -315,6 +343,7 @@ inline void Blitter_40bppAnim::Draw(const Blitter::BlitterParams *bp, ZoomLevel 
 
 		dst = dst_ln;
 		anim = anim_ln;
+		cls = cls_ln;
 		src_px = src_px_ln;
 		src_n  = src_n_ln;
 	}

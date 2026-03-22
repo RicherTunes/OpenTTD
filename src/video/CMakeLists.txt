@@ -48,6 +48,8 @@ add_files(
     postprocess.cpp
     postprocess.h
     render_backend.h
+    sprite_class.cpp
+    sprite_class.h
     upscale_plugin.cpp
     upscale_plugin.h
     viewport_cpu_scale.h
