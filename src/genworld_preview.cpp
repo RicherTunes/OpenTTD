@@ -67,6 +67,7 @@ static double PreviewPerlinNoise(double x, double y, int octaves, double persist
 		frequency *= 2.0;
 	}
 
+	if (max_val <= 0.0) return 0.0;
 	return total / max_val;
 }
 
