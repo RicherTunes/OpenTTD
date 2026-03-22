@@ -92,6 +92,11 @@ bool PostProcessNeedsFBO(const PostProcessConfig &config)
 	if (config.weather_type > 0) return true;
 	if (config.fake_shadows) return true;
 	if (config.water_reflections) return true;
+	if (config.ssao) return true;
+	if (config.terrain_smooth) return true;
+	if (config.tree_sway) return true;
+	if (config.sky_clouds) return true;
+	if (config.depth_of_field) return true;
 	if (config.render_scale > 100) return true; /* Supersampling needs downsample pass. */
 	return false;
 }
@@ -124,8 +129,12 @@ int PostProcessPassCount(const PostProcessConfig &config)
 	}
 
 	/* Effect passes (order matches RenderPostProcess execution). */
+	if (config.sky_clouds) passes += 1;
 	if (config.pixel_smoothing) passes += 1;
+	if (config.terrain_smooth) passes += 1;
+	if (config.tree_sway) passes += 1;
 	if (config.water_reflections) passes += 1;
+	if (config.ssao) passes += 1;
 	if (config.fxaa) passes += 1;
 	if (config.tiltshift) passes += 2; /* Horizontal + vertical blur */
 	if (config.color_grading) passes += 1;
@@ -134,9 +143,10 @@ int PostProcessPassCount(const PostProcessConfig &config)
 	if (config.film_grain) passes += 1;
 	if (config.dynamic_lighting) passes += 1;
 	if (config.bloom) passes += 4; /* Threshold + blur H + blur V + composite. */
+	if (config.depth_of_field) passes += 1;
+	if (config.fake_shadows) passes += 1;
 	if (config.crt_filter) passes += 1;
 	if (config.weather_type > 0) passes += 1;
-	if (config.fake_shadows) passes += 1;
 
 	/* Supersampling downsample pass (render > display). */
 	if (config.render_scale > 100) passes += 1;

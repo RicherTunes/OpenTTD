@@ -93,6 +93,34 @@ struct PostProcessConfig {
 	uint8_t reflection_intensity = 30; ///< Reflection strength (0-100, mapped to 0.0..1.0).
 	uint8_t reflection_distortion = 5; ///< Wave distortion amplitude (0-20).
 
+	/* Screen-space ambient occlusion. */
+	bool ssao = false;                 ///< Enable screen-space ambient occlusion.
+	uint8_t ssao_radius = 4;           ///< Sample radius in pixels (1-15).
+	uint8_t ssao_intensity = 50;       ///< Occlusion darkness (0-100).
+	uint8_t ssao_samples = 8;          ///< Number of samples per pixel (4-16).
+
+	/* Terrain transition smoothing. */
+	bool terrain_smooth = false;       ///< Enable terrain transition smoothing.
+	uint8_t terrain_smooth_radius = 2; ///< Smoothing kernel radius (1-5).
+	uint8_t terrain_smooth_strength = 50; ///< Smoothing strength (0-100).
+
+	/* Animated tree/vegetation sway. */
+	bool tree_sway = false;            ///< Enable animated tree/vegetation sway.
+	uint8_t tree_sway_amount = 3;      ///< Sway amplitude in pixels (1-10).
+	uint8_t tree_sway_speed = 50;      ///< Animation speed (10-100).
+
+	/* Procedural sky with clouds. */
+	bool sky_clouds = false;           ///< Enable procedural sky with animated clouds.
+	uint8_t cloud_density = 50;        ///< Cloud coverage density (0-100).
+	uint8_t cloud_speed = 30;          ///< Cloud drift speed (0-100).
+	uint8_t sky_brightness = 70;       ///< Sky background brightness (0-100).
+
+	/* Depth-of-field blur. */
+	bool depth_of_field = false;       ///< Enable depth-of-field blur.
+	uint8_t dof_focus_point = 50;      ///< Focus distance (0-100, % of depth range).
+	uint8_t dof_aperture = 30;         ///< Aperture / blur strength (0-100).
+	uint8_t dof_range = 40;            ///< Focus range width (0-100).
+
 	bool auto_supersample = false;     ///< Automatically enable supersampling at zoom-in levels.
 
 	bool operator==(const PostProcessConfig &) const = default;
