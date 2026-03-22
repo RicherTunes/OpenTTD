@@ -1,0 +1,147 @@
+; ===============================================================
+; E2E Visual Benchmark: CPU baseline vs GPU post-processing effects
+; ===============================================================
+;
+; PURPOSE: Verify all GPU rendering effects work correctly by
+; comparing screenshots against a CPU-rendered baseline.
+;
+; HOW TO RUN:
+;   1. Start OpenTTD and create/load a game
+;   2. Open console (~)
+;   3. Type: exec scripts/e2e_visual_benchmark.scr
+;   4. Screenshots saved to OpenTTD user directory
+;   5. Compare screenshots visually or with image diff tools
+;
+; EXPECTED RESULTS:
+;   - vb_01_cpu_baseline: Pure CPU rendering (reference)
+;   - vb_02_pp_passthrough: PP on but no effects (should be identical to baseline)
+;   - vb_03 onwards: Each effect should produce visible but intentional changes
+;   - vb_restore: Should be identical to baseline (proves no side effects)
+;
+; ===============================================================
+
+; === STEP 1: CPU Baseline (no post-processing) ===
+setting video_post_processing off
+setting video_render_scale 100
+setting video_upscale_mode 0
+setting video_sharpening 0
+setting video_texture_filter 0
+setting video_fxaa off
+setting video_night_mode off
+setting video_crt_filter off
+setting video_vignette off
+setting video_tiltshift off
+setting video_film_grain off
+pp_screenshot vb_01_cpu_baseline
+
+; === STEP 2: PP enabled, no effects (passthrough) ===
+; This should look IDENTICAL to baseline -- proves zero-overhead path
+setting video_post_processing on
+pp_screenshot vb_02_pp_passthrough
+
+; === STEP 3: Render scale 75% (tests FBO + upscaling) ===
+setting video_render_scale 75
+pp_screenshot vb_03_render_scale_75
+
+; === STEP 4: Bilinear upscaling at 75% ===
+setting video_upscale_mode 1
+pp_screenshot vb_04_bilinear_75
+
+; === STEP 5: FSR1 upscaling at 75% ===
+setting video_upscale_mode 2
+pp_screenshot vb_05_fsr1_75
+
+; === STEP 6: CAS sharpening ===
+setting video_render_scale 100
+setting video_upscale_mode 0
+setting video_sharpening 80
+pp_screenshot vb_06_cas_sharp80
+
+; === STEP 7: Texture filter bilinear ===
+setting video_sharpening 0
+setting video_texture_filter 1
+pp_screenshot vb_07_texfilter_bilinear
+
+; === STEP 8: Texture filter smooth (bicubic) ===
+setting video_texture_filter 2
+pp_screenshot vb_08_texfilter_smooth
+
+; === STEP 9: FXAA ===
+setting video_texture_filter 0
+setting video_fxaa on
+pp_screenshot vb_09_fxaa
+
+; === STEP 10: Vignette ===
+setting video_fxaa off
+setting video_vignette on
+pp_screenshot vb_10_vignette
+
+; === STEP 11: Tilt-shift ===
+setting video_vignette off
+setting video_tiltshift on
+pp_screenshot vb_11_tiltshift
+
+; === STEP 12: Night mode ===
+setting video_tiltshift off
+setting video_night_mode on
+pp_screenshot vb_12_night_mode
+
+; === STEP 13: CRT filter ===
+setting video_night_mode off
+setting video_crt_filter on
+pp_screenshot vb_13_crt_filter
+
+; === STEP 14: Film grain ===
+setting video_crt_filter off
+setting video_film_grain on
+pp_screenshot vb_14_film_grain
+
+; === STEP 15: Color grading (warm) ===
+setting video_film_grain off
+setting video_brightness 20
+setting video_contrast 120
+setting video_saturation 130
+setting video_color_temperature 40
+pp_screenshot vb_15_color_grading_warm
+
+; === STEP 16: Color grading (cool) ===
+setting video_brightness -10
+setting video_contrast 90
+setting video_saturation 80
+setting video_color_temperature -50
+pp_screenshot vb_16_color_grading_cool
+
+; === STEP 17: All must-have effects combined ===
+setting video_brightness 0
+setting video_contrast 100
+setting video_saturation 100
+setting video_color_temperature 0
+setting video_render_scale 75
+setting video_upscale_mode 2
+setting video_sharpening 60
+setting video_fxaa on
+setting video_vignette on
+pp_screenshot vb_17_combined_effects
+
+; === STEP 18: Restore to baseline (verify no side effects) ===
+setting video_post_processing off
+setting video_render_scale 100
+setting video_upscale_mode 0
+setting video_sharpening 0
+setting video_texture_filter 0
+setting video_fxaa off
+setting video_night_mode off
+setting video_crt_filter off
+setting video_vignette off
+setting video_tiltshift off
+setting video_film_grain off
+setting video_brightness 0
+setting video_contrast 100
+setting video_saturation 100
+setting video_color_temperature 0
+pp_screenshot vb_18_restored_baseline
+
+echo "=== E2E Visual Benchmark Complete ==="
+echo "=== Compare vb_01 vs vb_02 (should be identical) ==="
+echo "=== Compare vb_01 vs vb_18 (should be identical) ==="
+echo "=== Each vb_03-vb_17 should show its specific effect ==="
