@@ -189,14 +189,14 @@ static std::optional<std::string> GpuPercentMarkFunc(int nmarks, int mark, int v
 {
 	/* Label first, middle, and last marks only. */
 	if (mark != 0 && mark != nmarks / 2 && mark != nmarks) return std::nullopt;
-	return std::to_string(value) + "%";
+	return fmt::format("{}%", value);
 }
 
 /** Mark function for GPU value sliders (brightness, threshold, etc.). Shows plain numeric value at key marks. */
 static std::optional<std::string> GpuValueMarkFunc(int nmarks, int mark, int value)
 {
 	if (mark != 0 && mark != nmarks / 2 && mark != nmarks) return std::nullopt;
-	return std::to_string(value);
+	return fmt::format("{}", value);
 }
 
 static std::optional<std::string> VolumeMarkFunc(int, int mark, int value)
