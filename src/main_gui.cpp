@@ -31,6 +31,8 @@
 #include "tilehighlight_func.h"
 #include "hotkeys.h"
 #include "error.h"
+#include "console_func.h"
+#include "video/postprocess.h"
 #include "news_gui.h"
 #include "misc_cmd.h"
 #include "timer/timer.h"
@@ -208,6 +210,7 @@ enum GlobalHotKeys : int32_t {
 	GHK_CHAT_SERVER,
 	GHK_CLOSE_NEWS,
 	GHK_CLOSE_ERROR,
+	GHK_CYCLE_PP_PRESET,
 };
 
 struct MainWindow : Window
@@ -422,6 +425,10 @@ struct MainWindow : Window
 				if (!HideActiveErrorMessage()) return ES_NOT_HANDLED;
 				break;
 
+			case GHK_CYCLE_PP_PRESET:
+				CyclePPPreset();
+				break;
+
 			default: return ES_NOT_HANDLED;
 		}
 		return ES_HANDLED;
@@ -522,6 +529,7 @@ struct MainWindow : Window
 		Hotkey({WKC_CTRL | WKC_SHIFT | WKC_RETURN, WKC_CTRL | WKC_SHIFT | 'T'}, "chat_server", GHK_CHAT_SERVER),
 		Hotkey(WKC_SPACE, "close_news", GHK_CLOSE_NEWS),
 		Hotkey(WKC_SPACE, "close_error", GHK_CLOSE_ERROR),
+		Hotkey('P' | WKC_CTRL | WKC_SHIFT, "cycle_pp_preset", GHK_CYCLE_PP_PRESET),
 	}};
 };
 

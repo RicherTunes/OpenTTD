@@ -3297,7 +3297,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 	if (argv[1] == "set") {
 		if (argv.size() < 4) {
 			IConsolePrint(CC_ERROR, "Usage: 'pp set <param> <value>'");
-			IConsolePrint(CC_ERROR, "  Core: render_scale (50-200), sharpening (0-100), upscale (0-4), texture_filter (0-2)");
+			IConsolePrint(CC_ERROR, "  Core: render_scale (25-200), sharpening (0-100), upscale (0-4), texture_filter (0-2)");
 			IConsolePrint(CC_ERROR, "  Color: brightness (-50..50), contrast (50-200), saturation (0-200), temperature (-100..100)");
 			IConsolePrint(CC_ERROR, "  Night: night_intensity (20-100), night_blue_shift (0-80)");
 			IConsolePrint(CC_ERROR, "  CRT: crt_scanlines (0-50), crt_curvature (0-50), crt_aberration (0-30)");

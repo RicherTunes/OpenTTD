@@ -2550,3 +2550,84 @@ TEST_CASE("ViewportScratch - 4K at 25%")
 	CHECK(dims.height == 540);
 	CHECK(dims.extra_zoom_steps == 2);
 }
+
+/* --- Shadow angle type safety tests (C5 fix verification) --- */
+
+TEST_CASE("PostProcess - shadow_angle holds full 0-359 degree range")
+{
+	PostProcessConfig config;
+	/* uint16_t can hold 0-65535, so 359 must fit without truncation. */
+	config.shadow_angle = 359;
+	CHECK(config.shadow_angle == 359);
+	config.shadow_angle = 256;
+	CHECK(config.shadow_angle == 256);
+	config.shadow_angle = 0;
+	CHECK(config.shadow_angle == 0);
+}
+
+/* --- New effects must be wired into NeedsFBO and PassCount --- */
+
+TEST_CASE("PostProcess - NeedsFBO includes SSAO")
+{
+	PostProcessConfig config;
+	config.ssao = true;
+	CHECK(PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("PostProcess - NeedsFBO includes terrain_smooth")
+{
+	PostProcessConfig config;
+	config.terrain_smooth = true;
+	CHECK(PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("PostProcess - NeedsFBO includes tree_sway")
+{
+	PostProcessConfig config;
+	config.tree_sway = true;
+	CHECK(PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("PostProcess - NeedsFBO includes sky_clouds")
+{
+	PostProcessConfig config;
+	config.sky_clouds = true;
+	CHECK(PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("PostProcess - NeedsFBO includes depth_of_field")
+{
+	PostProcessConfig config;
+	config.depth_of_field = true;
+	CHECK(PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("PostProcess - PassCount increments for each new effect")
+{
+	PostProcessConfig config;
+	int base = PostProcessPassCount(config);
+	CHECK(base == 0);
+
+	config.ssao = true;
+	CHECK(PostProcessPassCount(config) == base + 1);
+
+	config.terrain_smooth = true;
+	CHECK(PostProcessPassCount(config) == base + 2);
+
+	config.tree_sway = true;
+	CHECK(PostProcessPassCount(config) == base + 3);
+
+	config.sky_clouds = true;
+	CHECK(PostProcessPassCount(config) == base + 4);
+
+	config.depth_of_field = true;
+	CHECK(PostProcessPassCount(config) == base + 5);
+}
+
+TEST_CASE("PostProcess - NeedsFBO includes cpu_viewport_scaling")
+{
+	PostProcessConfig config;
+	/* CPU viewport scaling alone should NOT require FBO -- it's a CPU-side feature. */
+	config.cpu_viewport_scaling = true;
+	CHECK(!PostProcessNeedsFBO(config));
+}

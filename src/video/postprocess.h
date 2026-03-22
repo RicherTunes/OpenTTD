@@ -11,6 +11,7 @@
 #define VIDEO_POSTPROCESS_H
 
 #include "../core/geometry_type.hpp"
+#include <string_view>
 
 /** Upscale mode for post-processing pipeline. */
 enum class UpscaleMode : uint8_t {
@@ -148,6 +149,9 @@ struct ViewportScratchDimensions {
 
 ViewportScratchDimensions CalculateViewportScratchDimensions(int vp_width, int vp_height, uint8_t render_scale);
 bool IsBlitterCompatibleWithPostProcess();
+
+void CyclePPPreset();
+std::string_view GetCurrentPPPresetName();
 
 float MapSharpeningToFsrRcas(uint8_t user_value);
 float MapSharpeningToCas(uint8_t user_value);

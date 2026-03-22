@@ -75,6 +75,8 @@ bool IsBlitterCompatibleWithPostProcess()
  */
 bool PostProcessNeedsFBO(const PostProcessConfig &config)
 {
+	/* Wave 13: CPU viewport scaling requires FBO for two-pass compositing. */
+	if (config.cpu_viewport_scaling) return true;
 	if (config.render_scale < 100) return true;
 	/* Bilinear upscale at 100% is a no-op -- don't allocate FBO for it. */
 	if (config.upscale_mode == UpscaleMode::FSR1 || config.upscale_mode == UpscaleMode::Temporal || config.upscale_mode == UpscaleMode::Plugin) return true;

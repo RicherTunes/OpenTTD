@@ -17,6 +17,7 @@
 #include "openttd.h"
 #include "rev.h"
 #include "video/video_driver.hpp"
+#include "video/viewport_cpu_scale.h"
 
 #include "3rdparty/fmt/chrono.h"
 
