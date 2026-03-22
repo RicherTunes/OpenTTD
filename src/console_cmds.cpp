@@ -1969,6 +1969,8 @@ static bool ConDebugLevel(std::span<std::string_view> argv)
 }
 
 static bool _exit_after_screenshots = false; ///< Deferred exit: set when exit is requested with pending PP screenshots.
+static size_t _exit_pp_completed_start = 0;   ///< PP screenshot completed count when deferred exit starts.
+static size_t _exit_pp_dropped_start = 0;     ///< PP screenshot dropped count when deferred exit starts.
 
 /** Exit the game, i.e. exit the complete application. @copydoc IConsoleCmdProc */
 static bool ConExit(std::span<std::string_view> argv)
@@ -1984,6 +1986,7 @@ static bool ConExit(std::span<std::string_view> argv)
 	 * needs one paint frame to capture via glReadPixels.  The main loop
 	 * will keep running until the queue drains, then exit. */
 	if (HasPendingPPScreenshots()) {
+		GetPPScreenshotOutcomeTotals(_exit_pp_completed_start, _exit_pp_dropped_start);
 		_exit_after_screenshots = true;
 		IConsolePrint(CC_INFO, "Exit deferred: {} PP screenshot(s) still queued.", GetPendingPPScreenshotCount());
 		return true;
@@ -1999,7 +2002,21 @@ static bool ConExit(std::span<std::string_view> argv)
  */
 void CheckDeferredExit()
 {
+	size_t dropped_count = 0;
+	std::string failure_summary;
+	if (ConsumePPScreenshotFailureNotification(dropped_count, failure_summary)) {
+		IConsolePrint(CC_WARNING, "PP screenshot queue dropped {} request(s); latest failure: {}.", dropped_count, failure_summary);
+	}
+
 	if (_exit_after_screenshots && !HasPendingPPScreenshots()) {
+		size_t completed_total = 0;
+		size_t dropped_total = 0;
+		GetPPScreenshotOutcomeTotals(completed_total, dropped_total);
+
+		size_t completed_delta = completed_total >= _exit_pp_completed_start ? completed_total - _exit_pp_completed_start : completed_total;
+		size_t dropped_delta = dropped_total >= _exit_pp_dropped_start ? dropped_total - _exit_pp_dropped_start : dropped_total;
+
+		IConsolePrint(CC_INFO, "Deferred PP screenshot queue finished: {} saved, {} dropped.", completed_delta, dropped_delta);
 		_exit_after_screenshots = false;
 		_exit_game = true;
 	}
@@ -3841,7 +3858,8 @@ static bool ConPPScreenshot(std::span<std::string_view> argv)
 	if (argv.size() >= 2) filename = std::string(argv[1]);
 
 	RequestPPScreenshot(filename);
-	IConsolePrint(CC_INFO, "Post-processing screenshot requested: '{}.bmp'.", filename);
+	IConsolePrint(CC_INFO, "Post-processing screenshot queued: '{}.bmp' ({} pending).",
+		SanitizePPScreenshotBasename(filename), GetPendingPPScreenshotCount());
 	return true;
 }
 

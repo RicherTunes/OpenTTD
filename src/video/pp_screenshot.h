@@ -10,31 +10,16 @@
 #ifndef VIDEO_PP_SCREENSHOT_H
 #define VIDEO_PP_SCREENSHOT_H
 
-#include <string>
+#include <cstddef>
 #include <cstdint>
-#include "postprocess.h"
+#include <string>
+#include <string_view>
+
+/** Maximum number of times a queued PP screenshot will retry capture before being dropped. */
+static constexpr uint8_t PP_SCREENSHOT_MAX_CAPTURE_ATTEMPTS = 3;
 
 /**
- * Snapshot of all post-processing settings at the time of screenshot request.
- * Uses PostProcessConfig directly so every field is captured without manual sync.
- * The extra fields (post_processing, texture_filter) track the master toggle
- * and raw texture filter global that live outside PostProcessConfig.
- */
-struct PPSettingsSnapshot {
-	bool post_processing;          ///< Master PP toggle (_video_post_processing).
-	uint8_t texture_filter;        ///< Raw texture filter global (_video_texture_filter).
-	PostProcessConfig config;      ///< Full post-processing configuration.
-};
-
-/** Capture current _video_* globals into a snapshot. */
-PPSettingsSnapshot CapturePPSettings();
-
-/** Restore _video_* globals from a snapshot. */
-void RestorePPSettings(const PPSettingsSnapshot &snap);
-
-/**
- * Request a screenshot with a settings snapshot.
- * The settings are restored before rendering each queued frame.
+ * Request a screenshot of the current rendered frame sequence.
  * @param filename Output filename (without extension, .bmp added automatically).
  */
 void RequestPPScreenshot(const std::string &filename);
@@ -48,11 +33,13 @@ void SetPPPixelReader(PPPixelReaderFunc reader);
 /**
  * Check if a PP screenshot is pending and capture it if so.
  * Called from Paint() after all rendering is complete.
- * Reads pixels from the current framebuffer via glReadPixels.
+ * Reads pixels from the current framebuffer via the registered reader.
+ * Failed captures are retried up to PP_SCREENSHOT_MAX_CAPTURE_ATTEMPTS times.
  * @param width Framebuffer width.
  * @param height Framebuffer height.
+ * @return True if a screenshot was successfully written and consumed.
  */
-void CapturePPScreenshotIfPending(int width, int height);
+bool CapturePPScreenshotIfPending(int width, int height);
 
 /**
  * Check if there are pending PP screenshots waiting to be captured.
@@ -62,6 +49,12 @@ bool HasPendingPPScreenshots();
 
 /** Return the number of queued PP screenshots waiting to be captured. */
 size_t GetPendingPPScreenshotCount();
+
+/** Clear all queued screenshots and reset internal warmup state. */
+void ClearPendingPPScreenshots();
+
+/** Sanitize a requested screenshot basename for safe filesystem use. */
+std::string SanitizePPScreenshotBasename(std::string_view basename);
 
 /**
  * Advance the PP-active frame counter used for screenshot warmup gating.
@@ -84,12 +77,32 @@ int GetNextPPActiveFrameCount(bool pp_this_frame, int previous_frames);
  */
 bool ShouldCapturePPScreenshotThisFrame(bool has_pending, bool pp_this_frame, int pp_active_frames);
 
+/** Reset the internal PP screenshot warmup state. */
+void ResetPPScreenshotWarmupState();
+
 /**
- * If screenshots are queued, restore the next screenshot's settings.
- * Call this at the START of Paint() before config sync.
- * This ensures the PP pipeline renders with the correct settings
- * for each queued screenshot.
+ * Advance warmup state and return whether capture should happen this frame.
+ * This keeps renderer timing policy inside the screenshot subsystem.
+ * @param has_pending Whether the screenshot queue is non-empty.
+ * @param pp_this_frame Whether PP rendered this frame.
+ * @return True if a queued screenshot should be captured now.
  */
-void ApplyNextPPScreenshotSettings();
+bool AdvanceAndShouldCapturePPScreenshotThisFrame(bool has_pending, bool pp_this_frame);
+
+/**
+ * Consume any queued PP screenshot failure notification.
+ * Failures are only reported after a request is dropped permanently.
+ * @param dropped_count Receives the number of requests dropped since the last consume.
+ * @param summary Receives a short human-readable summary of the latest failure.
+ * @return True if a new failure notification was available.
+ */
+bool ConsumePPScreenshotFailureNotification(size_t &dropped_count, std::string &summary);
+
+/**
+ * Get cumulative PP screenshot queue outcomes since the last clear/reset.
+ * @param completed Receives the number of successfully written screenshots.
+ * @param dropped Receives the number of permanently dropped requests.
+ */
+void GetPPScreenshotOutcomeTotals(size_t &completed, size_t &dropped);
 
 #endif /* VIDEO_PP_SCREENSHOT_H */
