@@ -120,16 +120,16 @@ int PostProcessPassCount(const PostProcessConfig &config)
 		passes += 1;
 	}
 
-	/* Effect passes. */
+	/* Effect passes (order matches RenderPostProcess execution). */
 	if (config.fxaa) passes += 1;
 	if (config.tiltshift) passes += 2; /* Horizontal + vertical blur */
 	if (config.color_grading) passes += 1;
 	if (config.night_mode) passes += 1;
 	if (config.vignette) passes += 1;
 	if (config.film_grain) passes += 1;
-	if (config.crt_filter) passes += 1;
 	if (config.dynamic_lighting) passes += 1;
-	if (config.bloom) passes += 4; /* Threshold + blur H + blur V + composite blend with original. */
+	if (config.bloom) passes += 4; /* Threshold + blur H + blur V + composite. */
+	if (config.crt_filter) passes += 1;
 	if (config.weather_type > 0) passes += 1;
 
 	/* Supersampling downsample pass (render > display). */
