@@ -1919,7 +1919,11 @@ void OpenGLBackend::RenderPostProcess()
 		UpscalePluginAPI *plugin = GetLoadedUpscalePlugin();
 		if (plugin != nullptr && plugin->evaluate != nullptr) {
 			float jitter_x = 0.0f, jitter_y = 0.0f;
-			if (ShouldApplyJitter(this->pp_config.render_scale, to_underlying(ZoomLevel::Out2x))) {
+			const Window *mw = GetMainWindow();
+			int plugin_zoom = (mw != nullptr && mw->viewport != nullptr)
+				? to_underlying(mw->viewport->zoom)
+				: to_underlying(ZoomLevel::Normal);
+			if (ShouldApplyJitter(this->pp_config.render_scale, plugin_zoom)) {
 				_jitter_sequence.NextFrame(jitter_x, jitter_y);
 			}
 
