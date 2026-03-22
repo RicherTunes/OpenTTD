@@ -22,3 +22,51 @@
 
     add_subdirectory(regression)
     add_subdirectory(stationlist)
+
+    # ---- E2E Lifecycle Tests ----
+    # These tests verify the game doesn't crash during common operations:
+    # new game generation, savegame loading, different landscapes/sizes.
+    # Each test runs headlessly with -vnull and checks for crash logs.
+    # The GfxFillRect variant crash (genworld_gui.cpp preview) was caught
+    # this way after being missed by unit tests.
+
+    # Copy lifecycle config files to build directory
+    set(LIFECYCLE_CFGS lifecycle lifecycle_temperate lifecycle_arctic lifecycle_tropic lifecycle_toyland lifecycle_large)
+    foreach(CFG ${LIFECYCLE_CFGS})
+        add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${CFG}.cfg
+                COMMAND ${CMAKE_COMMAND} -E copy
+                        ${CMAKE_CURRENT_SOURCE_DIR}/${CFG}.cfg
+                        ${CMAKE_CURRENT_BINARY_DIR}/${CFG}.cfg
+                MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${CFG}.cfg
+                COMMENT "Copying ${CFG}.cfg"
+        )
+        list(APPEND LIFECYCLE_CFG_FILES ${CMAKE_CURRENT_BINARY_DIR}/${CFG}.cfg)
+    endforeach()
+    add_custom_target(lifecycle_cfg ALL DEPENDS ${LIFECYCLE_CFG_FILES})
+
+    # Helper macro to add a lifecycle test.
+    # OPENTTD_ARGS is passed as a semicolon-separated CMake list.
+    macro(add_lifecycle_test TEST_NAME)
+        add_test(NAME lifecycle_${TEST_NAME}
+                COMMAND ${CMAKE_COMMAND}
+                        -DOPENTTD_EXECUTABLE=$<TARGET_FILE:openttd>
+                        -DEDITBIN_EXECUTABLE=${EDITBIN_EXECUTABLE}
+                        -DLIFECYCLE_TEST=${TEST_NAME}
+                        -DLIFECYCLE_TICKS=100
+                        "-DOPENTTD_ARGS=${ARGN}"
+                        -P "${CMAKE_SOURCE_DIR}/cmake/scripts/LifecycleTest.cmake"
+                WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        )
+    endmacro()
+
+    # New game generation - all 4 landscapes at 128x128 (fast)
+    add_lifecycle_test(newgame_temperate -g -G 1 -c regression/lifecycle_temperate.cfg)
+    add_lifecycle_test(newgame_arctic    -g -G 1 -c regression/lifecycle_arctic.cfg)
+    add_lifecycle_test(newgame_tropic    -g -G 1 -c regression/lifecycle_tropic.cfg)
+    add_lifecycle_test(newgame_toyland   -g -G 1 -c regression/lifecycle_toyland.cfg)
+
+    # New game generation - 1024x1024 map (stress test)
+    add_lifecycle_test(newgame_large     -g -G 42 -c regression/lifecycle_large.cfg)
+
+    # Load the existing regression test savegame (verifies save/load path)
+    add_lifecycle_test(load_save -g ai/regression/test.sav -c regression/lifecycle.cfg)
