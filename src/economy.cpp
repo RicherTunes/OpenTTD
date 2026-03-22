@@ -9,7 +9,6 @@
 
 #include "stdafx.h"
 #include <ranges>
-#include <unordered_set>
 #include "company_func.h"
 #include "command_func.h"
 #include "industry.h"
@@ -1017,8 +1016,6 @@ Money GetTransportedGoodsIncome(uint num_pieces, uint dist, uint16_t transit_per
 
 /** The industries we've currently brought cargo to. */
 static SmallIndustryList _cargo_delivery_destinations;
-/** Fast dedup set for _cargo_delivery_destinations (avoids O(n) linear scan in include()). */
-static std::unordered_set<Industry *> _cargo_delivery_dedup;
 
 /**
  * Transfer goods from station to industry.
@@ -1056,11 +1053,8 @@ static uint DeliverGoodsToIndustry(const Station *st, CargoType cargo_type, uint
 
 		if (ind->exclusive_supplier != INVALID_OWNER && ind->exclusive_supplier != st->owner) continue;
 
-		/* Insert the industry into _cargo_delivery_destinations, if not yet contained.
-		 * Uses hash set for O(1) dedup instead of O(n) linear scan via include(). */
-		if (_cargo_delivery_dedup.insert(ind).second) {
-			_cargo_delivery_destinations.push_back(ind);
-		}
+		/* Insert the industry into _cargo_delivery_destinations, if not yet contained */
+		include(_cargo_delivery_destinations, ind);
 
 		uint amount = std::min(num_pieces, 0xFFFFu - it->waiting);
 		it->waiting += amount;
@@ -1960,7 +1954,6 @@ void LoadUnloadStation(Station *st)
 		TriggerIndustryProduction(iid);
 	}
 	_cargo_delivery_destinations.clear();
-	_cargo_delivery_dedup.clear();
 }
 
 /**

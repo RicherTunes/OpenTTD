@@ -17,6 +17,7 @@ add_test_files(
     test_main.cpp
     test_motion_vector.cpp
     test_network_crypto.cpp
+    test_optimization_benchmarks.cpp
     test_postprocess.cpp
     test_terrain_gen.cpp
     test_town_placement.cpp

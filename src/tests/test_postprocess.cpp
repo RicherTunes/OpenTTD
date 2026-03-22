@@ -1837,7 +1837,7 @@ TEST_CASE("PostProcess - Plugin mode at 100% still needs FBO")
 	CHECK(PostProcessNeedsFBO(config));
 }
 
-TEST_CASE("PostProcess - all UpscaleMode values produce valid pass counts")
+TEST_CASE("PostProcess - all UpscaleMode values produce valid pass counts (extended)")
 {
 	for (uint8_t mode = 0; mode <= static_cast<uint8_t>(UpscaleMode::Plugin); mode++) {
 		PostProcessConfig config;

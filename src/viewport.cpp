@@ -94,6 +94,7 @@
 
 #include <forward_list>
 #include <stack>
+#include <unordered_map>
 
 #include "widgets/vehicle_widget.h"
 
@@ -185,6 +186,8 @@ struct ViewportDrawer {
 	FoundationPart foundation_part;                  ///< Currently active foundation for ground sprite drawing.
 	int last_foundation_child[FOUNDATION_PART_END];  ///< Tail of ChildSprite list of the foundations. (index into child_screen_sprites_to_draw)
 	Point foundation_offset[FOUNDATION_PART_END];    ///< Pixel offset for ground sprites on the foundations.
+
+	std::unordered_map<uint32_t, std::pair<Slope, int>> slope_cache; ///< Per-frame cache for GetTilePixelSlope results.
 };
 
 static bool MarkViewportDirty(const Viewport &vp, int left, int top, int right, int bottom);
@@ -1202,6 +1205,24 @@ static int GetViewportY(Point tile)
 }
 
 /**
+ * Get tile pixel slope with per-frame caching.
+ * Avoids redundant height lookups for tiles queried multiple times during rendering.
+ * @param tile The tile to query.
+ * @return Tuple of slope and pixel height.
+ */
+static std::tuple<Slope, int> GetTilePixelSlopeCached(TileIndex tile)
+{
+	uint32_t key = tile.base();
+	auto it = _vd.slope_cache.find(key);
+	if (it != _vd.slope_cache.end()) {
+		return {it->second.first, it->second.second};
+	}
+	auto [s, h] = GetTilePixelSlope(tile);
+	_vd.slope_cache[key] = {s, h};
+	return {s, h};
+}
+
+/**
  * Add the landscape to the viewport, i.e. all ground tiles and buildings.
  */
 static void ViewportAddLandscape()
@@ -1263,7 +1284,7 @@ static void ViewportAddLandscape()
 
 			if (tile_type != TileType::Void) {
 				/* We are inside the map => paint landscape. */
-				std::tie(_cur_ti.tileh, _cur_ti.z) = GetTilePixelSlope(_cur_ti.tile);
+				std::tie(_cur_ti.tileh, _cur_ti.z) = GetTilePixelSlopeCached(_cur_ti.tile);
 			} else {
 				/* We are outside the map => paint black. */
 				std::tie(_cur_ti.tileh, _cur_ti.z) = GetTilePixelSlopeOutsideMap(tilecoord.x, tilecoord.y);
@@ -2035,11 +2056,15 @@ void ViewportDoDraw(const Viewport &vp, int left, int top, int right, int bottom
 		_vd.child_screen_sprites_to_draw.reserve(8000);
 		_vd.string_sprites_to_draw.reserve(500);
 	}
+	if (_vd.slope_cache.bucket_count() < 4096) {
+		_vd.slope_cache.reserve(4096);
+	}
 	_vd.string_sprites_to_draw.clear();
 	_vd.tile_sprites_to_draw.clear();
 	_vd.parent_sprites_to_draw.clear();
 	_vd.parent_sprites_to_sort.clear();
 	_vd.child_screen_sprites_to_draw.clear();
+	_vd.slope_cache.clear();
 }
 
 static inline void ViewportDraw(const Viewport &vp, int left, int top, int right, int bottom)
