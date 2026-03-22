@@ -64,23 +64,27 @@ static bool WriteBMP(const std::string &filename, const std::vector<uint8_t> &da
 	std::ofstream file(filename, std::ios::binary);
 	if (!file.is_open()) return false;
 
-	int row_size = width * 3;
-	int padding = (4 - (row_size % 4)) % 4;
-	int padded_row = row_size + padding;
-	int pixel_data_size = padded_row * height;
-	int file_size = 54 + pixel_data_size;
+	/* Use int64 to prevent overflow at high resolutions (e.g., 8K supersampled). */
+	int64_t row_size = static_cast<int64_t>(width) * 3;
+	int padding = static_cast<int>((4 - (row_size % 4)) % 4);
+	int64_t padded_row = row_size + padding;
+	int64_t pixel_data_size = padded_row * height;
+	int64_t file_size = 54 + pixel_data_size;
+
+	/* Sanity: reject if file would be > 2GB (BMP header uses int32). */
+	if (file_size > INT32_MAX) return false;
 
 	/* BMP Header. */
 	uint8_t header[54] = {};
 	header[0] = 'B'; header[1] = 'M';
-	WriteLE32(&header[2], file_size);
+	WriteLE32(&header[2], static_cast<int32_t>(file_size));
 	WriteLE32(&header[10], 54); /* data offset */
 	WriteLE32(&header[14], 40); /* info header size */
 	WriteLE32(&header[18], width);
 	WriteLE32(&header[22], height);
 	WriteLE16(&header[26], 1);  /* planes */
 	WriteLE16(&header[28], 24); /* bits per pixel */
-	WriteLE32(&header[34], pixel_data_size);
+	WriteLE32(&header[34], static_cast<int32_t>(pixel_data_size));
 
 	file.write(reinterpret_cast<const char *>(header), 54);
 
@@ -111,12 +115,20 @@ void CapturePPScreenshotIfPending(int width, int height)
 {
 	if (_pending_pp_screenshot.empty()) return;
 
-	/* Use a full path to the user's Documents/OpenTTD/screenshot/ directory. */
 	std::string basename = _pending_pp_screenshot;
 	_pending_pp_screenshot.clear();
 
-	/* Try to write to the current directory first. */
-	std::string filename = basename + ".bmp";
+	/* Sanitize filename: strip path separators and special characters. */
+	std::string safe_name;
+	for (char c : basename) {
+		if (c != '/' && c != '\\' && c != ':' && c != '*' && c != '?' && c != '<' && c != '>' && c != '|') {
+			safe_name += c;
+		}
+	}
+	if (safe_name.empty()) safe_name = "pp_screenshot";
+
+	/* Save to the screenshot directory. */
+	std::string filename = fmt::format("{}{}.bmp", FiosGetScreenshotDir(), safe_name);
 
 	if (width <= 0 || height <= 0) {
 		Debug(misc, 0, "PP screenshot failed: invalid dimensions {}x{}", width, height);

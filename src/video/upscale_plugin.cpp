@@ -37,12 +37,13 @@ UpscalePluginAPI *LoadUpscalePlugin(const std::string &path)
 	/* Unload any existing plugin first. */
 	UnloadUpscalePlugin();
 
-	Debug(driver, 1, "Loading upscale plugin: {}", path);
+	Debug(driver, 3, "Trying upscale plugin: {}", path);
 
 #ifdef _WIN32
 	_plugin_handle = LoadLibraryA(path.c_str());
 	if (_plugin_handle == nullptr) {
-		Debug(driver, 0, "Failed to load upscale plugin '{}': error {}", path, GetLastError());
+		/* Not found is expected -- plugins are optional. Only log at debug level. */
+		Debug(driver, 3, "Upscale plugin '{}' not found (error {}), skipping", path, GetLastError());
 		return nullptr;
 	}
 
@@ -50,7 +51,7 @@ UpscalePluginAPI *LoadUpscalePlugin(const std::string &path)
 #else
 	_plugin_handle = dlopen(path.c_str(), RTLD_NOW);
 	if (_plugin_handle == nullptr) {
-		Debug(driver, 0, "Failed to load upscale plugin '{}': {}", path, dlerror());
+		Debug(driver, 3, "Upscale plugin '{}' not found, skipping", path);
 		return nullptr;
 	}
 
