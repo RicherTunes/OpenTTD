@@ -2121,9 +2121,9 @@ void OpenGLBackend::RenderPostProcess()
 		}
 	}
 
-	/* Drain all queued GL errors from the post-processing pipeline. */
+	/* Drain GL errors -- log at debug level to avoid per-frame spam. */
 	for (GLenum err = _glGetError(); err != GL_NO_ERROR; err = _glGetError()) {
-		Debug(driver, 0, "OpenGL: Post-processing pipeline GL error: 0x{:04X}", err);
+		Debug(driver, 6, "OpenGL: PP pipeline GL error: 0x{:04X} (pass {}/{})", err, pass, total);
 	}
 }
 
