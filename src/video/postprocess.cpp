@@ -144,6 +144,8 @@ int PostProcessPassCount(const PostProcessConfig &config)
 	if (config.pixel_smoothing) passes += 1;
 	if (config.terrain_smooth) passes += 1;
 	if (config.tree_sway) passes += 1;
+	if (config.seasonal_vegetation) passes += 1;
+	if (config.water_waves) passes += 1;
 	if (config.water_reflections) passes += 1;
 	if (config.ssao) passes += 1;
 	if (config.fxaa) passes += 1;
@@ -157,8 +159,6 @@ int PostProcessPassCount(const PostProcessConfig &config)
 	if (config.depth_of_field) passes += 1;
 	if (config.toon_rendering) passes += 1;
 	if (config.heat_haze) passes += 1;
-	if (config.water_waves) passes += 1;
-	if (config.seasonal_vegetation) passes += 1;
 	if (config.fake_shadows) passes += 1;
 	if (config.crt_filter) passes += 1;
 	if (config.weather_type > 0) passes += 1;
@@ -295,6 +295,8 @@ static const PPEffectDescriptor _pp_effect_registry[] = {
 	{"dof",           "dof",           true,  EffectCategory::Lab,          false, false, false, false, false, 3},
 	{"toon",          "toon",          true,  EffectCategory::Lab,          false, false, false, true,  false, 3},
 	{"haze",          "haze",          true,  EffectCategory::Lab,          false, false, false, true,  false, 3},
+	{"waves",         "waves",         true,  EffectCategory::Lab,          false, false, false, true,  false, 3},
+	{"seasonal",      "seasonal",      true,  EffectCategory::Lab,          false, false, false, true,  false, 3},
 
 	/* Research-only */
 	{"temporal",      "temporal",      false, EffectCategory::Research,     false, false, false, true,  false, 3},
@@ -317,6 +319,8 @@ static constexpr std::pair<std::string_view, std::string_view> _pp_effect_aliase
 	{"toon_rendering",     "toon"},
 	{"cartoon",            "toon"},
 	{"heat_haze",          "haze"},
+	{"water_waves",        "waves"},
+	{"seasonal_vegetation","seasonal"},
 };
 
 /**
@@ -439,6 +443,8 @@ QualityTier EstimateQualityTier(const PostProcessConfig &config)
 		{"dof",            config.depth_of_field},
 		{"toon",           config.toon_rendering},
 		{"haze",           config.heat_haze},
+		{"waves",          config.water_waves},
+		{"seasonal",       config.seasonal_vegetation},
 	};
 
 	uint8_t max_tier = 0;

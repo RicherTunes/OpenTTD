@@ -3367,16 +3367,18 @@ TEST_CASE("PostProcess - all effects combined pass count is reasonable")
 	config.pixel_smoothing = true;
 	config.toon_rendering = true;
 	config.heat_haze = true;
+	config.water_waves = true;
+	config.seasonal_vegetation = true;
 	config.weather_type = 1;
 	config.render_scale = 50;
 	config.upscale_mode = UpscaleMode::FSR1;
 	config.sharpening = 0; /* CAS excluded when FSR1 active */
 
 	int passes = PostProcessPassCount(config);
-	/* Verify pass count is in a sane range (20-35 with all effects on).
+	/* Verify pass count is in a sane range (22-42 with all effects on).
 	 * This catches missing or double-counted passes. */
-	CHECK(passes >= 20);
-	CHECK(passes <= 40);
+	CHECK(passes >= 22);
+	CHECK(passes <= 42);
 }
 
 /* --- Water Waves tests --- */
