@@ -158,6 +158,7 @@ private:
 	GLint pp_crt_aberr_loc = -1;     ///< CRT chromatic_aberr uniform location.
 	GLint pp_lighting_tod_loc = -1;  ///< Dynamic lighting time_of_day uniform location.
 	GLint pp_bloom_thresh_loc = -1;  ///< Bloom threshold uniform location.
+	GLint pp_bloom_int_loc = -1;     ///< Bloom intensity uniform location.
 	GLint pp_bloom_blur_h_texel_loc = -1; ///< Bloom blur H texel_size uniform location.
 	GLint pp_bloom_blur_v_texel_loc = -1; ///< Bloom blur V texel_size uniform location.
 	GLint pp_weather_time_loc = -1;  ///< Weather time uniform location.

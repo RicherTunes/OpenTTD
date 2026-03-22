@@ -1590,6 +1590,7 @@ bool OpenGLBackend::InitPostProcessShaders()
 
 	/* Bloom uniforms. */
 	this->pp_bloom_thresh_loc = CacheLoc(this->pp_bloom_threshold_program, "bloom_threshold");
+	this->pp_bloom_int_loc = CacheLoc(this->pp_bloom_threshold_program, "bloom_intensity");
 	this->pp_bloom_blur_h_texel_loc = CacheLoc(this->pp_bloom_blur_h_program, "texel_size");
 	this->pp_bloom_blur_v_texel_loc = CacheLoc(this->pp_bloom_blur_v_program, "texel_size");
 
@@ -2023,6 +2024,7 @@ void OpenGLBackend::RenderPostProcess()
 		/* Pass 1: Extract bright pixels above threshold. */
 		_glUseProgram(this->pp_bloom_threshold_program);
 		_glUniform1f(this->pp_bloom_thresh_loc, this->pp_config.bloom_threshold / 100.0f);
+		_glUniform1f(this->pp_bloom_int_loc, this->pp_config.bloom_intensity / 100.0f);
 		RunPass();
 
 		/* Pass 2: Horizontal blur. */

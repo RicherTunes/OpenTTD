@@ -661,13 +661,14 @@ static const char *_frag_shader_pp_bloom_threshold[] = {
 	"#version 150\n",
 	"uniform sampler2D source_tex;",
 	"uniform float bloom_threshold;",
+	"uniform float bloom_intensity;",
 	"in vec2 tex_coord;",
 	"out vec4 frag_colour;",
 	"void main() {",
 	"  vec3 c = texture(source_tex, tex_coord).rgb;",
 	"  float luma = dot(c, vec3(0.2126, 0.7152, 0.0722));",
 	"  float contrib = max(0.0, luma - bloom_threshold) / max(1.0 - bloom_threshold, 0.001);",
-	"  frag_colour = vec4(c * contrib, 1.0);",
+	"  frag_colour = vec4(c * contrib * bloom_intensity, 1.0);",
 	"}",
 };
 
