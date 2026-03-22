@@ -181,6 +181,9 @@ The GPU post-processing pipeline adds visual enhancement to OpenTTD's OpenGL bac
 - `pp enable/disable <effect>` -- Toggle individual effects (fxaa, night, crt, vignette, tiltshift, grain)
 - `pp set <param> <value>` -- Set numeric parameters (render_scale, sharpening, brightness, etc.)
 - `pp reset` -- Restore all PP settings to defaults
+- `pp preset retro/cinematic/night/miniature/sharp/clean` -- Apply effect presets
+- `pp_screenshot [filename]` -- Capture post-processed framebuffer to BMP
+- `benchmark compare` -- A/B testing workflow guide
 
 ### Design Decisions
 - All features default to OFF (zero overhead when disabled)
@@ -199,6 +202,20 @@ Global variables (`_video_*` in `video_driver.cpp`) → synced per-frame in `Pai
 - Config sync properly gates on PP master toggle
 - Shader compilation failures logged per-shader with graceful fallback
 - Division-by-zero guards on all constant computations
+- FSR EASU con1.zw stores pixel dimensions (not reciprocal) for correct UV-to-texel math
+- GPU timer queries double-buffered (read previous frame, no GPU stall)
+- Benchmark harness uses std::atomic for thread-safe active flag + deferred auto-stop
+- Bloom composite saves pre-bloom scene into history texture before blur destroys it
+- EASU outlier taps use correct stretch factor (inv_stretch, not stretch)
+- RCAS, bicubic, and CRT shaders clamp output to [0,1] for RGBA8 FBO safety
+- Dawn/dusk timing uses Gaussian peaks at correct positions (0.25/0.75)
+- Weather animation has independent time base from film grain
+- Plugin loader validates required function pointers (init/shutdown/evaluate)
+- Benchmark label and screenshot filename sanitized against path traversal
+- PostProcessPassCount ordering aligned with RenderPostProcess execution order
+- GL error drain loop at end of RenderPostProcess catches all queued errors
+- PostProcessConfig has defaulted operator== for clean comparison
+- ResetPPDefaults() helper eliminates duplicated reset code in console commands
 - FSR EASU con1.zw stores pixel dimensions (not reciprocal) for correct UV-to-texel math
 - GPU timer queries double-buffered (read previous frame, no GPU stall)
 - Blitter depth cached per Paint() frame (avoid repeated virtual calls)
