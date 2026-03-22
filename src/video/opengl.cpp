@@ -1399,18 +1399,6 @@ void OpenGLBackend::Paint()
 	/* Post-processing requires 32bpp blitter -- 8bpp palette indices are not valid RGBA input. */
 	bool pp_this_frame = this->pp_active && bpp != 8;
 
-	/* Debug: log PP state for first 20 frames to diagnose effect issues. */
-	{
-		static int dbg_frames = 0;
-		if (this->pp_active && dbg_frames < 20) {
-			dbg_frames++;
-			Debug(driver, 0, "Paint[{}]: pp_active={} night={} vignette={} crt={} passes={}",
-				dbg_frames, this->pp_active, this->pp_config.night_mode,
-				this->pp_config.vignette, this->pp_config.crt_filter,
-				PostProcessPassCount(this->pp_config));
-		}
-	}
-
 	if (pp_this_frame) {
 		/* Render scene into post-processing FBO at render resolution. */
 		_glBindFramebuffer(GL_FRAMEBUFFER, this->pp_fbo[0]);
@@ -1782,13 +1770,16 @@ bool OpenGLBackend::SetupPostProcessFBOs(int display_w, int display_h)
 	_glGenTextures(2, this->pp_tex);
 
 	for (int i = 0; i < 2; i++) {
-		/* Both ping-pong FBOs are at display resolution. The scene is rendered from
-		 * the render-resolution vid_texture into FBO[0] at display size (the blit/upscale
-		 * shader handles the resolution mismatch). All subsequent passes operate at
-		 * display resolution, ping-ponging between FBO[0] and FBO[1]. */
+		/* FBO[0] receives the initial scene render. When render_scale > 100
+		 * (supersampling), Paint() sets the viewport to render resolution, so
+		 * pp_tex[0] must be large enough to hold those fragments. FBO[1] and
+		 * all subsequent effect passes operate at display resolution. The
+		 * downsample pass converts render-res pp_tex[0] to display-res
+		 * pp_fbo[1] at the start of the effect chain. */
+		Dimension tex_size = (i == 0) ? dims.render : dims.display;
 		_glBindTexture(GL_TEXTURE_2D, this->pp_tex[i]);
 		_glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
-			dims.display.width, dims.display.height,
+			tex_size.width, tex_size.height,
 			0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
