@@ -647,6 +647,8 @@ OpenGLBackend::~OpenGLBackend()
 		if (this->pp_dof_program != 0) _glDeleteProgram(this->pp_dof_program);
 		if (this->pp_toon_program != 0) _glDeleteProgram(this->pp_toon_program);
 		if (this->pp_heat_haze_program != 0) _glDeleteProgram(this->pp_heat_haze_program);
+		if (this->pp_water_waves_program != 0) _glDeleteProgram(this->pp_water_waves_program);
+		if (this->pp_seasonal_program != 0) _glDeleteProgram(this->pp_seasonal_program);
 		if (this->pp_temporal_program != 0) _glDeleteProgram(this->pp_temporal_program);
 		if (this->pp_downsample_program != 0) _glDeleteProgram(this->pp_downsample_program);
 	}
@@ -1450,6 +1452,15 @@ void OpenGLBackend::Paint()
 			new_config.heat_haze = _video_heat_haze;
 			new_config.haze_intensity = _video_haze_intensity;
 			new_config.haze_distortion = _video_haze_distortion;
+
+			/* Animated water waves. */
+			new_config.water_waves = _video_water_waves;
+			new_config.wave_amplitude = _video_wave_amplitude;
+			new_config.wave_speed = _video_wave_speed;
+
+			/* Seasonal vegetation colour shift. */
+			new_config.seasonal_vegetation = _video_seasonal_vegetation;
+			new_config.season_intensity = _video_season_intensity;
 		}
 
 		new_config.cpu_viewport_scaling = _video_cpu_viewport_scaling;
@@ -1749,6 +1760,8 @@ bool OpenGLBackend::InitPostProcessShaders()
 	this->pp_dof_program = CompileAndLog("depth-of-field", _frag_shader_pp_dof, lengthof(_frag_shader_pp_dof));
 	this->pp_toon_program = CompileAndLog("toon", _frag_shader_pp_toon, lengthof(_frag_shader_pp_toon));
 	this->pp_heat_haze_program = CompileAndLog("heat-haze", _frag_shader_pp_heat_haze, lengthof(_frag_shader_pp_heat_haze));
+	this->pp_water_waves_program = CompileAndLog("water-waves", _frag_shader_pp_water_waves, lengthof(_frag_shader_pp_water_waves));
+	this->pp_seasonal_program = CompileAndLog("seasonal", _frag_shader_pp_seasonal, lengthof(_frag_shader_pp_seasonal));
 	this->pp_temporal_program = CompileAndLog("temporal-accum", _frag_shader_pp_temporal_accum, lengthof(_frag_shader_pp_temporal_accum));
 	this->pp_downsample_program = CompileAndLog("downsample", _frag_shader_pp_downsample, lengthof(_frag_shader_pp_downsample));
 	this->pp_debug_class_program = CompileAndLog("debug-class", _frag_shader_pp_debug_class, lengthof(_frag_shader_pp_debug_class));
@@ -1797,6 +1810,8 @@ bool OpenGLBackend::InitPostProcessShaders()
 	BindSourceTex(this->pp_dof_program);
 	BindSourceTex(this->pp_toon_program);
 	BindSourceTex(this->pp_heat_haze_program);
+	BindSourceTex(this->pp_water_waves_program);
+	BindSourceTex(this->pp_seasonal_program);
 	BindSourceTex(this->pp_temporal_program);
 	BindSourceTex(this->pp_downsample_program);
 	BindSourceTex(this->pp_debug_class_program);
@@ -1958,6 +1973,39 @@ bool OpenGLBackend::InitPostProcessShaders()
 	this->pp_haze_intensity_loc = CacheLoc(this->pp_heat_haze_program, "haze_intensity");
 	this->pp_haze_distortion_loc = CacheLoc(this->pp_heat_haze_program, "haze_distortion");
 	this->pp_haze_time_loc = CacheLoc(this->pp_heat_haze_program, "time");
+
+	/* Water waves uniforms. */
+	this->pp_waves_texel_loc = CacheLoc(this->pp_water_waves_program, "texel_size");
+	this->pp_waves_amplitude_loc = CacheLoc(this->pp_water_waves_program, "wave_amplitude");
+	this->pp_waves_speed_loc = CacheLoc(this->pp_water_waves_program, "wave_speed");
+	this->pp_waves_time_loc = CacheLoc(this->pp_water_waves_program, "time");
+
+	/* Seasonal vegetation uniforms. */
+	this->pp_seasonal_season_loc = CacheLoc(this->pp_seasonal_program, "season");
+	this->pp_seasonal_intensity_loc = CacheLoc(this->pp_seasonal_program, "intensity");
+
+	/* Viewport UV mask locations for all viewport-masked shaders. */
+	this->pp_cas_viewport_loc = CacheLoc(this->pp_cas_program, "viewport_uv");
+	this->pp_fxaa_viewport_loc = CacheLoc(this->pp_fxaa_program, "viewport_uv");
+	this->pp_cg_viewport_loc = CacheLoc(this->pp_color_program, "viewport_uv");
+	this->pp_vig_viewport_loc = CacheLoc(this->pp_vignette_program, "viewport_uv");
+	this->pp_grain_viewport_loc = CacheLoc(this->pp_grain_program, "viewport_uv");
+	this->pp_pixel_smooth_viewport_loc = CacheLoc(this->pp_pixel_smooth_program, "viewport_uv");
+	this->pp_crt_viewport_loc = CacheLoc(this->pp_crt_program, "viewport_uv");
+	this->pp_lighting_viewport_loc = CacheLoc(this->pp_lighting_program, "viewport_uv");
+	this->pp_bloom_thresh_viewport_loc = CacheLoc(this->pp_bloom_threshold_program, "viewport_uv");
+	this->pp_bloom_blur_h_viewport_loc = CacheLoc(this->pp_bloom_blur_h_program, "viewport_uv");
+	this->pp_bloom_blur_v_viewport_loc = CacheLoc(this->pp_bloom_blur_v_program, "viewport_uv");
+	this->pp_bloom_composite_viewport_loc = CacheLoc(this->pp_bloom_composite_program, "viewport_uv");
+	this->pp_weather_viewport_loc = CacheLoc(this->pp_weather_program, "viewport_uv");
+	this->pp_shadow_viewport_loc = CacheLoc(this->pp_shadow_program, "viewport_uv");
+	this->pp_ssao_viewport_loc = CacheLoc(this->pp_ssao_program, "viewport_uv");
+	this->pp_terrain_smooth_viewport_loc = CacheLoc(this->pp_terrain_smooth_program, "viewport_uv");
+	this->pp_tree_sway_viewport_loc = CacheLoc(this->pp_tree_sway_program, "viewport_uv");
+	this->pp_sky_viewport_loc = CacheLoc(this->pp_sky_program, "viewport_uv");
+	this->pp_dof_viewport_loc = CacheLoc(this->pp_dof_program, "viewport_uv");
+	this->pp_toon_viewport_loc = CacheLoc(this->pp_toon_program, "viewport_uv");
+	this->pp_haze_viewport_loc = CacheLoc(this->pp_heat_haze_program, "viewport_uv");
 
 	/* Downsample uniforms. */
 	this->pp_downsample_texel_loc = CacheLoc(this->pp_downsample_program, "texel_size");
@@ -2210,6 +2258,8 @@ void OpenGLBackend::RenderPostProcess()
 	if (WillRun(this->pp_config.pixel_smoothing, this->pp_pixel_smooth_program)) total++;
 	if (WillRun(this->pp_config.terrain_smooth, this->pp_terrain_smooth_program)) total++;
 	if (WillRun(this->pp_config.tree_sway, this->pp_tree_sway_program)) total++;
+	if (WillRun(this->pp_config.seasonal_vegetation, this->pp_seasonal_program)) total++;
+	if (WillRun(this->pp_config.water_waves, this->pp_water_waves_program)) total++;
 	if (WillRun(this->pp_config.water_reflections, this->pp_water_reflect_program)) total++;
 	if (WillRun(this->pp_config.ssao, this->pp_ssao_program)) total++;
 	if (WillRun(this->pp_config.fxaa, this->pp_fxaa_program)) total++;
@@ -2240,6 +2290,23 @@ void OpenGLBackend::RenderPostProcess()
 	 * the final pass (downsample or last effect) writes to the display-res backbuffer. */
 	bool supersampling = (this->pp_render_size.width > this->pp_display_size.width);
 	Dimension work_size = supersampling ? this->pp_render_size : this->pp_display_size;
+
+	/* Compute viewport UV bounds once for all viewport-masked shaders.
+	 * viewport_uv = (uv_left, uv_top, uv_right, uv_bottom) in OpenGL UV space.
+	 * When viewport_uv.z == 0, masking is disabled (effect applies full-screen). */
+	float vp_uv[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+	const Window *vp_win = GetMainWindow();
+	if (vp_win != nullptr && vp_win->viewport != nullptr) {
+		float sw = (float)_screen.width;
+		float sh = (float)_screen.height;
+		vp_uv[0] = (float)vp_win->left / sw;
+		vp_uv[1] = 1.0f - (float)(vp_win->top + vp_win->height) / sh;
+		vp_uv[2] = (float)(vp_win->left + vp_win->width) / sw;
+		vp_uv[3] = 1.0f - (float)vp_win->top / sh;
+	}
+	auto SetViewportUV = [&](GLint loc) {
+		if (loc >= 0) _glUniform4f(loc, vp_uv[0], vp_uv[1], vp_uv[2], vp_uv[3]);
+	};
 
 	/* RunPass: program must already be bound via _glUseProgram before calling. */
 	auto RunPass = [&]() {
@@ -2464,6 +2531,7 @@ void OpenGLBackend::RenderPostProcess()
 	/* CAS standalone (not when FSR1, Temporal, or Plugin active). */
 	if (this->pp_config.sharpening > 0 && this->pp_config.upscale_mode != UpscaleMode::FSR1 && this->pp_config.upscale_mode != UpscaleMode::Temporal && this->pp_config.upscale_mode != UpscaleMode::Plugin && this->pp_cas_program != 0) {
 		_glUseProgram(this->pp_cas_program);
+		SetViewportUV(this->pp_cas_viewport_loc);
 		_glUniform2f(this->pp_cas_texel_loc, texel_w, texel_h);
 		_glUniform1f(this->pp_cas_sharp_loc, MapSharpeningToCas(this->pp_config.sharpening));
 		RunPass();
@@ -2472,6 +2540,7 @@ void OpenGLBackend::RenderPostProcess()
 	/* Procedural sky with clouds (background, runs first). */
 	if (this->pp_config.sky_clouds && this->pp_sky_program != 0) {
 		_glUseProgram(this->pp_sky_program);
+		SetViewportUV(this->pp_sky_viewport_loc);
 		_glUniform1f(this->pp_sky_density_loc, this->pp_config.cloud_density / 100.0f);
 		_glUniform1f(this->pp_sky_speed_loc, (float)this->pp_config.cloud_speed);
 		_glUniform1f(this->pp_sky_brightness_loc, this->pp_config.sky_brightness / 100.0f);
@@ -2482,6 +2551,7 @@ void OpenGLBackend::RenderPostProcess()
 	/* Pixel art smoothing (zoom-in enhancement). */
 	if (this->pp_config.pixel_smoothing && this->pp_pixel_smooth_program != 0) {
 		_glUseProgram(this->pp_pixel_smooth_program);
+		SetViewportUV(this->pp_pixel_smooth_viewport_loc);
 		_glUniform2f(this->pp_pixel_smooth_texel_loc, texel_w, texel_h);
 		_glUniform1f(this->pp_pixel_smooth_amount_loc, this->pp_config.pixel_smooth_amount / 100.0f);
 		RunPass();
@@ -2490,6 +2560,7 @@ void OpenGLBackend::RenderPostProcess()
 	/* Terrain transition smoothing (edge-aware bilateral filter). */
 	if (this->pp_config.terrain_smooth && this->pp_terrain_smooth_program != 0) {
 		_glUseProgram(this->pp_terrain_smooth_program);
+		SetViewportUV(this->pp_terrain_smooth_viewport_loc);
 		_glUniform2f(this->pp_terrain_smooth_texel_loc, texel_w, texel_h);
 		_glUniform1f(this->pp_terrain_smooth_radius_loc, (float)this->pp_config.terrain_smooth_radius);
 		_glUniform1f(this->pp_terrain_smooth_strength_loc, this->pp_config.terrain_smooth_strength / 100.0f);
@@ -2499,6 +2570,7 @@ void OpenGLBackend::RenderPostProcess()
 	/* Animated tree/vegetation sway. */
 	if (this->pp_config.tree_sway && this->pp_tree_sway_program != 0) {
 		_glUseProgram(this->pp_tree_sway_program);
+		SetViewportUV(this->pp_tree_sway_viewport_loc);
 		_glUniform2f(this->pp_tree_sway_texel_loc, texel_w, texel_h);
 		_glUniform1f(this->pp_tree_sway_amount_loc, (float)this->pp_config.tree_sway_amount);
 		_glUniform1f(this->pp_tree_sway_speed_loc, (float)this->pp_config.tree_sway_speed);
@@ -2506,26 +2578,34 @@ void OpenGLBackend::RenderPostProcess()
 		RunPass();
 	}
 
+	/* Seasonal vegetation colour shift. */
+	if (this->pp_config.seasonal_vegetation && this->pp_seasonal_program != 0) {
+		_glUseProgram(this->pp_seasonal_program);
+		/* Map time to [0,1) season cycle: 2-minute loop for visual demo. */
+		float season = std::fmod(anim_time / 120.0f, 1.0f);
+		_glUniform1f(this->pp_seasonal_season_loc, season);
+		_glUniform1f(this->pp_seasonal_intensity_loc, this->pp_config.season_intensity / 100.0f);
+		RunPass();
+	}
+
+	/* Animated water waves. */
+	if (this->pp_config.water_waves && this->pp_water_waves_program != 0) {
+		_glUseProgram(this->pp_water_waves_program);
+		_glUniform2f(this->pp_waves_texel_loc, texel_w, texel_h);
+		_glUniform1f(this->pp_waves_amplitude_loc, static_cast<float>(this->pp_config.wave_amplitude));
+		_glUniform1f(this->pp_waves_speed_loc, static_cast<float>(this->pp_config.wave_speed));
+		_glUniform1f(this->pp_waves_time_loc, anim_time);
+		RunPass();
+	}
+
 	/* Water reflections (screen-space). */
 	if (this->pp_config.water_reflections && this->pp_water_reflect_program != 0) {
 		_glUseProgram(this->pp_water_reflect_program);
+		SetViewportUV(this->pp_water_reflect_viewport_loc);
 		_glUniform2f(this->pp_water_reflect_texel_loc, texel_w, texel_h);
 		_glUniform1f(this->pp_water_reflect_intensity_loc, this->pp_config.reflection_intensity / 100.0f);
 		_glUniform1f(this->pp_water_reflect_distortion_loc, (float)this->pp_config.reflection_distortion);
 		_glUniform1f(this->pp_water_reflect_time_loc, anim_time);
-		/* Upload viewport UV bounds so water reflections don't affect the UI. */
-		const Window *vp_win = GetMainWindow();
-		if (vp_win != nullptr && vp_win->viewport != nullptr && this->pp_water_reflect_viewport_loc >= 0) {
-			float sw = (float)_screen.width;
-			float sh = (float)_screen.height;
-			float uv_left = (float)vp_win->left / sw;
-			float uv_top = 1.0f - (float)(vp_win->top + vp_win->height) / sh;
-			float uv_right = (float)(vp_win->left + vp_win->width) / sw;
-			float uv_bottom = 1.0f - (float)vp_win->top / sh;
-			_glUniform4f(this->pp_water_reflect_viewport_loc, uv_left, uv_top, uv_right, uv_bottom);
-		} else if (this->pp_water_reflect_viewport_loc >= 0) {
-			_glUniform4f(this->pp_water_reflect_viewport_loc, 0.0f, 0.0f, 0.0f, 0.0f);
-		}
 		/* Bind class_tex to texture unit 1 for metadata-backed water detection. */
 		if (this->class_texture != 0) {
 			_glActiveTexture(GL_TEXTURE1);
@@ -2538,6 +2618,7 @@ void OpenGLBackend::RenderPostProcess()
 	/* Screen-space ambient occlusion. */
 	if (this->pp_config.ssao && this->pp_ssao_program != 0) {
 		_glUseProgram(this->pp_ssao_program);
+		SetViewportUV(this->pp_ssao_viewport_loc);
 		_glUniform2f(this->pp_ssao_texel_loc, texel_w, texel_h);
 		_glUniform1f(this->pp_ssao_radius_loc, (float)this->pp_config.ssao_radius);
 		_glUniform1f(this->pp_ssao_intensity_loc, this->pp_config.ssao_intensity / 100.0f);
@@ -2548,6 +2629,7 @@ void OpenGLBackend::RenderPostProcess()
 	/* FXAA. */
 	if (this->pp_config.fxaa && this->pp_fxaa_program != 0) {
 		_glUseProgram(this->pp_fxaa_program);
+		SetViewportUV(this->pp_fxaa_viewport_loc);
 		_glUniform2f(this->pp_fxaa_texel_loc, texel_w, texel_h);
 		_glUniform1f(this->pp_fxaa_subpix_loc, this->pp_config.fxaa_quality / 100.0f);
 		_glUniform1f(this->pp_fxaa_edge_loc, this->pp_config.fxaa_threshold / 100.0f);
@@ -2563,23 +2645,11 @@ void OpenGLBackend::RenderPostProcess()
 			GLuint prog = (i == 0) ? this->pp_tiltshift_h_program : this->pp_tiltshift_v_program;
 			if (prog == 0) continue;
 			_glUseProgram(prog);
+			SetViewportUV(this->pp_ts_viewport_loc[i]);
 			_glUniform2f(this->pp_ts_texel_loc[i], texel_w, texel_h);
 			_glUniform1f(this->pp_ts_focus_loc[i], focus_y);
 			_glUniform1f(this->pp_ts_width_loc[i], focus_spread);
 			_glUniform1f(this->pp_ts_blur_loc[i], blur_s);
-			/* Upload viewport UV bounds so tilt-shift doesn't blur the UI. */
-			const Window *vp_win = GetMainWindow();
-			if (vp_win != nullptr && vp_win->viewport != nullptr && this->pp_ts_viewport_loc[i] >= 0) {
-				float sw = (float)_screen.width;
-				float sh = (float)_screen.height;
-				float uv_left = (float)vp_win->left / sw;
-				float uv_top = 1.0f - (float)(vp_win->top + vp_win->height) / sh;
-				float uv_right = (float)(vp_win->left + vp_win->width) / sw;
-				float uv_bottom = 1.0f - (float)vp_win->top / sh;
-				_glUniform4f(this->pp_ts_viewport_loc[i], uv_left, uv_top, uv_right, uv_bottom);
-			} else if (this->pp_ts_viewport_loc[i] >= 0) {
-				_glUniform4f(this->pp_ts_viewport_loc[i], 0.0f, 0.0f, 0.0f, 0.0f);
-			}
 			RunPass();
 		}
 	}
@@ -2587,6 +2657,7 @@ void OpenGLBackend::RenderPostProcess()
 	/* Color grading. */
 	if (this->pp_config.color_grading && this->pp_color_program != 0) {
 		_glUseProgram(this->pp_color_program);
+		SetViewportUV(this->pp_cg_viewport_loc);
 		_glUniform1f(this->pp_cg_brightness_loc, this->pp_config.cg_brightness / 100.0f);
 		_glUniform1f(this->pp_cg_contrast_loc, this->pp_config.cg_contrast / 100.0f);
 		_glUniform1f(this->pp_cg_saturation_loc, this->pp_config.cg_saturation / 100.0f);

@@ -97,6 +97,11 @@ uint8_t _video_toon_color_levels = 5; ///< Toon color quantization levels (2-16)
 bool _video_heat_haze = false; ///< Whether heat haze distortion is enabled.
 uint8_t _video_haze_intensity = 30; ///< Heat haze effect strength (0-100).
 uint8_t _video_haze_distortion = 5; ///< Heat haze distortion amplitude (1-20).
+bool _video_water_waves = false; ///< Whether animated water waves are enabled.
+uint8_t _video_wave_amplitude = 3; ///< Wave height in pixels (1-15).
+uint8_t _video_wave_speed = 40; ///< Wave animation speed (10-100).
+bool _video_seasonal_vegetation = false; ///< Whether seasonal vegetation colour shift is enabled.
+uint8_t _video_season_intensity = 50; ///< Seasonal effect strength (0-100).
 bool _video_cpu_viewport_scaling = false; ///< Whether CPU viewport scaling is enabled (render viewport at reduced resolution).
 bool _video_debug_class = false; ///< Whether classification debug visualization is enabled.
 

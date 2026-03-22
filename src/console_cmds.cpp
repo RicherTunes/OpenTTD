@@ -2944,6 +2944,11 @@ static void ResetPPDefaults()
 	_video_heat_haze = false;
 	_video_haze_intensity = 30;
 	_video_haze_distortion = 5;
+	_video_water_waves = false;
+	_video_wave_amplitude = 3;
+	_video_wave_speed = 40;
+	_video_seasonal_vegetation = false;
+	_video_season_intensity = 50;
 }
 
 static void SyncPPPresetCycleIndex(std::string_view name);
@@ -3194,6 +3199,8 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		IConsolePrint(CC_HELP, "  DOF: dof_focus (0-100), dof_aperture (0-100), dof_range (0-100)");
 		IConsolePrint(CC_HELP, "  Toon: toon_edge_threshold (1-50), toon_color_levels (2-16)");
 		IConsolePrint(CC_HELP, "  Haze: haze_intensity (0-100), haze_distortion (1-20)");
+		IConsolePrint(CC_HELP, "  Waves: wave_amplitude (1-15), wave_speed (10-100)");
+		IConsolePrint(CC_HELP, "  Seasonal: season_intensity (0-100)");
 		IConsolePrint(CC_HELP, "Usage: 'pp reset' - Restore all post-processing settings to defaults.");
 		IConsolePrint(CC_HELP, "Usage: 'pp preset <name>' - Apply a predefined configuration.");
 		IConsolePrint(CC_HELP, "  Presets: retro, cinematic, night, miniature, sharp, clean, ...");
@@ -3234,6 +3241,8 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		IConsolePrint(CC_INFO, "  Depth of field: {} (focus={}, aperture={}, range={}) [LAB]", _video_depth_of_field ? "ON" : "OFF", _video_dof_focus_point, _video_dof_aperture, _video_dof_range);
 		IConsolePrint(CC_INFO, "  Toon rendering: {} (edge={}, levels={}) [LAB]", _video_toon_rendering ? "ON" : "OFF", _video_toon_edge_threshold, _video_toon_color_levels);
 		IConsolePrint(CC_INFO, "  Heat haze: {} (intensity={}, distortion={}) [LAB]", _video_heat_haze ? "ON" : "OFF", _video_haze_intensity, _video_haze_distortion);
+		IConsolePrint(CC_INFO, "  Water waves: {} (amplitude={}, speed={}) [LAB]", _video_water_waves ? "ON" : "OFF", _video_wave_amplitude, _video_wave_speed);
+		IConsolePrint(CC_INFO, "  Seasonal vegetation: {} (intensity={}) [LAB]", _video_seasonal_vegetation ? "ON" : "OFF", _video_season_intensity);
 		IConsolePrint(CC_INFO, "  Brightness: {}", _video_brightness);
 		IConsolePrint(CC_INFO, "  Contrast: {}", _video_contrast);
 		IConsolePrint(CC_INFO, "  Saturation: {}", _video_saturation);
@@ -3264,6 +3273,8 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		est_config.depth_of_field = _video_depth_of_field;
 		est_config.toon_rendering = _video_toon_rendering;
 		est_config.heat_haze = _video_heat_haze;
+		est_config.water_waves = _video_water_waves;
+		est_config.seasonal_vegetation = _video_seasonal_vegetation;
 		int est_passes = PostProcessPassCount(est_config);
 		IConsolePrint(CC_INFO, "  Estimated shader passes: {} ({})", est_passes,
 			est_passes == 0 ? "no overhead" : est_passes <= 3 ? "light" : est_passes <= 7 ? "moderate" : "heavy");
@@ -3324,6 +3335,8 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		budget_config.depth_of_field = _video_depth_of_field;
 		budget_config.toon_rendering = _video_toon_rendering;
 		budget_config.heat_haze = _video_heat_haze;
+		budget_config.water_waves = _video_water_waves;
+		budget_config.seasonal_vegetation = _video_seasonal_vegetation;
 		budget_config.debug_class = _video_debug_class;
 
 		int passes = PostProcessPassCount(budget_config);
@@ -3411,6 +3424,10 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			_video_toon_rendering = enable;
 		} else if (effect == "haze" || effect == "heat_haze") {
 			_video_heat_haze = enable;
+		} else if (effect == "waves" || effect == "water_waves") {
+			_video_water_waves = enable;
+		} else if (effect == "seasonal" || effect == "seasonal_vegetation") {
+			_video_seasonal_vegetation = enable;
 		} else if (effect == "cpu_scale" || effect == "cpu_viewport_scaling") {
 			_video_cpu_viewport_scaling = enable;
 		} else {
@@ -3455,6 +3472,8 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			IConsolePrint(CC_ERROR, "  DOF: dof_focus (0-100), dof_aperture (0-100), dof_range (0-100)");
 			IConsolePrint(CC_ERROR, "  Toon: toon_edge_threshold (1-50), toon_color_levels (2-16)");
 			IConsolePrint(CC_ERROR, "  Haze: haze_intensity (0-100), haze_distortion (1-20)");
+			IConsolePrint(CC_ERROR, "  Waves: wave_amplitude (1-15), wave_speed (10-100)");
+			IConsolePrint(CC_ERROR, "  Seasonal: season_intensity (0-100)");
 			return false;
 		}
 		std::string_view param = argv[2];
@@ -3618,6 +3637,15 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		} else if (param == "haze_distortion") {
 			_video_haze_distortion = static_cast<uint8_t>(Clamp(value, 1, 20));
 			IConsolePrint(CC_INFO, "Haze distortion set to {}.", _video_haze_distortion);
+		} else if (param == "wave_amplitude") {
+			_video_wave_amplitude = static_cast<uint8_t>(Clamp(value, 1, 15));
+			IConsolePrint(CC_INFO, "Wave amplitude set to {}.", _video_wave_amplitude);
+		} else if (param == "wave_speed") {
+			_video_wave_speed = static_cast<uint8_t>(Clamp(value, 10, 100));
+			IConsolePrint(CC_INFO, "Wave speed set to {}.", _video_wave_speed);
+		} else if (param == "season_intensity") {
+			_video_season_intensity = static_cast<uint8_t>(Clamp(value, 0, 100));
+			IConsolePrint(CC_INFO, "Season intensity set to {}.", _video_season_intensity);
 		} else {
 			IConsolePrint(CC_ERROR, "Unknown parameter '{}'.", param);
 			IConsolePrint(CC_ERROR, "  Core: render_scale, sharpening, upscale, texture_filter, brightness, contrast, saturation, temperature");
@@ -3635,6 +3663,8 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			IConsolePrint(CC_ERROR, "  DOF: dof_focus (0-100), dof_aperture (0-100), dof_range (0-100)");
 			IConsolePrint(CC_ERROR, "  Toon: toon_edge_threshold (1-50), toon_color_levels (2-16)");
 			IConsolePrint(CC_ERROR, "  Haze: haze_intensity (0-100), haze_distortion (1-20)");
+			IConsolePrint(CC_ERROR, "  Waves: wave_amplitude (1-15), wave_speed (10-100)");
+			IConsolePrint(CC_ERROR, "  Seasonal: season_intensity (0-100)");
 			IConsolePrint(CC_ERROR, "  Other: grain_intensity, bloom_threshold, bloom_intensity, weather_type, weather_intensity");
 			return false;
 		}

@@ -142,6 +142,8 @@ private:
 	GLuint pp_dof_program = 0;           ///< Depth-of-field blur shader program.
 	GLuint pp_toon_program = 0;          ///< Toon/cartoon rendering shader program.
 	GLuint pp_heat_haze_program = 0;     ///< Heat haze distortion shader program.
+	GLuint pp_water_waves_program = 0;   ///< Animated water waves shader program.
+	GLuint pp_seasonal_program = 0;      ///< Seasonal vegetation colour shift shader program.
 	GLuint pp_downsample_program = 0;    ///< Downsample shader for supersampling.
 	GLint pp_downsample_texel_loc = -1;  ///< Downsample texel_size uniform.
 	GLuint pp_debug_class_program = 0;   ///< Shader for classification debug visualization.
@@ -211,6 +213,29 @@ private:
 	GLint pp_water_reflect_texel_loc = -1;       ///< Texel size uniform.
 	GLint pp_water_reflect_viewport_loc = -1;    ///< Water reflection viewport_uv uniform.
 	GLint pp_water_reflect_class_loc = -1;       ///< Water reflect class_tex sampler location.
+
+	/* Viewport UV mask locations for all viewport-masked shaders. */
+	GLint pp_cas_viewport_loc = -1;              ///< CAS viewport_uv uniform location.
+	GLint pp_fxaa_viewport_loc = -1;             ///< FXAA viewport_uv uniform location.
+	GLint pp_cg_viewport_loc = -1;               ///< Color grading viewport_uv uniform location.
+	GLint pp_vig_viewport_loc = -1;              ///< Vignette viewport_uv uniform location.
+	GLint pp_grain_viewport_loc = -1;            ///< Film grain viewport_uv uniform location.
+	GLint pp_pixel_smooth_viewport_loc = -1;     ///< Pixel smooth viewport_uv uniform location.
+	GLint pp_crt_viewport_loc = -1;              ///< CRT viewport_uv uniform location.
+	GLint pp_lighting_viewport_loc = -1;         ///< Dynamic lighting viewport_uv uniform location.
+	GLint pp_bloom_thresh_viewport_loc = -1;     ///< Bloom threshold viewport_uv uniform location.
+	GLint pp_bloom_blur_h_viewport_loc = -1;     ///< Bloom blur H viewport_uv uniform location.
+	GLint pp_bloom_blur_v_viewport_loc = -1;     ///< Bloom blur V viewport_uv uniform location.
+	GLint pp_bloom_composite_viewport_loc = -1;  ///< Bloom composite viewport_uv uniform location.
+	GLint pp_weather_viewport_loc = -1;          ///< Weather viewport_uv uniform location.
+	GLint pp_shadow_viewport_loc = -1;           ///< Shadow viewport_uv uniform location.
+	GLint pp_ssao_viewport_loc = -1;             ///< SSAO viewport_uv uniform location.
+	GLint pp_terrain_smooth_viewport_loc = -1;   ///< Terrain smooth viewport_uv uniform location.
+	GLint pp_tree_sway_viewport_loc = -1;        ///< Tree sway viewport_uv uniform location.
+	GLint pp_sky_viewport_loc = -1;              ///< Sky viewport_uv uniform location.
+	GLint pp_dof_viewport_loc = -1;              ///< DoF viewport_uv uniform location.
+	GLint pp_toon_viewport_loc = -1;             ///< Toon viewport_uv uniform location.
+	GLint pp_haze_viewport_loc = -1;             ///< Heat haze viewport_uv uniform location.
 	GLint pp_ssao_radius_loc = -1;       ///< SSAO radius uniform location.
 	GLint pp_ssao_intensity_loc = -1;    ///< SSAO intensity uniform location.
 	GLint pp_ssao_samples_loc = -1;      ///< SSAO samples uniform location.
@@ -237,6 +262,12 @@ private:
 	GLint pp_haze_intensity_loc = -1;    ///< Heat haze intensity uniform location.
 	GLint pp_haze_distortion_loc = -1;   ///< Heat haze distortion uniform location.
 	GLint pp_haze_time_loc = -1;         ///< Heat haze time uniform location.
+	GLint pp_waves_texel_loc = -1;       ///< Water waves texel_size uniform location.
+	GLint pp_waves_amplitude_loc = -1;   ///< Water waves wave_amplitude uniform location.
+	GLint pp_waves_speed_loc = -1;       ///< Water waves wave_speed uniform location.
+	GLint pp_waves_time_loc = -1;        ///< Water waves time uniform location.
+	GLint pp_seasonal_season_loc = -1;   ///< Seasonal vegetation season uniform location.
+	GLint pp_seasonal_intensity_loc = -1;///< Seasonal vegetation intensity uniform location.
 
 	PostProcessConfig pp_config;     ///< Current post-processing configuration.
 

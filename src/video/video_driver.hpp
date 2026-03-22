@@ -100,6 +100,11 @@ extern uint8_t _video_toon_color_levels;
 extern bool _video_heat_haze;
 extern uint8_t _video_haze_intensity;
 extern uint8_t _video_haze_distortion;
+extern bool _video_water_waves;
+extern uint8_t _video_wave_amplitude;
+extern uint8_t _video_wave_speed;
+extern bool _video_seasonal_vegetation;
+extern uint8_t _video_season_intensity;
 extern bool _video_cpu_viewport_scaling;
 
 /** The base of all video drivers. */
