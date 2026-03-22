@@ -3,6 +3,11 @@ pause
 
 pp reset
 pp on
+
+pp_screenshot e2e_warmup1
+pp_screenshot e2e_warmup2
+pp_screenshot e2e_warmup3
+
 pp_screenshot e2e_01_passthrough
 
 pp enable night
@@ -64,4 +69,4 @@ pp reset
 pp on
 pp_screenshot e2e_13_restored
 
-echo "E2E test complete - 13 screenshots queued"
+echo "E2E test complete - 16 screenshots queued (3 warmup + 13 real)"

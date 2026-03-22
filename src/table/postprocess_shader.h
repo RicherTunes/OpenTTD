@@ -445,8 +445,6 @@ static const char *_frag_shader_pp_night[] = {
 	"  float b_tint = 0.6 + night_blue_shift * 0.3;",
 	"  vec3 night = vec3(luma * r_tint, luma * g_tint, luma * b_tint);",
 	"  vec3 result = mix(c, night, night_amount);",
-	"  /* DEBUG: make night effect obvious — tint entire screen blue. */",
-	"  result = mix(result, vec3(0.0, 0.0, 1.0), 0.5 * night_amount);",
 	"  frag_colour = vec4(result, src_alpha);",
 	"}",
 };
