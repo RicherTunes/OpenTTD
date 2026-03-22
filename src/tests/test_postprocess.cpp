@@ -2012,3 +2012,112 @@ TEST_CASE("PostProcess - auto_supersample alone does not need FBO")
 	CHECK_FALSE(PostProcessNeedsFBO(config));
 	CHECK(PostProcessPassCount(config) == 0);
 }
+
+/* ====== Fake shadows tests ====== */
+
+TEST_CASE("PostProcess - fake_shadows defaults")
+{
+	PostProcessConfig config;
+	CHECK_FALSE(config.fake_shadows);
+	CHECK(config.shadow_intensity == 40);
+	CHECK(config.shadow_angle == 45);
+	CHECK(config.shadow_length == 8);
+	CHECK(config.shadow_softness == 3);
+}
+
+TEST_CASE("PostProcess - fake_shadows needs FBO")
+{
+	PostProcessConfig config;
+	config.fake_shadows = true;
+	CHECK(PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("PostProcess - fake_shadows adds one pass")
+{
+	PostProcessConfig config;
+	config.fake_shadows = true;
+	CHECK(PostProcessPassCount(config) == 1);
+}
+
+TEST_CASE("PostProcess - fake_shadows with other effects stacks")
+{
+	PostProcessConfig config;
+	config.fake_shadows = true;
+	config.fxaa = true;
+	CHECK(PostProcessPassCount(config) == 2);
+}
+
+/* ====== Water reflections tests ====== */
+
+TEST_CASE("PostProcess - water_reflections defaults")
+{
+	PostProcessConfig config;
+	CHECK_FALSE(config.water_reflections);
+	CHECK(config.reflection_intensity == 30);
+	CHECK(config.reflection_distortion == 5);
+}
+
+TEST_CASE("PostProcess - water_reflections needs FBO")
+{
+	PostProcessConfig config;
+	config.water_reflections = true;
+	CHECK(PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("PostProcess - water_reflections adds one pass")
+{
+	PostProcessConfig config;
+	config.water_reflections = true;
+	CHECK(PostProcessPassCount(config) == 1);
+}
+
+TEST_CASE("PostProcess - water_reflections with shadows and bloom")
+{
+	PostProcessConfig config;
+	config.water_reflections = true;
+	config.fake_shadows = true;
+	config.bloom = true;
+	/* water(1) + shadows(1) + bloom(4) = 6 */
+	CHECK(PostProcessPassCount(config) == 6);
+}
+
+/* ====== Weather intensity default ====== */
+
+TEST_CASE("PostProcess - weather_intensity default")
+{
+	PostProcessConfig config;
+	CHECK(config.weather_intensity == 30);
+}
+
+/* ====== Vignette softness default ====== */
+
+TEST_CASE("PostProcess - vignette_softness default")
+{
+	PostProcessConfig config;
+	CHECK(config.vignette_softness == 45);
+}
+
+/* ====== All new features in combined pass count ====== */
+
+TEST_CASE("PostProcess - all effects including shadows and reflections")
+{
+	PostProcessConfig config;
+	config.upscale_mode = UpscaleMode::FSR1;
+	config.render_scale = 75;
+	config.fxaa = true;
+	config.color_grading = true;
+	config.vignette = true;
+	config.tiltshift = true;
+	config.night_mode = true;
+	config.film_grain = true;
+	config.crt_filter = true;
+	config.dynamic_lighting = true;
+	config.bloom = true;
+	config.weather_type = 1;
+	config.fake_shadows = true;
+	config.water_reflections = true;
+	config.pixel_smoothing = true;
+	int total = PostProcessPassCount(config);
+	CHECK(total >= 17); /* At least EASU+RCAS+pixel+FXAA+tilt*2+color+night+vig+grain+light+bloom*4+CRT+weather+shadow+water */
+	CHECK(total <= 25); /* Sanity upper bound */
+}
