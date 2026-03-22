@@ -1874,6 +1874,11 @@ static void ViewportSortParentSpritesBinned(ParentSpriteToSortVector *psdv)
 			sprite_order.push(p);
 		}
 	}
+
+#ifdef _DEBUG
+	/* Validate: count of output sprites must match input count. */
+	assert(static_cast<size_t>(out - psdv->begin()) == psdv->size());
+#endif
 }
 
 
