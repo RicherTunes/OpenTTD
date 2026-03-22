@@ -101,6 +101,8 @@ bool PostProcessNeedsFBO(const PostProcessConfig &config)
 	if (config.depth_of_field) return true;
 	if (config.toon_rendering) return true;
 	if (config.heat_haze) return true;
+	if (config.water_waves) return true;
+	if (config.seasonal_vegetation) return true;
 	if (config.debug_class) return true;
 	if (config.render_scale > 100) return true; /* Supersampling needs downsample pass. */
 	return false;
@@ -155,6 +157,8 @@ int PostProcessPassCount(const PostProcessConfig &config)
 	if (config.depth_of_field) passes += 1;
 	if (config.toon_rendering) passes += 1;
 	if (config.heat_haze) passes += 1;
+	if (config.water_waves) passes += 1;
+	if (config.seasonal_vegetation) passes += 1;
 	if (config.fake_shadows) passes += 1;
 	if (config.crt_filter) passes += 1;
 	if (config.weather_type > 0) passes += 1;

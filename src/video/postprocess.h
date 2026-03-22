@@ -133,6 +133,15 @@ struct PostProcessConfig {
 	uint8_t haze_intensity = 30;       ///< Haze effect strength (0-100).
 	uint8_t haze_distortion = 5;       ///< Distortion amplitude (1-20).
 
+	/* Water wave animation. */
+	bool water_waves = false;          ///< Enable animated water wave displacement.
+	uint8_t wave_amplitude = 3;        ///< Wave height in pixels (1-15).
+	uint8_t wave_speed = 40;           ///< Wave animation speed (10-100).
+
+	/* Seasonal vegetation colour shift. */
+	bool seasonal_vegetation = false;  ///< Enable seasonal vegetation colour changes.
+	uint8_t season_intensity = 50;     ///< Season effect strength (0-100).
+
 	bool auto_supersample = false;     ///< Automatically enable supersampling at zoom-in levels.
 
 	bool cpu_viewport_scaling = false; ///< Render main viewport at reduced resolution on CPU (zoom+1 into half-size buffer).
