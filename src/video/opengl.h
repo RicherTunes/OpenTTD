@@ -135,6 +135,16 @@ private:
 	GLuint pp_downsample_program = 0;    ///< Downsample shader for supersampling.
 	GLint pp_downsample_texel_loc = -1;  ///< Downsample texel_size uniform.
 
+	/* CPU viewport scaling scratch buffer resources. */
+	GLuint vp_pbo = 0;              ///< PBO for viewport scratch buffer upload.
+	GLuint vp_texture = 0;          ///< Texture for the reduced-resolution viewport.
+	void *vp_buffer = nullptr;      ///< Mapped pointer to viewport scratch buffer.
+	int vp_width = 0;               ///< Scratch buffer width.
+	int vp_height = 0;              ///< Scratch buffer height.
+	int vp_pitch = 0;               ///< Scratch buffer pitch (pixels per row).
+	Rect vp_screen_rect = {};       ///< Main viewport rect in display coordinates.
+	bool vp_cpu_scaling = false;    ///< CPU viewport scaling is active this frame.
+
 	/* Cached uniform locations for all post-processing shaders. */
 	GLint pp_cas_sharp_loc = -1;     ///< CAS sharpness uniform location.
 	GLint pp_cas_texel_loc = -1;     ///< CAS texel_size uniform location.
@@ -223,6 +233,9 @@ private:
 	bool InitPostProcessShaders();
 	void RenderPostProcess();
 
+	bool SetupViewportScratchBuffer(int vp_w, int vp_h, uint8_t render_scale);
+	void DestroyViewportScratchBuffer();
+
 	OpenGLSpriteLRUCache cursor_cache; ///< Cache of encoded cursor sprites.
 	PaletteID last_sprite_pal = (PaletteID)-1; ///< Last uploaded remap palette.
 	bool clear_cursor_cache = false; ///< A clear of the cursor cache is pending.
@@ -269,6 +282,13 @@ public:
 	void SetPostProcessConfig(const PostProcessConfig &config);
 	bool IsPostProcessSupported() const { return this->pp_fbo_supported; }
 	const PostProcessConfig &GetPostProcessConfig() const { return this->pp_config; }
+
+	bool IsViewportCPUScaling() const { return this->vp_cpu_scaling; }
+	void *GetViewportScratchBuffer() const { return this->vp_buffer; }
+	int GetViewportScratchWidth() const { return this->vp_width; }
+	int GetViewportScratchHeight() const { return this->vp_height; }
+	int GetViewportScratchPitch() const { return this->vp_pitch; }
+	Rect GetViewportScreenRect() const { return this->vp_screen_rect; }
 
 	void InitBenchmarkQueries();
 	void DestroyBenchmarkQueries();

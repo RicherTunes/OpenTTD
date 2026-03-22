@@ -91,6 +91,7 @@ bool _video_depth_of_field = false; ///< Whether depth-of-field blur is enabled.
 uint8_t _video_dof_focus_point = 50; ///< DoF focus distance (0-100).
 uint8_t _video_dof_aperture = 30; ///< DoF aperture / blur strength (0-100).
 uint8_t _video_dof_range = 40; ///< DoF focus range width (0-100).
+bool _video_cpu_viewport_scaling = false; ///< Whether CPU viewport scaling is enabled (render viewport at reduced resolution).
 
 void VideoDriver::GameLoop()
 {

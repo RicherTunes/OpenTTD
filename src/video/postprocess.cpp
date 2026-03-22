@@ -247,3 +247,34 @@ void ComputeCasConstant(float con[4], float sharpening_pct, float input_w, float
 	con[2] = input_h > 0.0f ? 1.0f / input_h : 0.0f;
 	con[3] = 0.0f;
 }
+
+/**
+ * Calculate viewport scratch buffer dimensions for CPU-side render scaling.
+ * Uses integer zoom steps: render_scale <= 50 gives zoom+1 (half-size),
+ * render_scale <= 25 gives zoom+2 (quarter-size).
+ * @param vp_width  Viewport width in display pixels.
+ * @param vp_height Viewport height in display pixels.
+ * @param render_scale Render scale percentage (25-100).
+ * @return Scratch buffer dimensions and extra zoom steps.
+ */
+ViewportScratchDimensions CalculateViewportScratchDimensions(int vp_width, int vp_height, uint8_t render_scale)
+{
+	ViewportScratchDimensions dims{};
+	if (vp_width <= 0 || vp_height <= 0) return dims;
+
+	if (render_scale <= 25) {
+		dims.extra_zoom_steps = 2;
+	} else if (render_scale <= 50) {
+		dims.extra_zoom_steps = 1;
+	} else {
+		/* No CPU scaling for render_scale > 50. */
+		dims.extra_zoom_steps = 0;
+		return dims;
+	}
+
+	int divisor = 1 << dims.extra_zoom_steps;
+	dims.width = std::max(1, vp_width / divisor);
+	dims.height = std::max(1, vp_height / divisor);
+	dims.pitch = dims.width;
+	return dims;
+}

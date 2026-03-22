@@ -123,6 +123,8 @@ struct PostProcessConfig {
 
 	bool auto_supersample = false;     ///< Automatically enable supersampling at zoom-in levels.
 
+	bool cpu_viewport_scaling = false; ///< Render main viewport at reduced resolution on CPU (zoom+1 into half-size buffer).
+
 	bool operator==(const PostProcessConfig &) const = default;
 };
 
@@ -135,6 +137,16 @@ struct PostProcessDimensions {
 PostProcessDimensions CalculatePostProcessDimensions(int display_w, int display_h, uint8_t render_scale);
 bool PostProcessNeedsFBO(const PostProcessConfig &config);
 int PostProcessPassCount(const PostProcessConfig &config);
+
+/** Computed dimensions for the CPU-side viewport scratch buffer. */
+struct ViewportScratchDimensions {
+	int width;   ///< Scratch buffer width (viewport_width / 2).
+	int height;  ///< Scratch buffer height (viewport_height / 2).
+	int pitch;   ///< Row pitch in pixels (== width, tightly packed).
+	uint8_t extra_zoom_steps; ///< Number of extra zoom steps applied (1 for 50%, 2 for 25%).
+};
+
+ViewportScratchDimensions CalculateViewportScratchDimensions(int vp_width, int vp_height, uint8_t render_scale);
 bool IsBlitterCompatibleWithPostProcess();
 
 float MapSharpeningToFsrRcas(uint8_t user_value);

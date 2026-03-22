@@ -608,6 +608,7 @@ OpenGLBackend::OpenGLBackend() : cursor_cache(MAX_CACHED_CURSORS)
  */
 OpenGLBackend::~OpenGLBackend()
 {
+	this->DestroyViewportScratchBuffer();
 	this->DestroyPostProcessFBOs();
 	this->DestroyMVResources();
 	if (_glDeleteProgram != nullptr) {
@@ -1832,6 +1833,87 @@ void OpenGLBackend::DestroyPostProcessFBOs()
 		_glDeleteTextures(1, &this->pp_history_tex);
 		this->pp_history_tex = 0;
 	}
+}
+
+/**
+ * Allocate or resize the viewport scratch buffer for CPU-side render scaling.
+ * @param vp_w Main viewport width in display pixels.
+ * @param vp_h Main viewport height in display pixels.
+ * @param render_scale Current render_scale setting (25-100).
+ * @return True if the scratch buffer is ready for use.
+ */
+bool OpenGLBackend::SetupViewportScratchBuffer(int vp_w, int vp_h, uint8_t render_scale)
+{
+	auto dims = CalculateViewportScratchDimensions(vp_w, vp_h, render_scale);
+	if (dims.width == 0 || dims.height == 0) {
+		this->DestroyViewportScratchBuffer();
+		return false;
+	}
+
+	/* Skip reallocation if dimensions haven't changed. */
+	if (this->vp_width == dims.width && this->vp_height == dims.height && this->vp_pbo != 0) {
+		return true;
+	}
+
+	this->DestroyViewportScratchBuffer();
+
+	this->vp_width = dims.width;
+	this->vp_height = dims.height;
+	this->vp_pitch = dims.pitch;
+
+	/* Allocate PBO for CPU writes. */
+	_glGenBuffers(1, &this->vp_pbo);
+	_glBindBuffer(GL_PIXEL_UNPACK_BUFFER, this->vp_pbo);
+	size_t buf_size = static_cast<size_t>(dims.width) * dims.height * 4; /* RGBA8 */
+
+	if (this->persistent_mapping_supported) {
+		_glBufferStorage(GL_PIXEL_UNPACK_BUFFER, buf_size, nullptr,
+			GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
+		this->vp_buffer = _glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, buf_size,
+			GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
+	} else {
+		_glBufferData(GL_PIXEL_UNPACK_BUFFER, buf_size, nullptr, GL_STREAM_DRAW);
+		this->vp_buffer = nullptr; /* Will map per-frame with glMapBuffer. */
+	}
+	_glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+
+	/* Allocate texture. */
+	_glGenTextures(1, &this->vp_texture);
+	_glBindTexture(GL_TEXTURE_2D, this->vp_texture);
+	_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	_glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, dims.width, dims.height, 0, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, nullptr);
+	_glBindTexture(GL_TEXTURE_2D, 0);
+
+	Debug(driver, 1, "OpenGL: Viewport scratch buffer {}x{} (scale {}%)", dims.width, dims.height, render_scale);
+	return true;
+}
+
+/**
+ * Destroy viewport scratch buffer resources.
+ */
+void OpenGLBackend::DestroyViewportScratchBuffer()
+{
+	if (this->vp_pbo != 0) {
+		if (this->persistent_mapping_supported && this->vp_buffer != nullptr) {
+			_glBindBuffer(GL_PIXEL_UNPACK_BUFFER, this->vp_pbo);
+			_glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
+			_glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+		}
+		_glDeleteBuffers(1, &this->vp_pbo);
+		this->vp_pbo = 0;
+	}
+	if (this->vp_texture != 0) {
+		_glDeleteTextures(1, &this->vp_texture);
+		this->vp_texture = 0;
+	}
+	this->vp_buffer = nullptr;
+	this->vp_width = 0;
+	this->vp_height = 0;
+	this->vp_pitch = 0;
+	this->vp_cpu_scaling = false;
 }
 
 /**

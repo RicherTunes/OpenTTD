@@ -2454,3 +2454,99 @@ TEST_CASE("PostProcess - no FBO needed with all defaults")
 	CHECK(!PostProcessNeedsFBO(config));
 	CHECK(PostProcessPassCount(config) == 0);
 }
+
+/* --- CPU viewport scaling tests --- */
+
+TEST_CASE("PostProcess - cpu_viewport_scaling defaults to false")
+{
+	PostProcessConfig config;
+	CHECK(!config.cpu_viewport_scaling);
+}
+
+TEST_CASE("PostProcess - cpu_viewport_scaling equality")
+{
+	PostProcessConfig a, b;
+	CHECK(a == b);
+	a.cpu_viewport_scaling = true;
+	CHECK(!(a == b));
+	b.cpu_viewport_scaling = true;
+	CHECK(a == b);
+}
+
+TEST_CASE("ViewportScratch - 50% scale gives half dimensions")
+{
+	auto dims = CalculateViewportScratchDimensions(1920, 1080, 50);
+	CHECK(dims.width == 960);
+	CHECK(dims.height == 540);
+	CHECK(dims.pitch == 960);
+	CHECK(dims.extra_zoom_steps == 1);
+}
+
+TEST_CASE("ViewportScratch - 25% scale gives quarter dimensions")
+{
+	auto dims = CalculateViewportScratchDimensions(1920, 1080, 25);
+	CHECK(dims.width == 480);
+	CHECK(dims.height == 270);
+	CHECK(dims.pitch == 480);
+	CHECK(dims.extra_zoom_steps == 2);
+}
+
+TEST_CASE("ViewportScratch - 75% scale returns no scaling")
+{
+	auto dims = CalculateViewportScratchDimensions(1920, 1080, 75);
+	CHECK(dims.width == 0);
+	CHECK(dims.height == 0);
+	CHECK(dims.extra_zoom_steps == 0);
+}
+
+TEST_CASE("ViewportScratch - 100% scale returns no scaling")
+{
+	auto dims = CalculateViewportScratchDimensions(1920, 1080, 100);
+	CHECK(dims.width == 0);
+	CHECK(dims.height == 0);
+	CHECK(dims.extra_zoom_steps == 0);
+}
+
+TEST_CASE("ViewportScratch - zero dimensions return empty")
+{
+	auto dims = CalculateViewportScratchDimensions(0, 0, 50);
+	CHECK(dims.width == 0);
+	CHECK(dims.height == 0);
+}
+
+TEST_CASE("ViewportScratch - negative dimensions return empty")
+{
+	auto dims = CalculateViewportScratchDimensions(-100, -50, 50);
+	CHECK(dims.width == 0);
+	CHECK(dims.height == 0);
+}
+
+TEST_CASE("ViewportScratch - odd dimensions round down")
+{
+	auto dims = CalculateViewportScratchDimensions(1921, 1081, 50);
+	CHECK(dims.width == 960);
+	CHECK(dims.height == 540);
+}
+
+TEST_CASE("ViewportScratch - small viewport at 50%")
+{
+	auto dims = CalculateViewportScratchDimensions(3, 3, 50);
+	CHECK(dims.width == 1);
+	CHECK(dims.height == 1);
+}
+
+TEST_CASE("ViewportScratch - 4K at 50%")
+{
+	auto dims = CalculateViewportScratchDimensions(3840, 2160, 50);
+	CHECK(dims.width == 1920);
+	CHECK(dims.height == 1080);
+	CHECK(dims.extra_zoom_steps == 1);
+}
+
+TEST_CASE("ViewportScratch - 4K at 25%")
+{
+	auto dims = CalculateViewportScratchDimensions(3840, 2160, 25);
+	CHECK(dims.width == 960);
+	CHECK(dims.height == 540);
+	CHECK(dims.extra_zoom_steps == 2);
+}

@@ -1,72 +1,152 @@
 
+echo "E2E: Pausing game..."
 pause
+echo "E2E: Game paused. Setting zoom to Normal (2)..."
+zoomto 2
+echo "E2E: Starting warmup frames..."
 
 pp reset
 pp on
-
 pp_screenshot e2e_warmup1
 pp_screenshot e2e_warmup2
 pp_screenshot e2e_warmup3
+pp_screenshot e2e_warmup4
+pp_screenshot e2e_warmup5
 
-pp_screenshot e2e_01_passthrough
+echo "E2E: Zoom 2 tests..."
+pp_screenshot e2e_z2_01_passthrough
 
 pp enable night
 pp set night_intensity 100
 pp set night_blue_shift 80
-pp_screenshot e2e_02_night
+pp_screenshot e2e_z2_02_night
 
 pp disable night
 pp enable vignette
-pp_screenshot e2e_03_vignette
+pp set vignette_intensity 80
+pp_screenshot e2e_z2_03_vignette
 
 pp disable vignette
 pp enable crt
-pp_screenshot e2e_04_crt
+pp set crt_scanlines 40
+pp_screenshot e2e_z2_04_crt
 
 pp disable crt
 pp enable tiltshift
-pp_screenshot e2e_05_tiltshift
+pp_screenshot e2e_z2_05_tiltshift
 
 pp disable tiltshift
 pp enable fxaa
-pp_screenshot e2e_06_fxaa
+pp_screenshot e2e_z2_06_fxaa
 
 pp disable fxaa
 pp enable grain
-pp_screenshot e2e_07_grain
+pp set grain_intensity 15
+pp_screenshot e2e_z2_07_grain
 
 pp disable grain
-pp set brightness 25
-pp set contrast 130
-pp set saturation 140
-pp set color_temperature 50
-pp_screenshot e2e_08_warm
+pp set brightness 30
+pp set contrast 140
+pp set saturation 150
+pp set color_temperature 60
+pp_screenshot e2e_z2_08_warm
 
-pp set brightness -15
-pp set contrast 80
-pp set saturation 70
-pp set color_temperature -60
-pp_screenshot e2e_09_cool
+pp set brightness -20
+pp set contrast 70
+pp set saturation 60
+pp set color_temperature -70
+pp_screenshot e2e_z2_09_cool
 
 pp reset
 pp on
 pp set render_scale 75
 pp set upscale_mode 2
-pp_screenshot e2e_10_fsr1_75
+pp_screenshot e2e_z2_10_fsr1_75
 
 pp set render_scale 100
 pp set upscale_mode 0
 pp set sharpening 90
-pp_screenshot e2e_11_sharp90
+pp_screenshot e2e_z2_11_sharp90
 
 pp set sharpening 0
 pp enable vignette
 pp enable fxaa
 pp enable night
-pp_screenshot e2e_12_combined
+pp set night_intensity 80
+pp_screenshot e2e_z2_12_combined
 
 pp reset
 pp on
-pp_screenshot e2e_13_restored
+pp_screenshot e2e_z2_13_restored
 
-echo "E2E test complete - 16 screenshots queued (3 warmup + 13 real)"
+echo "E2E: Zoom 0 tests..."
+zoomto 0
+pp reset
+pp on
+pp_screenshot e2e_z0_warmup1
+pp_screenshot e2e_z0_warmup2
+pp_screenshot e2e_z0_warmup3
+
+pp_screenshot e2e_z0_01_passthrough
+
+pp enable night
+pp set night_intensity 100
+pp_screenshot e2e_z0_02_night
+
+pp disable night
+pp enable vignette
+pp set vignette_intensity 80
+pp_screenshot e2e_z0_03_vignette
+
+pp disable vignette
+pp enable crt
+pp_screenshot e2e_z0_04_crt
+
+pp reset
+pp on
+pp enable vignette
+pp enable night
+pp enable fxaa
+pp enable tiltshift
+pp set night_intensity 90
+pp set vignette_intensity 70
+pp_screenshot e2e_z0_05_all_effects
+
+pp reset
+pp on
+pp_screenshot e2e_z0_06_restored
+
+echo "E2E: Zoom 5 tests..."
+zoomto 5
+pp reset
+pp on
+pp_screenshot e2e_z5_warmup1
+pp_screenshot e2e_z5_warmup2
+pp_screenshot e2e_z5_warmup3
+
+pp_screenshot e2e_z5_01_passthrough
+
+pp enable night
+pp set night_intensity 100
+pp_screenshot e2e_z5_02_night
+
+pp disable night
+pp enable vignette
+pp set vignette_intensity 80
+pp_screenshot e2e_z5_03_vignette
+
+pp reset
+pp on
+pp enable vignette
+pp enable night
+pp enable fxaa
+pp enable grain
+pp set night_intensity 80
+pp set grain_intensity 10
+pp_screenshot e2e_z5_04_all_effects
+
+pp reset
+pp on
+pp_screenshot e2e_z5_05_restored
+
+echo "E2E complete: 3 zoom levels tested"
