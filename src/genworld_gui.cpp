@@ -713,18 +713,26 @@ struct GenerateLandscapeWindow : public Window {
 		}
 
 		if (this->preview.pixels.empty()) return;
+		if (this->preview.width == 0 || this->preview.height == 0) return;
+		if (this->preview.pixels.size() < (size_t)this->preview.width * this->preview.height) return;
 
 		/* Draw the preview bitmap using palette colours.
-		 * Each pixel is drawn as a GfxFillRect 1x1 to use the palette system. */
+		 * Optimized: draw horizontal runs of same colour as single GfxFillRect
+		 * calls instead of 32K individual 1x1 pixel calls. */
 		int draw_w = std::min((int)this->preview.width, r.Width());
 		int draw_h = std::min((int)this->preview.height, r.Height());
 		int offset_x = r.left + (r.Width() - draw_w) / 2;
 		int offset_y = r.top + (r.Height() - draw_h) / 2;
 
 		for (int py = 0; py < draw_h; py++) {
-			for (int px = 0; px < draw_w; px++) {
+			int px = 0;
+			while (px < draw_w) {
 				uint8_t colour = this->preview.pixels[py * this->preview.width + px];
-				GfxFillRect(offset_x + px, offset_y + py, offset_x + px, offset_y + py, PixelColour(colour));
+				int run_start = px;
+				/* Find the length of the run of same colour. */
+				while (px < draw_w && this->preview.pixels[py * this->preview.width + px] == colour) px++;
+				GfxFillRect(offset_x + run_start, offset_y + py,
+					offset_x + px - 1, offset_y + py, PixelColour(colour));
 			}
 		}
 	}
