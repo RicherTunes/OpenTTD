@@ -189,12 +189,21 @@ void BenchmarkHarness::RestoreState()
  */
 std::string BenchmarkHarness::GetOutputFilename() const
 {
+	auto ts = fmt::localtime(time(nullptr));
 	if (this->label.empty()) {
 		return fmt::format("{}benchmark-{:%Y%m%d-%H%M%S}.csv",
-			FiosGetScreenshotDir(), fmt::localtime(time(nullptr)));
+			FiosGetScreenshotDir(), ts);
 	}
+	/* Sanitize label: strip path separators and special characters. */
+	std::string safe_label;
+	for (char c : this->label) {
+		if (c != '/' && c != '\\' && c != ':' && c != '*' && c != '?' && c != '<' && c != '>' && c != '|' && c != '.') {
+			safe_label += c;
+		}
+	}
+	if (safe_label.empty()) safe_label = "unnamed";
 	return fmt::format("{}benchmark-{:%Y%m%d-%H%M%S}-{}.csv",
-		FiosGetScreenshotDir(), fmt::localtime(time(nullptr)), this->label);
+		FiosGetScreenshotDir(), ts, safe_label);
 }
 
 /** Write all captured samples to a CSV file with metadata header. */
