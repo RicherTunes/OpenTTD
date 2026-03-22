@@ -2775,12 +2775,20 @@ static bool ConBenchmark(std::span<std::string_view> argv)
 		for (size_t i = 2; i < argv.size(); i++) {
 			if (argv[i].starts_with("warmup=")) {
 				auto val = ParseInteger<uint32_t>(argv[i].substr(7));
-				if (val.has_value()) warmup = *val;
+				if (val.has_value()) {
+					warmup = *val;
+				} else {
+					IConsolePrint(CC_WARNING, "Invalid warmup value '{}', using default {}.", argv[i].substr(7), warmup);
+				}
 			} else if (argv[i].starts_with("label=")) {
 				label = argv[i].substr(6);
 			} else {
 				auto val = ParseInteger<uint32_t>(argv[i]);
-				if (val.has_value()) target = *val;
+				if (val.has_value()) {
+					target = *val;
+				} else {
+					IConsolePrint(CC_WARNING, "Invalid frame count '{}', using unlimited.", argv[i]);
+				}
 			}
 		}
 
