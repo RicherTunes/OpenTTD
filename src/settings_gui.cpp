@@ -865,6 +865,14 @@ struct GameOptionsWindow : Window {
 				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 1, 20, 5, _video_grain_intensity, nullptr);
 				break;
 
+			case WID_GO_VIDEO_FXAA_QUALITY:
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 100, 5, _video_fxaa_quality, nullptr);
+				break;
+
+			case WID_GO_VIDEO_FXAA_THRESHOLD:
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 1, 50, 5, _video_fxaa_threshold, nullptr);
+				break;
+
 			case WID_GO_VIDEO_BLOOM_THRESHOLD:
 				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 100, 5, _video_bloom_threshold, nullptr);
 				break;
@@ -1209,6 +1217,8 @@ struct GameOptionsWindow : Window {
 				this->SetWidgetDisabledState(WID_GO_VIDEO_SHARPENING, !_video_post_processing || !_video_hw_accel);
 				this->SetWidgetDisabledState(WID_GO_VIDEO_TEXTURE_FILTER_DROPDOWN, !_video_post_processing || !_video_hw_accel);
 				this->SetWidgetDisabledState(WID_GO_VIDEO_FXAA_BUTTON, !_video_post_processing || !_video_hw_accel);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_FXAA_QUALITY, !_video_post_processing || !_video_hw_accel);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_FXAA_THRESHOLD, !_video_post_processing || !_video_hw_accel);
 				this->SetWidgetDisabledState(WID_GO_VIDEO_NIGHT_MODE_BUTTON, !_video_post_processing || !_video_hw_accel);
 				this->SetWidgetDisabledState(WID_GO_VIDEO_CRT_FILTER_BUTTON, !_video_post_processing || !_video_hw_accel);
 				this->SetWidgetDisabledState(WID_GO_VIDEO_BRIGHTNESS, !_video_post_processing || !_video_hw_accel);
@@ -1267,8 +1277,8 @@ struct GameOptionsWindow : Window {
 			case WID_GO_VIDEO_FXAA_BUTTON:
 				_video_fxaa = !_video_fxaa;
 				this->SetWidgetLoweredState(WID_GO_VIDEO_FXAA_BUTTON, _video_fxaa);
-				this->SetWidgetDirty(WID_GO_VIDEO_FXAA_BUTTON);
-				this->SetWidgetDirty(WID_GO_VIDEO_FXAA_TEXT);
+				this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_FXAA_PARAMS_SEL)->SetDisplayedPlane(_video_fxaa ? 0 : SZSP_NONE);
+				this->ReInit();
 				break;
 
 			case WID_GO_VIDEO_NIGHT_MODE_BUTTON:
@@ -1344,6 +1354,8 @@ struct GameOptionsWindow : Window {
 			GPU_SLIDER_CLICK(WID_GO_VIDEO_TILTSHIFT_FOCUS_WIDTH, 5, 80, 4, _video_tiltshift_focus_width)
 			GPU_SLIDER_CLICK(WID_GO_VIDEO_TILTSHIFT_BLUR, 10, 60, 6, _video_tiltshift_blur)
 			GPU_SLIDER_CLICK(WID_GO_VIDEO_GRAIN_INTENSITY, 1, 20, 5, _video_grain_intensity)
+			GPU_SLIDER_CLICK(WID_GO_VIDEO_FXAA_QUALITY, 0, 100, 5, _video_fxaa_quality)
+			GPU_SLIDER_CLICK(WID_GO_VIDEO_FXAA_THRESHOLD, 1, 50, 5, _video_fxaa_threshold)
 			GPU_SLIDER_CLICK(WID_GO_VIDEO_BLOOM_THRESHOLD, 0, 100, 5, _video_bloom_threshold)
 			GPU_SLIDER_CLICK(WID_GO_VIDEO_BLOOM_INTENSITY, 0, 100, 5, _video_bloom_intensity)
 			GPU_SLIDER_CLICK(WID_GO_VIDEO_WEATHER_INTENSITY, 0, 100, 5, _video_weather_intensity)
@@ -1906,6 +1918,7 @@ struct GameOptionsWindow : Window {
 		this->SetWidgetLoweredState(WID_GO_VIDEO_BLOOM_BUTTON, _video_bloom);
 
 		/* Collapse sub-parameter sections when parent effect is off. */
+		this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_FXAA_PARAMS_SEL)->SetDisplayedPlane(_video_fxaa ? 0 : SZSP_NONE);
 		this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_NIGHT_PARAMS_SEL)->SetDisplayedPlane(_video_night_mode ? 0 : SZSP_NONE);
 		this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_CRT_PARAMS_SEL)->SetDisplayedPlane(_video_crt_filter ? 0 : SZSP_NONE);
 		this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_VIGNETTE_PARAMS_SEL)->SetDisplayedPlane(_video_vignette ? 0 : SZSP_NONE);
@@ -1920,6 +1933,8 @@ struct GameOptionsWindow : Window {
 		this->SetWidgetDisabledState(WID_GO_VIDEO_SHARPENING, !gpu_enabled);
 		this->SetWidgetDisabledState(WID_GO_VIDEO_TEXTURE_FILTER_DROPDOWN, !gpu_enabled);
 		this->SetWidgetDisabledState(WID_GO_VIDEO_FXAA_BUTTON, !gpu_enabled);
+		this->SetWidgetDisabledState(WID_GO_VIDEO_FXAA_QUALITY, !gpu_enabled);
+		this->SetWidgetDisabledState(WID_GO_VIDEO_FXAA_THRESHOLD, !gpu_enabled);
 		this->SetWidgetDisabledState(WID_GO_VIDEO_NIGHT_MODE_BUTTON, !gpu_enabled);
 		this->SetWidgetDisabledState(WID_GO_VIDEO_CRT_FILTER_BUTTON, !gpu_enabled);
 		this->SetWidgetDisabledState(WID_GO_VIDEO_BRIGHTNESS, !gpu_enabled);
@@ -2142,10 +2157,22 @@ static constexpr std::initializer_list<NWidgetPart> _nested_game_options_widgets
 								NWidget(WWT_TEXT, INVALID_COLOUR), SetFill(1, 0), SetResize(1, 0), SetStringTip(STR_GAME_OPTIONS_TEXTURE_FILTER), SetTextStyle(GAME_OPTIONS_LABEL),
 								NWidget(WWT_DROPDOWN, GAME_OPTIONS_BUTTON, WID_GO_VIDEO_TEXTURE_FILTER_DROPDOWN), SetFill(1, 0), SetToolTip(STR_GAME_OPTIONS_TEXTURE_FILTER_TOOLTIP),
 							EndContainer(),
-							/* Anti-aliasing */
+							/* Anti-aliasing + collapsible sub-parameters */
 							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
 								NWidget(WWT_BOOLBTN, GAME_OPTIONS_BACKGROUND, WID_GO_VIDEO_FXAA_BUTTON), SetAlternateColourTip(GAME_OPTIONS_BUTTON, STR_GAME_OPTIONS_FXAA_TOOLTIP),
 								NWidget(WWT_TEXT, INVALID_COLOUR, WID_GO_VIDEO_FXAA_TEXT), SetFill(1, 0), SetResize(1, 0), SetTextStyle(GAME_OPTIONS_LABEL),
+							EndContainer(),
+							NWidget(NWID_SELECTION, INVALID_COLOUR, WID_GO_VIDEO_FXAA_PARAMS_SEL),
+								NWidget(NWID_VERTICAL), SetPIP(0, WidgetDimensions::unscaled.vsep_normal, 0),
+									NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+										NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_FXAA_QUALITY), SetTextStyle(GAME_OPTIONS_LABEL),
+										NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_FXAA_QUALITY), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_FXAA_QUALITY_TOOLTIP),
+									EndContainer(),
+									NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+										NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_FXAA_THRESHOLD), SetTextStyle(GAME_OPTIONS_LABEL),
+										NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_FXAA_THRESHOLD), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_FXAA_THRESHOLD_TOOLTIP),
+									EndContainer(),
+								EndContainer(),
 							EndContainer(),
 							/* Brightness / Contrast / Saturation / Temperature */
 							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),

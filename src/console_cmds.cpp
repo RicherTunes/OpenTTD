@@ -47,7 +47,9 @@
 #include "misc_cmd.h"
 #include "benchmark.h"
 #include "video/video_driver.hpp"
+#ifdef WITH_OPENGL
 #include "video/opengl.h"
+#endif
 #include "video/upscale_plugin.h"
 #include "video/pp_screenshot.h"
 
