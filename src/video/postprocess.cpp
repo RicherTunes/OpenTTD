@@ -99,6 +99,9 @@ bool PostProcessNeedsFBO(const PostProcessConfig &config)
 	if (config.tree_sway) return true;
 	if (config.sky_clouds) return true;
 	if (config.depth_of_field) return true;
+	if (config.toon_rendering) return true;
+	if (config.heat_haze) return true;
+	if (config.debug_class) return true;
 	if (config.render_scale > 100) return true; /* Supersampling needs downsample pass. */
 	return false;
 }
@@ -150,9 +153,12 @@ int PostProcessPassCount(const PostProcessConfig &config)
 	if (config.dynamic_lighting) passes += 1;
 	if (config.bloom) passes += 4; /* Threshold + blur H + blur V + composite. */
 	if (config.depth_of_field) passes += 1;
+	if (config.toon_rendering) passes += 1;
+	if (config.heat_haze) passes += 1;
 	if (config.fake_shadows) passes += 1;
 	if (config.crt_filter) passes += 1;
 	if (config.weather_type > 0) passes += 1;
+	if (config.debug_class) passes += 1;
 
 	/* Supersampling downsample pass (render > display). */
 	if (config.render_scale > 100) passes += 1;
@@ -449,6 +455,40 @@ int GetTierPassBudget(QualityTier tier)
 		case QualityTier::Photo:  return 999;
 		default: return 0;
 	}
+}
+
+/**
+ * Check whether the current PP configuration needs the sprite classification buffer.
+ * This keeps the metadata upload path off unless a debug view or metadata-backed
+ * effect is active.
+ * @param config Current post-processing configuration.
+ * @return True when the class buffer should be generated this frame.
+ */
+bool PostProcessNeedsSpriteClassification(const PostProcessConfig &config)
+{
+	if (config.debug_class) return true;
+
+	struct EffectMapping {
+		std::string_view key;
+		bool active;
+	};
+	const EffectMapping mappings[] = {
+		{"shadows",        config.fake_shadows},
+		{"water",          config.water_reflections},
+		{"ssao",           config.ssao},
+		{"terrain_smooth", config.terrain_smooth},
+		{"tree_sway",      config.tree_sway},
+		{"sky",            config.sky_clouds},
+		{"dof",            config.depth_of_field},
+	};
+
+	for (const auto &m : mappings) {
+		if (!m.active) continue;
+		const PPEffectDescriptor *desc = GetPPEffectDescriptor(m.key);
+		if (desc != nullptr && desc->requires_metadata) return true;
+	}
+
+	return false;
 }
 
 /**

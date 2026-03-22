@@ -123,9 +123,21 @@ struct PostProcessConfig {
 	uint8_t dof_aperture = 30;         ///< Aperture / blur strength (0-100).
 	uint8_t dof_range = 40;            ///< Focus range width (0-100).
 
+	/* Toon/cartoon rendering. */
+	bool toon_rendering = false;       ///< Enable toon/cartoon rendering effect.
+	uint8_t toon_edge_threshold = 10;  ///< Edge detection sensitivity (1-50).
+	uint8_t toon_color_levels = 5;     ///< Number of color quantization levels (2-16).
+
+	/* Heat haze distortion. */
+	bool heat_haze = false;            ///< Enable heat haze distortion near warm areas.
+	uint8_t haze_intensity = 30;       ///< Haze effect strength (0-100).
+	uint8_t haze_distortion = 5;       ///< Distortion amplitude (1-20).
+
 	bool auto_supersample = false;     ///< Automatically enable supersampling at zoom-in levels.
 
 	bool cpu_viewport_scaling = false; ///< Render main viewport at reduced resolution on CPU (zoom+1 into half-size buffer).
+
+	bool debug_class = false;          ///< Show classification buffer as false colours (debug mode).
 
 	bool operator==(const PostProcessConfig &) const = default;
 };
@@ -139,6 +151,7 @@ struct PostProcessDimensions {
 PostProcessDimensions CalculatePostProcessDimensions(int display_w, int display_h, uint8_t render_scale);
 bool PostProcessNeedsFBO(const PostProcessConfig &config);
 int PostProcessPassCount(const PostProcessConfig &config);
+bool PostProcessNeedsSpriteClassification(const PostProcessConfig &config);
 
 /** Computed dimensions for the CPU-side viewport scratch buffer. */
 struct ViewportScratchDimensions {
