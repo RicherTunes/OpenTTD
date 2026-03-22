@@ -43,6 +43,7 @@
 #include "thread.h"
 #include "tgp.h"
 #include "harbor_gen.h"
+#include "genworld_cache.h"
 
 #include "table/strings.h"
 
@@ -148,9 +149,13 @@ static void _GenerateWorld()
 			GenerateClearTile();
 			Map::CountLandTiles();
 
+			/* Build tile cache for fast random placement during generation */
+			BuildGenerationTileCache();
+
 			/* Only generate towns, tree and industries in newgame mode. */
 			if (_game_mode != GM_EDITOR) {
 				if (!GenerateTowns(_settings_game.economy.town_layout)) {
+					FreeGenerationTileCache();
 					HandleGeneratingWorldAbortion();
 					return;
 				}
@@ -158,6 +163,7 @@ static void _GenerateWorld()
 				GenerateObjects();
 				GenerateTrees();
 			}
+			FreeGenerationTileCache();
 			FreeHarborScores();
 		}
 

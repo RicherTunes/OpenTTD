@@ -26,6 +26,7 @@
 #include "timer/timer_game_tick.h"
 #include "tree_cmd.h"
 #include "landscape_cmd.h"
+#include "genworld_cache.h"
 
 #include "table/strings.h"
 #include "table/tree_land.h"
@@ -375,7 +376,12 @@ void PlaceTreesRandomly()
 	if (_game_mode == GM_EDITOR) i /= EDITOR_TREE_DIV;
 	do {
 		uint32_t r = Random();
-		TileIndex tile = RandomTileSeed(r);
+		TileIndex tile;
+		if (HasValidTreeTiles()) {
+			tile = GetRandomValidTreeTile();
+		} else {
+			tile = RandomTileSeed(r);
+		}
 
 		IncreaseGeneratingWorldProgress(GWP_TREE);
 

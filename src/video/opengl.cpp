@@ -28,6 +28,7 @@
 #include "../3rdparty/opengl/glext.h"
 
 #include "opengl.h"
+#include "viewport_cpu_scale.h"
 #include "video_driver.hpp"
 #include "motion_vector.h"
 #include "temporal_upscale.h"
@@ -1233,6 +1234,38 @@ void OpenGLBackend::UpdatePalette(const Colour *pal, uint first, uint length)
 	_glTexSubImage1D(GL_TEXTURE_1D, 0, first, length, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, pal + first);
 }
 
+/* Free-function wrappers for CPU viewport scaling (no GL types in header). */
+
+bool IsViewportCPUScalingActive()
+{
+	OpenGLBackend *gl = OpenGLBackend::Get();
+	return gl != nullptr && gl->IsViewportCPUScaling();
+}
+
+void *GetViewportCPUScratchBuffer()
+{
+	OpenGLBackend *gl = OpenGLBackend::Get();
+	return gl != nullptr ? gl->GetViewportScratchBuffer() : nullptr;
+}
+
+int GetViewportCPUScratchWidth()
+{
+	OpenGLBackend *gl = OpenGLBackend::Get();
+	return gl != nullptr ? gl->GetViewportScratchWidth() : 0;
+}
+
+int GetViewportCPUScratchHeight()
+{
+	OpenGLBackend *gl = OpenGLBackend::Get();
+	return gl != nullptr ? gl->GetViewportScratchHeight() : 0;
+}
+
+int GetViewportCPUScratchPitch()
+{
+	OpenGLBackend *gl = OpenGLBackend::Get();
+	return gl != nullptr ? gl->GetViewportScratchPitch() : 0;
+}
+
 /**
  * Render video buffer to the screen.
  */
@@ -1358,6 +1391,8 @@ void OpenGLBackend::Paint()
 			new_config.dof_range = _video_dof_range;
 		}
 
+		new_config.cpu_viewport_scaling = _video_cpu_viewport_scaling;
+
 		new_config.auto_supersample = _video_auto_supersample;
 		/* Auto-supersample at close zoom levels for smoother pixel art. */
 		if (_video_auto_supersample && _video_post_processing) {
@@ -1386,6 +1421,27 @@ void OpenGLBackend::Paint()
 			this->SetupPostProcessFBOs(this->pp_display_size.width > 0 ? this->pp_display_size.width : _screen.width,
 			                           this->pp_display_size.height > 0 ? this->pp_display_size.height : _screen.height);
 		}
+	}
+
+	/* CPU viewport scaling: manage scratch buffer lifecycle. */
+	this->vp_cpu_scaling = false;
+	if (this->pp_fbo_supported && this->pp_config.cpu_viewport_scaling &&
+	    _video_post_processing && this->pp_config.render_scale <= 50) {
+		const Window *mw = GetMainWindow();
+		if (mw != nullptr && mw->viewport != nullptr) {
+			int vp_w = mw->viewport->width;
+			int vp_h = mw->viewport->height;
+			if (this->SetupViewportScratchBuffer(vp_w, vp_h, this->pp_config.render_scale)) {
+				this->vp_cpu_scaling = true;
+				this->vp_screen_rect.left = mw->viewport->left;
+				this->vp_screen_rect.top = mw->viewport->top;
+				this->vp_screen_rect.right = mw->viewport->left + vp_w;
+				this->vp_screen_rect.bottom = mw->viewport->top + vp_h;
+			}
+		}
+	}
+	if (!this->vp_cpu_scaling && this->vp_texture != 0) {
+		this->DestroyViewportScratchBuffer();
 	}
 
 	/* Activate motion vector recording when compute shader MV rasterization is available. */
@@ -1444,6 +1500,44 @@ void OpenGLBackend::Paint()
 	}
 	_glBindVertexArray(this->vao_quad);
 	_glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+	/* CPU viewport scaling: overdraw viewport area with upscaled scratch buffer. */
+	if (this->vp_cpu_scaling && this->vp_texture != 0 && !this->vp_buffer.empty()) {
+		/* Upload scratch buffer pixels to GPU texture. */
+		_glActiveTexture(GL_TEXTURE0);
+		_glBindTexture(GL_TEXTURE_2D, this->vp_texture);
+		_glPixelStorei(GL_UNPACK_ROW_LENGTH, this->vp_pitch);
+		_glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, this->vp_width, this->vp_height,
+			GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, this->vp_buffer.data());
+		_glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+
+		/* Compute viewport rect in current render target coordinates.
+		 * If PP is active, scale display coords to FBO render resolution. */
+		int rt_w = pp_this_frame ? (int)this->pp_render_size.width : _screen.width;
+		int rt_h = pp_this_frame ? (int)this->pp_render_size.height : _screen.height;
+		int disp_w = pp_this_frame ? (int)this->pp_display_size.width : _screen.width;
+		int disp_h = pp_this_frame ? (int)this->pp_display_size.height : _screen.height;
+
+		/* Map display-space viewport rect to render target pixels. */
+		int vp_l = this->vp_screen_rect.left * rt_w / std::max(1, disp_w);
+		int vp_t = this->vp_screen_rect.top * rt_h / std::max(1, disp_h);
+		int vp_r = this->vp_screen_rect.right * rt_w / std::max(1, disp_w);
+		int vp_b = this->vp_screen_rect.bottom * rt_h / std::max(1, disp_h);
+
+		/* OpenGL viewport Y is bottom-up. */
+		int gl_y = rt_h - vp_b;
+		int gl_w = vp_r - vp_l;
+		int gl_h = vp_b - vp_t;
+
+		if (gl_w > 0 && gl_h > 0 && this->pp_blit_program != 0) {
+			_glViewport(vp_l, gl_y, gl_w, gl_h);
+			_glUseProgram(this->pp_blit_program);
+			_glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+			/* Restore full render target viewport. */
+			_glViewport(0, 0, rt_w, rt_h);
+		}
+	}
 
 	/* Dispatch MV rasterization if active (generates MV + depth textures for FSR 2). */
 	if (_motion_vectors.active && this->mv_compute_supported) {
@@ -1837,6 +1931,7 @@ void OpenGLBackend::DestroyPostProcessFBOs()
 
 /**
  * Allocate or resize the viewport scratch buffer for CPU-side render scaling.
+ * Uses a heap buffer (not PBO) since the scratch buffer is small (~2MB at 1080p 50%).
  * @param vp_w Main viewport width in display pixels.
  * @param vp_h Main viewport height in display pixels.
  * @param render_scale Current render_scale setting (25-100).
@@ -1851,7 +1946,7 @@ bool OpenGLBackend::SetupViewportScratchBuffer(int vp_w, int vp_h, uint8_t rende
 	}
 
 	/* Skip reallocation if dimensions haven't changed. */
-	if (this->vp_width == dims.width && this->vp_height == dims.height && this->vp_pbo != 0) {
+	if (this->vp_width == dims.width && this->vp_height == dims.height && this->vp_texture != 0) {
 		return true;
 	}
 
@@ -1861,23 +1956,10 @@ bool OpenGLBackend::SetupViewportScratchBuffer(int vp_w, int vp_h, uint8_t rende
 	this->vp_height = dims.height;
 	this->vp_pitch = dims.pitch;
 
-	/* Allocate PBO for CPU writes. */
-	_glGenBuffers(1, &this->vp_pbo);
-	_glBindBuffer(GL_PIXEL_UNPACK_BUFFER, this->vp_pbo);
-	size_t buf_size = static_cast<size_t>(dims.width) * dims.height * 4; /* RGBA8 */
+	/* Allocate CPU-side pixel buffer. */
+	this->vp_buffer.resize(static_cast<size_t>(dims.width) * dims.height, 0);
 
-	if (this->persistent_mapping_supported) {
-		_glBufferStorage(GL_PIXEL_UNPACK_BUFFER, buf_size, nullptr,
-			GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
-		this->vp_buffer = _glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, buf_size,
-			GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
-	} else {
-		_glBufferData(GL_PIXEL_UNPACK_BUFFER, buf_size, nullptr, GL_STREAM_DRAW);
-		this->vp_buffer = nullptr; /* Will map per-frame with glMapBuffer. */
-	}
-	_glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-
-	/* Allocate texture. */
+	/* Allocate texture for GPU upload. */
 	_glGenTextures(1, &this->vp_texture);
 	_glBindTexture(GL_TEXTURE_2D, this->vp_texture);
 	_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -1896,20 +1978,12 @@ bool OpenGLBackend::SetupViewportScratchBuffer(int vp_w, int vp_h, uint8_t rende
  */
 void OpenGLBackend::DestroyViewportScratchBuffer()
 {
-	if (this->vp_pbo != 0) {
-		if (this->persistent_mapping_supported && this->vp_buffer != nullptr) {
-			_glBindBuffer(GL_PIXEL_UNPACK_BUFFER, this->vp_pbo);
-			_glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
-			_glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-		}
-		_glDeleteBuffers(1, &this->vp_pbo);
-		this->vp_pbo = 0;
-	}
 	if (this->vp_texture != 0) {
 		_glDeleteTextures(1, &this->vp_texture);
 		this->vp_texture = 0;
 	}
-	this->vp_buffer = nullptr;
+	this->vp_buffer.clear();
+	this->vp_buffer.shrink_to_fit();
 	this->vp_width = 0;
 	this->vp_height = 0;
 	this->vp_pitch = 0;

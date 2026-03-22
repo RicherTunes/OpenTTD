@@ -17,6 +17,7 @@
 #include "postprocess.h"
 
 #include <chrono>
+#include <vector>
 
 typedef void (*OGLProc)();
 typedef OGLProc (*GetOGLProcAddressProc)(const char *proc);
@@ -136,9 +137,8 @@ private:
 	GLint pp_downsample_texel_loc = -1;  ///< Downsample texel_size uniform.
 
 	/* CPU viewport scaling scratch buffer resources. */
-	GLuint vp_pbo = 0;              ///< PBO for viewport scratch buffer upload.
 	GLuint vp_texture = 0;          ///< Texture for the reduced-resolution viewport.
-	void *vp_buffer = nullptr;      ///< Mapped pointer to viewport scratch buffer.
+	std::vector<uint32_t> vp_buffer; ///< CPU-side viewport scratch buffer (BGRA pixels).
 	int vp_width = 0;               ///< Scratch buffer width.
 	int vp_height = 0;              ///< Scratch buffer height.
 	int vp_pitch = 0;               ///< Scratch buffer pitch (pixels per row).
@@ -284,7 +284,7 @@ public:
 	const PostProcessConfig &GetPostProcessConfig() const { return this->pp_config; }
 
 	bool IsViewportCPUScaling() const { return this->vp_cpu_scaling; }
-	void *GetViewportScratchBuffer() const { return this->vp_buffer; }
+	void *GetViewportScratchBuffer() { return this->vp_buffer.empty() ? nullptr : this->vp_buffer.data(); }
 	int GetViewportScratchWidth() const { return this->vp_width; }
 	int GetViewportScratchHeight() const { return this->vp_height; }
 	int GetViewportScratchPitch() const { return this->vp_pitch; }

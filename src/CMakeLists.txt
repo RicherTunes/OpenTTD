@@ -195,6 +195,8 @@ add_files(
     gamelog.cpp
     gamelog.h
     gamelog_internal.h
+    genworld_cache.cpp
+    genworld_cache.h
     genworld.cpp
     genworld.h
     genworld_gui.cpp

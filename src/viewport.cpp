@@ -91,7 +91,7 @@
 #include "framerate_type.h"
 #include "viewport_cmd.h"
 #include "video/motion_vector.h"
-#include "video/opengl.h"
+#include "video/viewport_cpu_scale.h"
 
 #include <forward_list>
 #include <stack>
@@ -1970,6 +1970,13 @@ void Window::DrawViewport() const
 {
 	PerformanceAccumulator framerate(PFE_DRAWWORLD);
 
+	/* Intercept main viewport for CPU-side render scaling. */
+	if (this->window_class == WC_MAIN_WINDOW &&
+	    IsViewportCPUScalingActive()) {
+		this->DrawViewportCPUScaled();
+		return;
+	}
+
 	DrawPixelInfo *dpi = _cur_dpi;
 
 	dpi->left += this->left;
@@ -1979,6 +1986,76 @@ void Window::DrawViewport() const
 
 	dpi->left -= this->left;
 	dpi->top -= this->top;
+}
+
+/**
+ * Draw the main viewport at reduced resolution for CPU-side render scaling.
+ * Redirects the blitter to a smaller scratch buffer and renders at zoom+N,
+ * where N is determined by the render_scale setting (1 for 50%, 2 for 25%).
+ * The scratch buffer is later GPU-upscaled and composited with the UI layer.
+ */
+void Window::DrawViewportCPUScaled() const
+{
+	if (this->viewport == nullptr) return;
+
+	void *vp_buf = GetViewportCPUScratchBuffer();
+	int vp_w = GetViewportCPUScratchWidth();
+	int vp_h = GetViewportCPUScratchHeight();
+	int vp_pitch = GetViewportCPUScratchPitch();
+	if (vp_buf == nullptr || vp_w <= 0 || vp_h <= 0) return;
+
+	/* Clear scratch buffer to transparent black. */
+	memset(vp_buf, 0, static_cast<size_t>(vp_pitch) * vp_h * 4);
+
+	/* Determine how many extra zoom steps we're applying. */
+	int scale_divisor = this->viewport->width / vp_w;
+	uint8_t extra_zoom = 0;
+	while ((1 << extra_zoom) < scale_divisor && extra_zoom < 3) extra_zoom++;
+
+	/* Compute the scaled zoom level, clamped to ZoomLevel::Max. */
+	int new_zoom_val = to_underlying(this->viewport->zoom) + extra_zoom;
+	if (new_zoom_val > to_underlying(ZoomLevel::Max)) new_zoom_val = to_underlying(ZoomLevel::Max);
+	ZoomLevel scaled_zoom = static_cast<ZoomLevel>(new_zoom_val);
+
+	/* Build a temporary viewport at reduced size but same virtual extents. */
+	Viewport scaled_vp;
+	scaled_vp.left = 0;
+	scaled_vp.top = 0;
+	scaled_vp.width = vp_w;
+	scaled_vp.height = vp_h;
+	scaled_vp.zoom = scaled_zoom;
+	scaled_vp.virtual_left = this->viewport->virtual_left;
+	scaled_vp.virtual_top = this->viewport->virtual_top;
+	scaled_vp.virtual_width = ScaleByZoom(vp_w, scaled_zoom);
+	scaled_vp.virtual_height = ScaleByZoom(vp_h, scaled_zoom);
+	scaled_vp.overlay = this->viewport->overlay;
+
+	/* Build a DPI that covers the entire scratch buffer. */
+	DrawPixelInfo scaled_dpi;
+	scaled_dpi.dst_ptr = vp_buf;
+	scaled_dpi.left = 0;
+	scaled_dpi.top = 0;
+	scaled_dpi.width = vp_w;
+	scaled_dpi.height = vp_h;
+	scaled_dpi.pitch = vp_pitch;
+	scaled_dpi.zoom = ZoomLevel::Min;
+
+	/* Swap _screen, _cur_dpi, and disable animation buffer for the scratch buffer.
+	 * AutoRestoreBackup restores on scope exit. */
+	AutoRestoreBackup screen_backup(_screen, {
+		.dst_ptr = vp_buf,
+		.left = 0,
+		.top = 0,
+		.width = vp_w,
+		.height = vp_h,
+		.pitch = vp_pitch,
+		.zoom = ZoomLevel::Min
+	});
+	AutoRestoreBackup dpi_backup(_cur_dpi, &scaled_dpi);
+	AutoRestoreBackup anim_backup(_screen_disable_anim, true);
+
+	/* Draw into the scratch buffer at reduced resolution. */
+	ViewportDraw(scaled_vp, 0, 0, vp_w, vp_h);
 }
 
 /**

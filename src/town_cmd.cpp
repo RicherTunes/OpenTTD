@@ -63,6 +63,7 @@
 #include "timer/timer_game_economy.h"
 #include "timer/timer_game_tick.h"
 #include "harbor_gen.h"
+#include "genworld_cache.h"
 
 #include "table/strings.h"
 #include "table/town_land.h"
@@ -2370,7 +2371,12 @@ static Town *CreateRandomTown(uint attempts, uint32_t townnameparts, TownSize si
 
 	do {
 		/* Generate a tile index not too close from the edge */
-		TileIndex tile = AlignTileToGrid(RandomTile(), layout);
+		TileIndex tile;
+		if (HasValidTownTiles()) {
+			tile = AlignTileToGrid(GetRandomValidTownTile(), layout);
+		} else {
+			tile = AlignTileToGrid(RandomTile(), layout);
+		}
 
 		/* If we tried to place the town on water, find a suitable land tile nearby.
 		 * Otherwise, evaluate the land tile. */

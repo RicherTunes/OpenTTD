@@ -50,6 +50,7 @@ add_files(
     render_backend.h
     upscale_plugin.cpp
     upscale_plugin.h
+    viewport_cpu_scale.h
     video_driver.cpp
     video_driver.hpp
 )
