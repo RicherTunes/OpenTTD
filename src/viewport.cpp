@@ -2005,7 +2005,7 @@ void Window::DrawViewportCPUScaled() const
 	if (vp_buf == nullptr || vp_w <= 0 || vp_h <= 0) return;
 
 	/* Clear scratch buffer to transparent black. */
-	memset(vp_buf, 0, static_cast<size_t>(vp_pitch) * vp_h * 4);
+	std::fill_n(static_cast<uint32_t *>(vp_buf), static_cast<size_t>(vp_pitch) * vp_h, 0);
 
 	/* Determine how many extra zoom steps we're applying. */
 	int scale_divisor = this->viewport->width / vp_w;
