@@ -39,8 +39,10 @@
         lifecycle_shape_scattered lifecycle_shape_peninsula lifecycle_shape_mesa
         lifecycle_shape_volcanic lifecycle_improved_perlin
         lifecycle_biome_arctic lifecycle_biome_tropic
-        lifecycle_tiny lifecycle_asymmetric
-        lifecycle_lakes_mountains
+        lifecycle_tiny lifecycle_asymmetric lifecycle_lakes_mountains
+        lifecycle_high_sea lifecycle_mountainous
+        lifecycle_all_features lifecycle_arctic_all_features lifecycle_tropic_all_features
+        lifecycle_endurance
     )
     foreach(CFG ${LIFECYCLE_CFGS})
         add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${CFG}.cfg
@@ -122,6 +124,22 @@
 
     # Combined terrain features (lakes + mountains)
     add_lifecycle_test(lakes_mountains    -g -G 1 -c regression/lifecycle_lakes_mountains.cfg)
+
+    # Difficulty/terrain type variations
+    add_lifecycle_test(high_sea           -g -G 1 -c regression/lifecycle_high_sea.cfg)
+    add_lifecycle_test(mountainous        -g -G 1 -c regression/lifecycle_mountainous.cfg)
+
+    # All features combined (stress tests for generation pipeline)
+    add_lifecycle_test(all_features       -g -G 1 -c regression/lifecycle_all_features.cfg)
+    add_lifecycle_test(arctic_all_feat    -g -G 1 -c regression/lifecycle_arctic_all_features.cfg)
+    add_lifecycle_test(tropic_all_feat    -g -G 1 -c regression/lifecycle_tropic_all_features.cfg)
+
+    # Endurance run: 5000 ticks exercises economy, town growth, vehicle ticks
+    add_lifecycle_test_ticks(endurance_5000 5000 -g -G 1 -c regression/lifecycle_endurance.cfg)
+
+    # Multiple seeds with all features (catches seed-dependent generation bugs)
+    add_lifecycle_test(all_feat_seed_99   -g -G 99  -c regression/lifecycle_all_features.cfg)
+    add_lifecycle_test(all_feat_seed_777  -g -G 777 -c regression/lifecycle_all_features.cfg)
 
     # Load the existing regression test savegame (verifies save/load path)
     add_lifecycle_test(load_save -g ai/regression/test.sav -c regression/lifecycle.cfg)
