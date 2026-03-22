@@ -119,6 +119,8 @@ private:
 	GLuint pp_bloom_threshold_program = 0; ///< Bloom threshold extraction shader program.
 	GLuint pp_bloom_blur_h_program = 0;    ///< Bloom horizontal blur shader program.
 	GLuint pp_bloom_blur_v_program = 0;    ///< Bloom vertical blur shader program.
+	GLuint pp_bloom_composite_program = 0; ///< Bloom composite (additive blend) shader program.
+	GLint pp_bloom_composite_orig_loc = -1; ///< Bloom composite bloom_original sampler uniform.
 	GLuint pp_weather_program = 0;   ///< Weather particle overlay shader program.
 	GLuint pp_downsample_program = 0;    ///< Downsample shader for supersampling.
 	GLint pp_downsample_texel_loc = -1;  ///< Downsample texel_size uniform.

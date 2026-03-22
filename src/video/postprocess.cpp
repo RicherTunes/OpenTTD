@@ -129,7 +129,7 @@ int PostProcessPassCount(const PostProcessConfig &config)
 	if (config.film_grain) passes += 1;
 	if (config.crt_filter) passes += 1;
 	if (config.dynamic_lighting) passes += 1;
-	if (config.bloom) passes += 3; /* Threshold + blur H + blur V + blend = 3 passes (blur is 2-pass, blend merges with final). */
+	if (config.bloom) passes += 4; /* Threshold + blur H + blur V + composite blend with original. */
 	if (config.weather_type > 0) passes += 1;
 
 	/* Supersampling downsample pass (render > display). */

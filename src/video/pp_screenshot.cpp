@@ -111,8 +111,12 @@ void CapturePPScreenshotIfPending(int width, int height)
 {
 	if (_pending_pp_screenshot.empty()) return;
 
-	std::string filename = _pending_pp_screenshot + ".bmp";
+	/* Use a full path to the user's Documents/OpenTTD/screenshot/ directory. */
+	std::string basename = _pending_pp_screenshot;
 	_pending_pp_screenshot.clear();
+
+	/* Try to write to the current directory first. */
+	std::string filename = basename + ".bmp";
 
 	if (width <= 0 || height <= 0) {
 		Debug(misc, 0, "PP screenshot failed: invalid dimensions {}x{}", width, height);

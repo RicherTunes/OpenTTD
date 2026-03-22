@@ -1481,6 +1481,7 @@ bool OpenGLBackend::InitPostProcessShaders()
 	this->pp_bloom_threshold_program = CompileAndLog("bloom-threshold", _frag_shader_pp_bloom_threshold, lengthof(_frag_shader_pp_bloom_threshold));
 	this->pp_bloom_blur_h_program = CompileAndLog("bloom-blur-h", _frag_shader_pp_bloom_blur_h, lengthof(_frag_shader_pp_bloom_blur_h));
 	this->pp_bloom_blur_v_program = CompileAndLog("bloom-blur-v", _frag_shader_pp_bloom_blur_v, lengthof(_frag_shader_pp_bloom_blur_v));
+	this->pp_bloom_composite_program = CompileAndLog("bloom-composite", _frag_shader_pp_bloom_composite, lengthof(_frag_shader_pp_bloom_composite));
 	this->pp_weather_program = CompileAndLog("weather", _frag_shader_pp_weather, lengthof(_frag_shader_pp_weather));
 	this->pp_temporal_program = CompileAndLog("temporal-accum", _frag_shader_pp_temporal_accum, lengthof(_frag_shader_pp_temporal_accum));
 	this->pp_downsample_program = CompileAndLog("downsample", _frag_shader_pp_downsample, lengthof(_frag_shader_pp_downsample));
@@ -1511,6 +1512,13 @@ bool OpenGLBackend::InitPostProcessShaders()
 	BindSourceTex(this->pp_bloom_threshold_program);
 	BindSourceTex(this->pp_bloom_blur_h_program);
 	BindSourceTex(this->pp_bloom_blur_v_program);
+	BindSourceTex(this->pp_bloom_composite_program);
+	/* Bloom composite also needs bloom_original on texture unit 1. */
+	if (this->pp_bloom_composite_program != 0) {
+		_glUseProgram(this->pp_bloom_composite_program);
+		this->pp_bloom_composite_orig_loc = _glGetUniformLocation(this->pp_bloom_composite_program, "bloom_original");
+		if (this->pp_bloom_composite_orig_loc >= 0) _glUniform1i(this->pp_bloom_composite_orig_loc, 1);
+	}
 	BindSourceTex(this->pp_weather_program);
 	BindSourceTex(this->pp_temporal_program);
 	BindSourceTex(this->pp_downsample_program);
@@ -1749,6 +1757,7 @@ void OpenGLBackend::RenderPostProcess()
 		total++; /* threshold */
 		if (this->pp_bloom_blur_h_program != 0) total++; /* blur H */
 		if (this->pp_bloom_blur_v_program != 0) total++; /* blur V */
+		if (this->pp_bloom_composite_program != 0) total++; /* composite blend */
 	}
 	if (WillRun(this->pp_config.crt_filter, this->pp_crt_program)) total++;
 	if (this->pp_config.weather_type > 0 && this->pp_weather_program != 0) total++;

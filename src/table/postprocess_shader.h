@@ -715,6 +715,21 @@ static const char *_frag_shader_pp_bloom_blur_v[] = {
 	"}",
 };
 
+/** Fragment shader for bloom composite: additively blends blurred bloom with original scene.
+ *  source_tex = blurred bloom, bloom_original = pre-bloom scene. */
+static const char *_frag_shader_pp_bloom_composite[] = {
+	"#version 150\n",
+	"uniform sampler2D source_tex;",
+	"uniform sampler2D bloom_original;",
+	"in vec2 tex_coord;",
+	"out vec4 frag_colour;",
+	"void main() {",
+	"  vec3 bloom = texture(source_tex, tex_coord).rgb;",
+	"  vec4 original = texture(bloom_original, tex_coord);",
+	"  frag_colour = vec4(original.rgb + bloom, original.a);",
+	"}",
+};
+
 /* ---- Weather Effects (Rain / Snow Overlay) ---- */
 
 /** Fragment shader for procedural weather particle overlay. */
