@@ -73,10 +73,13 @@ void CreateLakes()
 				break;
 			}
 
-			/* Check all 4 neighbors */
+			/* Check all 4 neighbors.
+		 * Use TileAddWrap to prevent wrapping to the opposite map edge. */
 			for (DiagDirection dir = DIAGDIR_BEGIN; dir < DIAGDIR_END; dir++) {
-				TileIndex neighbor = tile + TileOffsByDiagDir(dir);
-				if (!IsValidTile(neighbor)) {
+				int dx = (dir == DIAGDIR_SW || dir == DIAGDIR_SE) ? 1 : (dir == DIAGDIR_NW || dir == DIAGDIR_NE) ? -1 : 0;
+				int dy = (dir == DIAGDIR_SE || dir == DIAGDIR_NE) ? 1 : (dir == DIAGDIR_SW || dir == DIAGDIR_NW) ? -1 : 0;
+				TileIndex neighbor = TileAddWrap(tile, dx, dy);
+				if (neighbor == INVALID_TILE) {
 					is_enclosed = false;
 					continue;
 				}
