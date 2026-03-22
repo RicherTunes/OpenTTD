@@ -2437,8 +2437,9 @@ static int PlaceTownsVoronoi(TownLayout layout, uint num_towns)
 	/* Generate 3x oversampled candidate positions */
 	uint num_candidates = num_towns * 3;
 	struct Candidate {
-		double x, y;
-		double score;
+		int32_t x, y;     ///< Tile coordinates (integer for determinism).
+		int32_t score;     ///< Score scaled by 1000 for fractional precision.
+		TileIndex tile;    ///< Tile index for deterministic tiebreaker.
 	};
 	std::vector<Candidate> candidates;
 	candidates.reserve(num_candidates);
@@ -2452,63 +2453,71 @@ static int PlaceTownsVoronoi(TownLayout layout, uint num_towns)
 		uint y = TileY(tile);
 		if (x < 12 || y < 12 || x >= map_x - 12 || y >= map_y - 12) continue;
 
-		candidates.push_back({(double)x, (double)y, 0.0});
+		candidates.push_back({(int32_t)x, (int32_t)y, 0, tile});
 	}
 
 	if (candidates.empty()) return 0;
 
-	/* Grid-based Lloyd relaxation: 3 iterations */
-	const uint cell_size = 64;
+	/* Grid-based Lloyd relaxation: 3 iterations.
+	 * All arithmetic uses integers for multiplayer determinism.
+	 * Weights are scaled by 255 to handle harbor fractional bonus without floating-point. */
+	const int32_t cell_size = 64;
 	const uint grid_w = (map_x + cell_size - 1) / cell_size;
 	const uint grid_h = (map_y + cell_size - 1) / cell_size;
 
 	for (int iteration = 0; iteration < 3; iteration++) {
 		/* Assign each cell to its nearest candidate */
 		struct CellData {
-			double sum_x, sum_y, sum_w;
+			int64_t sum_x, sum_y, sum_w;
 			uint nearest;
 		};
 		std::vector<CellData> cells(grid_w * grid_h, {0, 0, 0, 0});
 
 		for (uint gy = 0; gy < grid_h; gy++) {
 			for (uint gx = 0; gx < grid_w; gx++) {
-				double cx = (gx + 0.5) * cell_size;
-				double cy = (gy + 0.5) * cell_size;
+				/* Cell center in tile coordinates (shifted by half cell_size) */
+				int32_t cx = gx * cell_size + cell_size / 2;
+				int32_t cy = gy * cell_size + cell_size / 2;
 
-				/* Find nearest candidate */
-				double min_dist = 1e18;
+				/* Find nearest candidate using squared integer distance */
+				int64_t min_dist = INT64_MAX;
 				uint nearest = 0;
 				for (uint c = 0; c < candidates.size(); c++) {
-					double dx = cx - candidates[c].x;
-					double dy = cy - candidates[c].y;
-					double dist = dx * dx + dy * dy;
+					int64_t dx = (int64_t)cx - candidates[c].x;
+					int64_t dy = (int64_t)cy - candidates[c].y;
+					int64_t dist = dx * dx + dy * dy;
 					if (dist < min_dist) {
 						min_dist = dist;
 						nearest = c;
 					}
 				}
 
-				/* Compute weight for this cell center */
-				TileIndex tile = TileXY(Clamp((uint)cx, 0u, map_x - 1), Clamp((uint)cy, 0u, map_y - 1));
-				double weight = 1.0;
+				/* Compute integer weight for this cell center.
+				 * Base weight 255, doubled for flat tiles, then multiplied by (255 + harbor). */
+				uint clamp_x = Clamp((uint)cx, 0u, map_x - 1);
+				uint clamp_y = Clamp((uint)cy, 0u, map_y - 1);
+				TileIndex tile = TileXY(clamp_x, clamp_y);
+				int32_t weight = 255;
 				if (IsValidTile(tile)) {
-					if (IsTileFlat(tile)) weight *= 2.0;
+					if (IsTileFlat(tile)) weight = 510;
 					uint harbor = GetHarborScore(tile);
-					weight *= 1.0 + (double)harbor / 255.0;
+					weight = weight * (255 + (int32_t)harbor);
+				} else {
+					weight = weight * 255;
 				}
 
 				auto &cell = cells[gx + gy * grid_w];
-				cell.sum_x += cx * weight;
-				cell.sum_y += cy * weight;
+				cell.sum_x += (int64_t)cx * weight;
+				cell.sum_y += (int64_t)cy * weight;
 				cell.sum_w += weight;
 				cell.nearest = nearest;
 			}
 		}
 
 		/* Move candidates to weighted centroids */
-		std::vector<double> new_x(candidates.size(), 0);
-		std::vector<double> new_y(candidates.size(), 0);
-		std::vector<double> new_w(candidates.size(), 0);
+		std::vector<int64_t> new_x(candidates.size(), 0);
+		std::vector<int64_t> new_y(candidates.size(), 0);
+		std::vector<int64_t> new_w(candidates.size(), 0);
 
 		for (uint i = 0; i < cells.size(); i++) {
 			auto &cell = cells[i];
@@ -2521,25 +2530,31 @@ static int PlaceTownsVoronoi(TownLayout layout, uint num_towns)
 
 		for (uint c = 0; c < candidates.size(); c++) {
 			if (new_w[c] > 0) {
-				candidates[c].x = Clamp(new_x[c] / new_w[c], 12.0, (double)(map_x - 12));
-				candidates[c].y = Clamp(new_y[c] / new_w[c], 12.0, (double)(map_y - 12));
+				candidates[c].x = Clamp((int32_t)(new_x[c] / new_w[c]), 12, (int32_t)(map_x - 12));
+				candidates[c].y = Clamp((int32_t)(new_y[c] / new_w[c]), 12, (int32_t)(map_y - 12));
 			}
 		}
 	}
 
-	/* Score candidates and select the best ones */
+	/* Score candidates and select the best ones.
+	 * Scores scaled by 1000 for fractional precision without floating-point. */
 	for (auto &c : candidates) {
 		TileIndex tile = TileXY(Clamp((uint)c.x, 0u, map_x - 1), Clamp((uint)c.y, 0u, map_y - 1));
+		c.tile = tile;
 		c.score = 0;
 		if (!IsValidTile(tile)) continue;
-		if (IsTileFlat(tile)) c.score += 10.0;
-		if (!IsTileType(tile, TileType::Water)) c.score += 5.0;
-		c.score += (double)GetHarborScore(tile) / 25.5;
+		if (IsTileFlat(tile)) c.score += 10000;
+		if (!IsTileType(tile, TileType::Water)) c.score += 5000;
+		/* harbor / 25.5 * 1000 = harbor * 1000 / 255 (integer division) */
+		c.score += (int32_t)GetHarborScore(tile) * 1000 / 255;
 	}
 
-	/* Sort by score descending */
-	std::sort(candidates.begin(), candidates.end(),
-		[](const Candidate &a, const Candidate &b) { return a.score > b.score; });
+	/* Sort by score descending, with tile index tiebreaker for determinism */
+	std::stable_sort(candidates.begin(), candidates.end(),
+		[](const Candidate &a, const Candidate &b) {
+			if (a.score != b.score) return a.score > b.score;
+			return a.tile < b.tile;
+		});
 
 	/* Place towns at best positions, respecting minimum distance */
 	int placed = 0;
@@ -2548,7 +2563,7 @@ static int PlaceTownsVoronoi(TownLayout layout, uint num_towns)
 	for (const auto &c : candidates) {
 		if ((uint)placed >= num_towns) break;
 
-		TileIndex tile = TileXY(Clamp((uint)c.x, 0u, map_x - 1), Clamp((uint)c.y, 0u, map_y - 1));
+		TileIndex tile = TileXY(Clamp(c.x, 0, (int32_t)(map_x - 1)), Clamp(c.y, 0, (int32_t)(map_y - 1)));
 		if (!IsValidTile(tile)) continue;
 		if (IsTileType(tile, TileType::Water)) continue;
 

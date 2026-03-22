@@ -123,42 +123,7 @@ struct PostProcessConfig {
 
 	bool auto_supersample = false;     ///< Automatically enable supersampling at zoom-in levels.
 
-	/**
-	 * Compare configurations for topology changes.
-	 * Intentionally excludes time_of_day which changes every tick
-	 * and should not trigger FBO rebuilds or temporal resets.
-	 */
-	bool operator==(const PostProcessConfig &o) const
-	{
-		/* Compare all fields except time_of_day. Any field that changes the
-		 * shader topology or requires FBO rebuild should be compared here. */
-		return this->render_scale == o.render_scale &&
-			this->upscale_mode == o.upscale_mode &&
-			this->sharpening == o.sharpening &&
-			this->bilinear_filtering == o.bilinear_filtering &&
-			this->bicubic_filtering == o.bicubic_filtering &&
-			this->fxaa == o.fxaa &&
-			this->fxaa_quality == o.fxaa_quality &&
-			this->fxaa_threshold == o.fxaa_threshold &&
-			this->color_grading == o.color_grading &&
-			this->vignette == o.vignette &&
-			this->tiltshift == o.tiltshift &&
-			this->night_mode == o.night_mode &&
-			this->film_grain == o.film_grain &&
-			this->crt_filter == o.crt_filter &&
-			this->pixel_smoothing == o.pixel_smoothing &&
-			this->dynamic_lighting == o.dynamic_lighting &&
-			this->bloom == o.bloom &&
-			this->weather_type == o.weather_type &&
-			this->fake_shadows == o.fake_shadows &&
-			this->water_reflections == o.water_reflections &&
-			this->auto_supersample == o.auto_supersample &&
-			this->ssao == o.ssao &&
-			this->terrain_smooth == o.terrain_smooth &&
-			this->tree_sway == o.tree_sway &&
-			this->sky_clouds == o.sky_clouds &&
-			this->depth_of_field == o.depth_of_field;
-	}
+	bool operator==(const PostProcessConfig &) const = default;
 };
 
 /** Computed dimensions for the post-processing pipeline. */

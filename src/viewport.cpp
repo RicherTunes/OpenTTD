@@ -1746,11 +1746,19 @@ static void ViewportDrawParentSprites(const ParentSpriteToSortVector *psd, const
 		if (ps->image != SPR_EMPTY_BOUNDING_BOX) {
 			DrawSpriteViewport(ps->image, ps->pal, ps->x, ps->y, ps->sub);
 
-			/* Record draw command for motion vector generation (Phase 2a). */
+			/* Record draw command for motion vector generation (Phase 2a).
+			 * Screen-space dimensions are approximated from the world-space bounding box
+			 * scaled by zoom level. This is imprecise (sprites can be smaller/larger than
+			 * their bounding box) but sufficient for temporal reprojection coverage. */
 			if (_motion_vectors.active) {
-				int sprite_w = ps->xmax - ps->xmin + 1;
-				int sprite_h = ps->ymax - ps->ymin + 1;
-				_motion_vectors.RecordSprite(ps->left, ps->top, sprite_w > 0 ? sprite_w : 1, sprite_h > 0 ? sprite_h : 1,
+				int world_w = ps->xmax - ps->xmin + 1;
+				int world_h = ps->ymax - ps->ymin + 1;
+				/* Scale world units to screen pixels at current zoom.
+				 * In isometric view, screen width ~ (xmax-xmin + ymax-ymin) / 2. */
+				ZoomLevel zoom = _vd.dpi.zoom;
+				int screen_w = std::max(1, UnScaleByZoom(world_w, zoom));
+				int screen_h = std::max(1, UnScaleByZoom(world_h, zoom));
+				_motion_vectors.RecordSprite(ps->left, ps->top, screen_w, screen_h,
 					ps->xmin, ps->ymin, ps->zmin);
 			}
 		}
