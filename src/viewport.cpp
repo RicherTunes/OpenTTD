@@ -93,6 +93,7 @@
 #include "video/motion_vector.h"
 #include "video/viewport_cpu_scale.h"
 
+#include <algorithm>
 #include <forward_list>
 #include <stack>
 #include <unordered_map>
