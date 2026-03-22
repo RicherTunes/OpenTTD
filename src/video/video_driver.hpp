@@ -76,6 +76,24 @@ extern uint8_t _video_shadow_softness;
 extern bool _video_water_reflections;
 extern uint8_t _video_reflection_intensity;
 extern uint8_t _video_reflection_distortion;
+extern bool _video_ssao;
+extern uint8_t _video_ssao_radius;
+extern uint8_t _video_ssao_intensity;
+extern uint8_t _video_ssao_samples;
+extern bool _video_terrain_smooth;
+extern uint8_t _video_terrain_smooth_radius;
+extern uint8_t _video_terrain_smooth_strength;
+extern bool _video_tree_sway;
+extern uint8_t _video_tree_sway_amount;
+extern uint8_t _video_tree_sway_speed;
+extern bool _video_sky_clouds;
+extern uint8_t _video_cloud_density;
+extern uint8_t _video_cloud_speed;
+extern uint8_t _video_sky_brightness;
+extern bool _video_depth_of_field;
+extern uint8_t _video_dof_focus_point;
+extern uint8_t _video_dof_aperture;
+extern uint8_t _video_dof_range;
 
 /** The base of all video drivers. */
 class VideoDriver : public Driver {

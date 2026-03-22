@@ -70,7 +70,6 @@ private:
 	Dimension pp_display_size = {};  ///< Display/window resolution.
 	bool pp_active = false;          ///< Post-processing pipeline is currently active.
 	bool pp_fbo_supported = false;   ///< FBO extensions are available.
-	bool pp_render_scale_pending = false; ///< Deferred render scale resize waiting to be applied.
 	bool pp_vid_filter_was_linear = false; ///< Whether vid_texture was set to GL_LINEAR last frame.
 
 	/* Motion vector rasterization resources (GL 4.3+ compute). */

@@ -1099,24 +1099,14 @@ bool OpenGLBackend::Resize(int w, int h, bool force)
 {
 	/* When PP scaling is active, _screen stores render resolution (not window size).
 	 * Compare against display size to avoid redundant re-allocation every frame. */
-	int check_w = (this->pp_active && this->pp_display_size.width > 0) ? (int)this->pp_display_size.width : _screen.width;
-	int check_h = (this->pp_active && this->pp_display_size.height > 0) ? (int)this->pp_display_size.height : _screen.height;
-	if (!force && check_w == w && check_h == h) return false;
+	if (!force && _screen.width == w && _screen.height == h) return false;
 
-	/* Determine render resolution: if post-processing with render scaling is active,
-	 * the CPU blitter renders at reduced resolution. The display is at full window size.
-	 * When render_scale > 100 (supersampling), the CPU blitter renders at higher resolution
-	 * and the downsample shader reduces back to display size. */
+	/* CPU blitter ALWAYS renders at display resolution. Render scaling is GPU-only
+	 * (handled by FBO pipeline upscale/downsample shaders via pp_render_size).
+	 * _screen must match window size for correct UI/viewport/mouse/dirty rects. */
 	int render_w = w;
 	int render_h = h;
 	Blitter *cur_blitter = BlitterFactory::GetCurrentBlitter();
-	bool pp_scaling = this->pp_fbo_supported && _video_post_processing && _video_render_scale != 100 &&
-	                  cur_blitter != nullptr && cur_blitter->GetScreenDepth() != 8;
-	if (pp_scaling) {
-		auto dims = CalculatePostProcessDimensions(w, h, _video_render_scale);
-		render_w = dims.render.width;
-		render_h = dims.render.height;
-	}
 
 	int bpp = cur_blitter != nullptr ? cur_blitter->GetScreenDepth() : 32;
 	int pitch = Align(render_w, 4);
@@ -1337,6 +1327,34 @@ void OpenGLBackend::Paint()
 			new_config.water_reflections = _video_water_reflections;
 			new_config.reflection_intensity = _video_reflection_intensity;
 			new_config.reflection_distortion = _video_reflection_distortion;
+
+			/* Screen-space ambient occlusion. */
+			new_config.ssao = _video_ssao;
+			new_config.ssao_radius = _video_ssao_radius;
+			new_config.ssao_intensity = _video_ssao_intensity;
+			new_config.ssao_samples = _video_ssao_samples;
+
+			/* Terrain transition smoothing. */
+			new_config.terrain_smooth = _video_terrain_smooth;
+			new_config.terrain_smooth_radius = _video_terrain_smooth_radius;
+			new_config.terrain_smooth_strength = _video_terrain_smooth_strength;
+
+			/* Animated tree sway. */
+			new_config.tree_sway = _video_tree_sway;
+			new_config.tree_sway_amount = _video_tree_sway_amount;
+			new_config.tree_sway_speed = _video_tree_sway_speed;
+
+			/* Procedural sky with clouds. */
+			new_config.sky_clouds = _video_sky_clouds;
+			new_config.cloud_density = _video_cloud_density;
+			new_config.cloud_speed = _video_cloud_speed;
+			new_config.sky_brightness = _video_sky_brightness;
+
+			/* Depth-of-field blur. */
+			new_config.depth_of_field = _video_depth_of_field;
+			new_config.dof_focus_point = _video_dof_focus_point;
+			new_config.dof_aperture = _video_dof_aperture;
+			new_config.dof_range = _video_dof_range;
 		}
 
 		new_config.auto_supersample = _video_auto_supersample;
@@ -1353,43 +1371,19 @@ void OpenGLBackend::Paint()
 			}
 		}
 
-		/* Detect topology changes (effects on/off) and render scale changes.
-		 * Render scale triggers a full Resize() to reallocate PBO at new dimensions.
-		 * We defer this by one frame to avoid resizing while the slider is being
-		 * dragged — only apply when the value stabilizes. */
+		/* Rebuild FBOs when topology changes (effects on/off) or render_scale changes.
+		 * Since render_scale no longer resizes the PBO (CPU blitter stays at display
+		 * resolution), we just rebuild FBO textures at the new pp_render_size. No
+		 * deferred mechanism needed — FBO rebuild is cheap (just texture realloc). */
 		bool fbo_need_changed = PostProcessNeedsFBO(new_config) != PostProcessNeedsFBO(this->pp_config);
 		bool scale_changed = (new_config.render_scale != this->pp_config.render_scale);
 		bool config_changed = fbo_need_changed || scale_changed ||
 		                      (new_config.upscale_mode != this->pp_config.upscale_mode);
 		if (config_changed) this->pp_temporal_frame_count = 0;
 		this->pp_config = new_config;
-		if (fbo_need_changed) {
+		if (fbo_need_changed || scale_changed) {
 			this->SetupPostProcessFBOs(this->pp_display_size.width > 0 ? this->pp_display_size.width : _screen.width,
 			                           this->pp_display_size.height > 0 ? this->pp_display_size.height : _screen.height);
-		}
-		if (scale_changed && !fbo_need_changed) {
-			/* Defer resize when just adjusting the slider (avoids resize spam during drag). */
-			this->pp_render_scale_pending = true;
-		} else if (scale_changed && fbo_need_changed) {
-			/* PP topology changed (toggled on/off) — resize immediately to avoid
-			 * a one-frame glitch where the scene renders at the wrong resolution. */
-			this->pp_render_scale_pending = false;
-			int disp_w = this->pp_display_size.width > 0 ? (int)this->pp_display_size.width : _screen.width;
-			int disp_h = this->pp_display_size.height > 0 ? (int)this->pp_display_size.height : _screen.height;
-			this->Resize(disp_w, disp_h, true);
-			this->SetupPostProcessFBOs(disp_w, disp_h);
-		} else if (this->pp_render_scale_pending) {
-			/* Scale stabilized (same value for 2 consecutive frames) — apply now.
-			 * Resize() updates _screen and PBO dimensions, SetupPostProcessFBOs
-			 * rebuilds FBO textures. Then normal rendering continues this frame
-			 * at the new dimensions — no frame skip needed. */
-			this->pp_render_scale_pending = false;
-			int disp_w = this->pp_display_size.width > 0 ? this->pp_display_size.width : _screen.width;
-			int disp_h = this->pp_display_size.height > 0 ? this->pp_display_size.height : _screen.height;
-			if (disp_w > 0 && disp_h > 0) {
-				this->Resize(disp_w, disp_h, true);
-				this->SetupPostProcessFBOs(disp_w, disp_h);
-			}
 		}
 	}
 
@@ -1718,6 +1712,35 @@ bool OpenGLBackend::InitPostProcessShaders()
 	this->pp_water_reflect_time_loc = CacheLoc(this->pp_water_reflect_program, "time");
 	this->pp_water_reflect_texel_loc = CacheLoc(this->pp_water_reflect_program, "texel_size");
 
+	/* SSAO uniforms. */
+	this->pp_ssao_radius_loc = CacheLoc(this->pp_ssao_program, "ssao_radius");
+	this->pp_ssao_intensity_loc = CacheLoc(this->pp_ssao_program, "ssao_intensity");
+	this->pp_ssao_samples_loc = CacheLoc(this->pp_ssao_program, "ssao_samples");
+	this->pp_ssao_texel_loc = CacheLoc(this->pp_ssao_program, "texel_size");
+
+	/* Terrain smoothing uniforms. */
+	this->pp_terrain_smooth_radius_loc = CacheLoc(this->pp_terrain_smooth_program, "smooth_radius");
+	this->pp_terrain_smooth_strength_loc = CacheLoc(this->pp_terrain_smooth_program, "smooth_strength");
+	this->pp_terrain_smooth_texel_loc = CacheLoc(this->pp_terrain_smooth_program, "texel_size");
+
+	/* Tree sway uniforms. */
+	this->pp_tree_sway_amount_loc = CacheLoc(this->pp_tree_sway_program, "sway_amount");
+	this->pp_tree_sway_speed_loc = CacheLoc(this->pp_tree_sway_program, "sway_speed");
+	this->pp_tree_sway_time_loc = CacheLoc(this->pp_tree_sway_program, "time");
+	this->pp_tree_sway_texel_loc = CacheLoc(this->pp_tree_sway_program, "texel_size");
+
+	/* Sky/clouds uniforms. */
+	this->pp_sky_density_loc = CacheLoc(this->pp_sky_program, "cloud_density");
+	this->pp_sky_speed_loc = CacheLoc(this->pp_sky_program, "cloud_speed");
+	this->pp_sky_brightness_loc = CacheLoc(this->pp_sky_program, "sky_brightness");
+	this->pp_sky_time_loc = CacheLoc(this->pp_sky_program, "time");
+
+	/* Depth-of-field uniforms. */
+	this->pp_dof_focus_loc = CacheLoc(this->pp_dof_program, "focus_point");
+	this->pp_dof_aperture_loc = CacheLoc(this->pp_dof_program, "aperture");
+	this->pp_dof_range_loc = CacheLoc(this->pp_dof_program, "focus_range");
+	this->pp_dof_texel_loc = CacheLoc(this->pp_dof_program, "texel_size");
+
 	/* Downsample uniforms. */
 	this->pp_downsample_texel_loc = CacheLoc(this->pp_downsample_program, "texel_size");
 
@@ -1872,8 +1895,12 @@ void OpenGLBackend::RenderPostProcess()
 	if (this->pp_config.upscale_mode == UpscaleMode::Temporal && this->pp_temporal_program != 0 && this->mv_compute_supported) total++;
 	if (this->pp_config.upscale_mode == UpscaleMode::Plugin && GetLoadedUpscalePlugin() != nullptr) total++;
 	if (this->pp_config.sharpening > 0 && this->pp_config.upscale_mode != UpscaleMode::FSR1 && this->pp_config.upscale_mode != UpscaleMode::Temporal && this->pp_config.upscale_mode != UpscaleMode::Plugin && this->pp_cas_program != 0) total++;
+	if (WillRun(this->pp_config.sky_clouds, this->pp_sky_program)) total++;
 	if (WillRun(this->pp_config.pixel_smoothing, this->pp_pixel_smooth_program)) total++;
+	if (WillRun(this->pp_config.terrain_smooth, this->pp_terrain_smooth_program)) total++;
+	if (WillRun(this->pp_config.tree_sway, this->pp_tree_sway_program)) total++;
 	if (WillRun(this->pp_config.water_reflections, this->pp_water_reflect_program)) total++;
+	if (WillRun(this->pp_config.ssao, this->pp_ssao_program)) total++;
 	if (WillRun(this->pp_config.fxaa, this->pp_fxaa_program)) total++;
 	if (WillRun(this->pp_config.tiltshift, this->pp_tiltshift_h_program)) total++;
 	if (WillRun(this->pp_config.tiltshift, this->pp_tiltshift_v_program)) total++;
@@ -1888,9 +1915,10 @@ void OpenGLBackend::RenderPostProcess()
 		if (this->pp_bloom_blur_v_program != 0) total++; /* blur V */
 		if (this->pp_bloom_composite_program != 0) total++; /* composite blend */
 	}
+	if (WillRun(this->pp_config.depth_of_field, this->pp_dof_program)) total++;
+	if (WillRun(this->pp_config.fake_shadows, this->pp_shadow_program)) total++;
 	if (WillRun(this->pp_config.crt_filter, this->pp_crt_program)) total++;
 	if (this->pp_config.weather_type > 0 && this->pp_weather_program != 0) total++;
-	if (WillRun(this->pp_config.fake_shadows, this->pp_shadow_program)) total++;
 	if (this->pp_config.render_scale > 100 && this->pp_downsample_program != 0) total++;
 
 	/* RunPass: program must already be bound via _glUseProgram before calling. */
@@ -2091,11 +2119,46 @@ void OpenGLBackend::RenderPostProcess()
 		RunPass();
 	}
 
+	/* Procedural sky with clouds (background, runs first). */
+	if (this->pp_config.sky_clouds && this->pp_sky_program != 0) {
+		auto now = std::chrono::steady_clock::now();
+		if (this->pp_weather_start_time == std::chrono::steady_clock::time_point{}) this->pp_weather_start_time = now;
+		float sky_time = std::fmod(std::chrono::duration<float>(now - this->pp_weather_start_time).count(), 1000.0f);
+		_glUseProgram(this->pp_sky_program);
+		_glUniform1f(this->pp_sky_density_loc, this->pp_config.cloud_density / 100.0f);
+		_glUniform1f(this->pp_sky_speed_loc, (float)this->pp_config.cloud_speed);
+		_glUniform1f(this->pp_sky_brightness_loc, this->pp_config.sky_brightness / 100.0f);
+		_glUniform1f(this->pp_sky_time_loc, sky_time);
+		RunPass();
+	}
+
 	/* Pixel art smoothing (zoom-in enhancement). */
 	if (this->pp_config.pixel_smoothing && this->pp_pixel_smooth_program != 0) {
 		_glUseProgram(this->pp_pixel_smooth_program);
 		_glUniform2f(this->pp_pixel_smooth_texel_loc, texel_w, texel_h);
 		_glUniform1f(this->pp_pixel_smooth_amount_loc, this->pp_config.pixel_smooth_amount / 100.0f);
+		RunPass();
+	}
+
+	/* Terrain transition smoothing (edge-aware bilateral filter). */
+	if (this->pp_config.terrain_smooth && this->pp_terrain_smooth_program != 0) {
+		_glUseProgram(this->pp_terrain_smooth_program);
+		_glUniform2f(this->pp_terrain_smooth_texel_loc, texel_w, texel_h);
+		_glUniform1f(this->pp_terrain_smooth_radius_loc, (float)this->pp_config.terrain_smooth_radius);
+		_glUniform1f(this->pp_terrain_smooth_strength_loc, this->pp_config.terrain_smooth_strength / 100.0f);
+		RunPass();
+	}
+
+	/* Animated tree/vegetation sway. */
+	if (this->pp_config.tree_sway && this->pp_tree_sway_program != 0) {
+		auto now = std::chrono::steady_clock::now();
+		if (this->pp_weather_start_time == std::chrono::steady_clock::time_point{}) this->pp_weather_start_time = now;
+		float sway_time = std::fmod(std::chrono::duration<float>(now - this->pp_weather_start_time).count(), 1000.0f);
+		_glUseProgram(this->pp_tree_sway_program);
+		_glUniform2f(this->pp_tree_sway_texel_loc, texel_w, texel_h);
+		_glUniform1f(this->pp_tree_sway_amount_loc, (float)this->pp_config.tree_sway_amount);
+		_glUniform1f(this->pp_tree_sway_speed_loc, (float)this->pp_config.tree_sway_speed);
+		_glUniform1f(this->pp_tree_sway_time_loc, sway_time);
 		RunPass();
 	}
 
@@ -2106,6 +2169,16 @@ void OpenGLBackend::RenderPostProcess()
 		_glUniform1f(this->pp_water_reflect_intensity_loc, this->pp_config.reflection_intensity / 100.0f);
 		_glUniform1f(this->pp_water_reflect_distortion_loc, (float)this->pp_config.reflection_distortion);
 		_glUniform1f(this->pp_water_reflect_time_loc, this->pp_config.time_of_day * 100.0f);
+		RunPass();
+	}
+
+	/* Screen-space ambient occlusion. */
+	if (this->pp_config.ssao && this->pp_ssao_program != 0) {
+		_glUseProgram(this->pp_ssao_program);
+		_glUniform2f(this->pp_ssao_texel_loc, texel_w, texel_h);
+		_glUniform1f(this->pp_ssao_radius_loc, (float)this->pp_config.ssao_radius);
+		_glUniform1f(this->pp_ssao_intensity_loc, this->pp_config.ssao_intensity / 100.0f);
+		_glUniform1i(this->pp_ssao_samples_loc, Clamp((int)this->pp_config.ssao_samples, 4, 16));
 		RunPass();
 	}
 
@@ -2242,26 +2315,13 @@ void OpenGLBackend::RenderPostProcess()
 		}
 	}
 
-	/* CRT scanline filter. */
-	if (this->pp_config.crt_filter && this->pp_crt_program != 0) {
-		_glUseProgram(this->pp_crt_program);
-		_glUniform2f(this->pp_crt_texel_loc, texel_w, texel_h);
-		_glUniform2f(this->pp_crt_res_loc, (float)this->pp_display_size.width, (float)this->pp_display_size.height);
-		_glUniform1f(this->pp_crt_scanline_loc, this->pp_config.crt_scanlines / 100.0f);
-		_glUniform1f(this->pp_crt_curve_loc, this->pp_config.crt_curvature / 100.0f);
-		_glUniform1f(this->pp_crt_aberr_loc, this->pp_config.crt_aberration / 10.0f);
-		RunPass();
-	}
-
-	/* Weather overlay (rain/snow particles). Applied last — composites on top of everything. */
-	if (this->pp_config.weather_type > 0 && this->pp_weather_program != 0) {
-		auto now = std::chrono::steady_clock::now();
-		if (this->pp_weather_start_time == std::chrono::steady_clock::time_point{}) this->pp_weather_start_time = now;
-		float weather_time = std::fmod(std::chrono::duration<float>(now - this->pp_weather_start_time).count(), 1000.0f);
-		_glUseProgram(this->pp_weather_program);
-		_glUniform1f(this->pp_weather_time_loc, weather_time);
-		_glUniform1f(this->pp_weather_int_loc, this->pp_config.weather_intensity / 100.0f);
-		_glUniform1f(this->pp_weather_type_loc, static_cast<float>(this->pp_config.weather_type));
+	/* Depth-of-field blur. */
+	if (this->pp_config.depth_of_field && this->pp_dof_program != 0) {
+		_glUseProgram(this->pp_dof_program);
+		_glUniform2f(this->pp_dof_texel_loc, texel_w, texel_h);
+		_glUniform1f(this->pp_dof_focus_loc, this->pp_config.dof_focus_point / 100.0f);
+		_glUniform1f(this->pp_dof_aperture_loc, this->pp_config.dof_aperture / 100.0f);
+		_glUniform1f(this->pp_dof_range_loc, this->pp_config.dof_range / 100.0f);
 		RunPass();
 	}
 
@@ -2274,6 +2334,29 @@ void OpenGLBackend::RenderPostProcess()
 		_glUniform2f(this->pp_shadow_dir_loc, cos(angle_rad), sin(angle_rad));
 		_glUniform1f(this->pp_shadow_length_loc, (float)this->pp_config.shadow_length);
 		_glUniform1i(this->pp_shadow_samples_loc, Clamp((int)this->pp_config.shadow_softness, 1, 10));
+		RunPass();
+	}
+
+	/* CRT scanline filter. */
+	if (this->pp_config.crt_filter && this->pp_crt_program != 0) {
+		_glUseProgram(this->pp_crt_program);
+		_glUniform2f(this->pp_crt_texel_loc, texel_w, texel_h);
+		_glUniform2f(this->pp_crt_res_loc, (float)this->pp_display_size.width, (float)this->pp_display_size.height);
+		_glUniform1f(this->pp_crt_scanline_loc, this->pp_config.crt_scanlines / 100.0f);
+		_glUniform1f(this->pp_crt_curve_loc, this->pp_config.crt_curvature / 100.0f);
+		_glUniform1f(this->pp_crt_aberr_loc, this->pp_config.crt_aberration / 10.0f);
+		RunPass();
+	}
+
+	/* Weather overlay (rain/snow particles). Composites on top of everything. */
+	if (this->pp_config.weather_type > 0 && this->pp_weather_program != 0) {
+		auto now = std::chrono::steady_clock::now();
+		if (this->pp_weather_start_time == std::chrono::steady_clock::time_point{}) this->pp_weather_start_time = now;
+		float weather_time = std::fmod(std::chrono::duration<float>(now - this->pp_weather_start_time).count(), 1000.0f);
+		_glUseProgram(this->pp_weather_program);
+		_glUniform1f(this->pp_weather_time_loc, weather_time);
+		_glUniform1f(this->pp_weather_int_loc, this->pp_config.weather_intensity / 100.0f);
+		_glUniform1f(this->pp_weather_type_loc, static_cast<float>(this->pp_config.weather_type));
 		RunPass();
 	}
 

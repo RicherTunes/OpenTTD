@@ -73,6 +73,24 @@ uint8_t _video_shadow_softness = 3; ///< Shadow edge softness (1-10).
 bool _video_water_reflections = false; ///< Whether screen-space water reflections are enabled.
 uint8_t _video_reflection_intensity = 30; ///< Water reflection strength (0-100).
 uint8_t _video_reflection_distortion = 5; ///< Water reflection wave distortion amplitude (0-20).
+bool _video_ssao = false; ///< Whether screen-space ambient occlusion is enabled.
+uint8_t _video_ssao_radius = 4; ///< SSAO sample radius in pixels (1-15).
+uint8_t _video_ssao_intensity = 50; ///< SSAO occlusion darkness (0-100).
+uint8_t _video_ssao_samples = 8; ///< SSAO samples per pixel (4-16).
+bool _video_terrain_smooth = false; ///< Whether terrain transition smoothing is enabled.
+uint8_t _video_terrain_smooth_radius = 2; ///< Terrain smoothing kernel radius (1-5).
+uint8_t _video_terrain_smooth_strength = 50; ///< Terrain smoothing strength (0-100).
+bool _video_tree_sway = false; ///< Whether animated tree sway is enabled.
+uint8_t _video_tree_sway_amount = 3; ///< Tree sway amplitude in pixels (1-10).
+uint8_t _video_tree_sway_speed = 50; ///< Tree sway animation speed (10-100).
+bool _video_sky_clouds = false; ///< Whether procedural sky with clouds is enabled.
+uint8_t _video_cloud_density = 50; ///< Cloud coverage density (0-100).
+uint8_t _video_cloud_speed = 30; ///< Cloud drift speed (0-100).
+uint8_t _video_sky_brightness = 70; ///< Sky background brightness (0-100).
+bool _video_depth_of_field = false; ///< Whether depth-of-field blur is enabled.
+uint8_t _video_dof_focus_point = 50; ///< DoF focus distance (0-100).
+uint8_t _video_dof_aperture = 30; ///< DoF aperture / blur strength (0-100).
+uint8_t _video_dof_range = 40; ///< DoF focus range width (0-100).
 
 void VideoDriver::GameLoop()
 {
