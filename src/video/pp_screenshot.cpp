@@ -387,8 +387,8 @@ void CapturePPScreenshotIfPending(int width, int height)
 {
 	if (_pending_pp_screenshots.empty()) return;
 
-	/* Dequeue one screenshot per frame. Restore its settings snapshot
-	 * so the PP pipeline renders with the correct effect state. */
+	/* Dequeue one screenshot per frame. Capture whatever the current
+	 * frame rendered -- script commands set effects before each capture. */
 	PPScreenshotRequest req = std::move(_pending_pp_screenshots.front());
 	_pending_pp_screenshots.erase(_pending_pp_screenshots.begin());
 	/* Settings were already applied at Paint() start via ApplyNextPPScreenshotSettings(). */

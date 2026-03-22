@@ -1326,9 +1326,12 @@ int GetViewportCPUScratchPitch()
  */
 void OpenGLBackend::Paint()
 {
-	/* If a queued screenshot has settings to apply, do it BEFORE config sync
-	 * so this frame renders with the correct PP state for the screenshot. */
-	ApplyNextPPScreenshotSettings();
+	/* NOTE: ApplyNextPPScreenshotSettings() was previously called here to override
+	 * globals with per-screenshot settings snapshots. This caused black/corrupted
+	 * captures because the PP topology change (on/off) happened mid-frame before
+	 * the FBO was populated. Disabled: pp_screenshot now captures whatever the
+	 * current frame renders. Script commands set effects before each capture. */
+	/* ApplyNextPPScreenshotSettings(); */
 
 	/* Sync post-processing config from global settings. */
 	if (this->pp_fbo_supported) {
