@@ -47,6 +47,8 @@
 #include "misc_cmd.h"
 #include "benchmark.h"
 #include "video/video_driver.hpp"
+#include "video/opengl.h"
+#include "video/upscale_plugin.h"
 #include "video/pp_screenshot.h"
 
 #if defined(WITH_ZLIB)
@@ -2891,11 +2893,12 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 	if (argv.size() < 2) {
 		IConsolePrint(CC_HELP, "GPU post-processing control.");
 		IConsolePrint(CC_HELP, "Usage: 'pp status' - Show current effect states.");
+		IConsolePrint(CC_HELP, "Usage: 'pp info' - Show GPU pipeline capabilities.");
 		IConsolePrint(CC_HELP, "Usage: 'pp on/off' - Toggle master post-processing switch.");
 		IConsolePrint(CC_HELP, "Usage: 'pp enable/disable <effect>' - Toggle an effect.");
 		IConsolePrint(CC_HELP, "  Effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather");
 		IConsolePrint(CC_HELP, "Usage: 'pp set <param> <value>' - Set a parameter.");
-		IConsolePrint(CC_HELP, "  Core: render_scale (50-200), sharpening (0-100), upscale (0-3), texture_filter (0-2)");
+		IConsolePrint(CC_HELP, "  Core: render_scale (50-200), sharpening (0-100), upscale (0-4), texture_filter (0-2)");
 		IConsolePrint(CC_HELP, "  Color: brightness (-50..50), contrast (50-200), saturation (0-200), temperature (-100..100)");
 		IConsolePrint(CC_HELP, "  Night: night_intensity (20-100), night_blue_shift (0-80)");
 		IConsolePrint(CC_HELP, "  CRT: crt_scanlines (0-50), crt_curvature (0-50), crt_aberration (0-30)");
@@ -2932,6 +2935,26 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		IConsolePrint(CC_INFO, "  Contrast: {}", _video_contrast);
 		IConsolePrint(CC_INFO, "  Saturation: {}", _video_saturation);
 		IConsolePrint(CC_INFO, "  Color temperature: {}", _video_color_temperature);
+		return true;
+	}
+
+	if (argv[1] == "info") {
+		auto *vd = VideoDriver::GetInstance();
+		IConsolePrint(CC_INFO, "GPU Pipeline Info:");
+		IConsolePrint(CC_INFO, "  Video driver: {}", vd != nullptr ? vd->GetInfoString() : "none");
+		IConsolePrint(CC_INFO, "  Hardware accel: {}", _video_hw_accel ? "YES" : "NO");
+		if (OpenGLBackend::Get() != nullptr) {
+			IConsolePrint(CC_INFO, "  OpenGL FBO: {}", OpenGLBackend::Get()->IsPostProcessSupported() ? "YES" : "NO");
+			IConsolePrint(CC_INFO, "  Display: {}x{}", _screen.width, _screen.height);
+		}
+		auto *plugin = GetLoadedUpscalePlugin();
+		if (plugin != nullptr) {
+			const char *pname = plugin->get_name != nullptr ? plugin->get_name() : "unknown";
+			const char *pver = plugin->get_version != nullptr ? plugin->get_version() : "?";
+			IConsolePrint(CC_INFO, "  Upscale plugin: {} v{}", pname, pver);
+		} else {
+			IConsolePrint(CC_INFO, "  Upscale plugin: none loaded");
+		}
 		return true;
 	}
 
@@ -2985,7 +3008,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 	if (argv[1] == "set") {
 		if (argv.size() < 4) {
 			IConsolePrint(CC_ERROR, "Usage: 'pp set <param> <value>'");
-			IConsolePrint(CC_ERROR, "  Core: render_scale (50-200), sharpening (0-100), upscale (0-3), texture_filter (0-2)");
+			IConsolePrint(CC_ERROR, "  Core: render_scale (50-200), sharpening (0-100), upscale (0-4), texture_filter (0-2)");
 			IConsolePrint(CC_ERROR, "  Color: brightness (-50..50), contrast (50-200), saturation (0-200), temperature (-100..100)");
 			IConsolePrint(CC_ERROR, "  Night: night_intensity (20-100), night_blue_shift (0-80)");
 			IConsolePrint(CC_ERROR, "  CRT: crt_scanlines (0-50), crt_curvature (0-50), crt_aberration (0-30)");
