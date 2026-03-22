@@ -1347,12 +1347,22 @@ void OpenGLBackend::Paint()
 		if (scale_changed) {
 			this->pp_render_scale_pending = true;
 		} else if (this->pp_render_scale_pending) {
-			/* Scale stabilized (same value for 2 consecutive frames) — apply now. */
+			/* Scale stabilized (same value for 2 consecutive frames) — apply now.
+			 * We must skip rendering THIS frame to avoid state corruption from
+			 * Resize() + FBO rebuild mid-Paint(). The next frame will use the new
+			 * dimensions cleanly. */
 			this->pp_render_scale_pending = false;
 			int disp_w = this->pp_display_size.width > 0 ? this->pp_display_size.width : _screen.width;
 			int disp_h = this->pp_display_size.height > 0 ? this->pp_display_size.height : _screen.height;
-			this->Resize(disp_w, disp_h, true);
-			this->SetupPostProcessFBOs(disp_w, disp_h);
+			if (disp_w > 0 && disp_h > 0) {
+				this->Resize(disp_w, disp_h, true);
+				this->SetupPostProcessFBOs(disp_w, disp_h);
+			}
+			/* Reset viewport to display dimensions after resize to prevent mismatch. */
+			_glViewport(0, 0, _screen.width, _screen.height);
+			_glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			_glClear(GL_COLOR_BUFFER_BIT);
+			return;  /* Skip this frame — next frame will render cleanly with new FBOs */
 		}
 	}
 
