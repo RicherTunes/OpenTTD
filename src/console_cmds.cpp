@@ -3096,6 +3096,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			IConsolePrint(CC_HELP, "  night     - Night mode with blue tint");
 			IConsolePrint(CC_HELP, "  miniature - Tilt-shift miniature effect");
 			IConsolePrint(CC_HELP, "  sharp     - FSR1 upscale + CAS sharpening at 75%% render scale");
+			IConsolePrint(CC_HELP, "  temporal  - Temporal upscale at 67%% render scale");
 			IConsolePrint(CC_HELP, "  clean     - Disable all effects (same as reset + on)");
 			return true;
 		}
@@ -3141,6 +3142,11 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			_video_sharpening = 60;
 			_video_fxaa = true;
 			IConsolePrint(CC_INFO, "Preset 'sharp' applied: FSR1 at 75%% + FXAA.");
+		} else if (argv[2] == "temporal") {
+			_video_render_scale = 67;
+			_video_upscale_mode = 3; /* Temporal */
+			_video_sharpening = 40;
+			IConsolePrint(CC_INFO, "Preset 'temporal' applied: temporal upscale at 67%%.");
 		} else if (argv[2] == "clean") {
 			/* Already reset above, just enable PP. */
 			IConsolePrint(CC_INFO, "Preset 'clean' applied: all effects off.");
