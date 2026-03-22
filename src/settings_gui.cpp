@@ -566,7 +566,7 @@ struct GameOptionsWindow : Window {
 					STR_GAME_OPTIONS_UPSCALE_PLUGIN,
 				};
 				*selected_index = _video_upscale_mode;
-				for (int i = 0; i < 5; i++) {
+				for (uint i = 0; i < lengthof(_upscale_items); i++) {
 					list.push_back(MakeDropDownListStringItem(_upscale_items[i], i));
 				}
 				break;
@@ -579,7 +579,7 @@ struct GameOptionsWindow : Window {
 					STR_GAME_OPTIONS_TEXTURE_FILTER_SMOOTH,
 				};
 				*selected_index = _video_texture_filter;
-				for (int i = 0; i < 3; i++) {
+				for (uint i = 0; i < lengthof(_texfilter_items); i++) {
 					list.push_back(MakeDropDownListStringItem(_texfilter_items[i], i));
 				}
 				break;
@@ -592,7 +592,7 @@ struct GameOptionsWindow : Window {
 					STR_GAME_OPTIONS_WEATHER_SNOW,
 				};
 				*selected_index = _video_weather_type;
-				for (int i = 0; i < 3; i++) {
+				for (uint i = 0; i < lengthof(_weather_items); i++) {
 					list.push_back(MakeDropDownListStringItem(_weather_items[i], i));
 				}
 				break;
