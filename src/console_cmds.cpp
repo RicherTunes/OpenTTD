@@ -2988,40 +2988,46 @@ static bool ApplyPPPreset(std::string_view name)
 		_video_pixel_smooth_amount = 60;
 		_video_fxaa = true;
 	} else if (name == "realistic") {
-		_video_fake_shadows = true;
-		_video_shadow_intensity = 35;
-		_video_shadow_angle = 135;
-		_video_shadow_length = 10;
-		_video_water_reflections = true;
-		_video_reflection_intensity = 25;
-		_video_ssao = true;
-		_video_ssao_intensity = 40;
-		_video_terrain_smooth = true;
-		_video_terrain_smooth_strength = 40;
-		_video_tree_sway = true;
-		_video_tree_sway_amount = 2;
+		/* [LAB] quarantined -- these effects use colour heuristics:
+		 * _video_fake_shadows = true;
+		 * _video_shadow_intensity = 35;
+		 * _video_shadow_angle = 135;
+		 * _video_shadow_length = 10;
+		 * _video_water_reflections = true;
+		 * _video_reflection_intensity = 25;
+		 * _video_ssao = true;
+		 * _video_ssao_intensity = 40;
+		 * _video_terrain_smooth = true;
+		 * _video_terrain_smooth_strength = 40;
+		 * _video_tree_sway = true;
+		 * _video_tree_sway_amount = 2;
+		 */
 		_video_dynamic_lighting = true;
 		_video_fxaa = true;
 	} else if (name == "fantasy") {
-		_video_sky_clouds = true;
-		_video_cloud_density = 60;
-		_video_water_reflections = true;
-		_video_reflection_intensity = 40;
-		_video_reflection_distortion = 8;
+		/* [LAB] quarantined -- these effects use colour heuristics:
+		 * _video_sky_clouds = true;
+		 * _video_cloud_density = 60;
+		 * _video_water_reflections = true;
+		 * _video_reflection_intensity = 40;
+		 * _video_reflection_distortion = 8;
+		 * _video_tree_sway = true;
+		 * _video_tree_sway_amount = 5;
+		 */
 		_video_bloom = true;
 		_video_bloom_threshold = 50;
 		_video_bloom_intensity = 40;
 		_video_saturation = 140;
-		_video_tree_sway = true;
-		_video_tree_sway_amount = 5;
 		_video_vignette = true;
 	} else if (name == "photo") {
-		_video_depth_of_field = true;
-		_video_dof_aperture = 50;
-		_video_dof_focus_point = 50;
-		_video_dof_range = 30;
-		_video_fake_shadows = true;
-		_video_shadow_intensity = 30;
+		/* [LAB] quarantined -- these effects use colour heuristics:
+		 * _video_depth_of_field = true;
+		 * _video_dof_aperture = 50;
+		 * _video_dof_focus_point = 50;
+		 * _video_dof_range = 30;
+		 * _video_fake_shadows = true;
+		 * _video_shadow_intensity = 30;
+		 */
 		_video_vignette = true;
 		_video_vignette_intensity = 25;
 		_video_color_temperature = 10;
@@ -3030,22 +3036,26 @@ static bool ApplyPPPreset(std::string_view name)
 	} else if (name == "stormy") {
 		_video_weather_type = 1; /* Rain */
 		_video_weather_intensity = 70;
-		_video_sky_clouds = true;
-		_video_cloud_density = 80;
-		_video_sky_brightness = 40;
+		/* [LAB] quarantined -- these effects use colour heuristics:
+		 * _video_sky_clouds = true;
+		 * _video_cloud_density = 80;
+		 * _video_sky_brightness = 40;
+		 * _video_water_reflections = true;
+		 * _video_reflection_distortion = 12;
+		 */
 		_video_brightness = -10;
 		_video_saturation = 80;
-		_video_water_reflections = true;
-		_video_reflection_distortion = 12;
 		_video_dynamic_lighting = true;
 	} else if (name == "postcard") {
-		_video_terrain_smooth = true;
-		_video_terrain_smooth_strength = 60;
-		_video_tree_sway = true;
-		_video_fake_shadows = true;
-		_video_shadow_angle = 45;
-		_video_sky_clouds = true;
-		_video_cloud_density = 30;
+		/* [LAB] quarantined -- these effects use colour heuristics:
+		 * _video_terrain_smooth = true;
+		 * _video_terrain_smooth_strength = 60;
+		 * _video_tree_sway = true;
+		 * _video_fake_shadows = true;
+		 * _video_shadow_angle = 45;
+		 * _video_sky_clouds = true;
+		 * _video_cloud_density = 30;
+		 */
 		_video_saturation = 120;
 		_video_brightness = 5;
 		_video_tiltshift = true;
@@ -3106,7 +3116,8 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		IConsolePrint(CC_HELP, "Usage: 'pp info' - Show GPU pipeline capabilities.");
 		IConsolePrint(CC_HELP, "Usage: 'pp on/off' - Toggle master post-processing switch.");
 		IConsolePrint(CC_HELP, "Usage: 'pp enable/disable <effect>' - Toggle an effect.");
-		IConsolePrint(CC_HELP, "  Effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather, smooth, supersample, shadows, water, ssao, terrain_smooth, tree_sway, sky, dof");
+		IConsolePrint(CC_HELP, "  Ship: fxaa, night, crt, vignette, tiltshift, grain, smooth, supersample, lighting, bloom, weather, cpu_scale");
+		IConsolePrint(CC_HELP, "  Lab:  shadows, water, ssao, terrain_smooth, tree_sway, sky, dof");
 		IConsolePrint(CC_HELP, "Usage: 'pp set <param> <value>' - Set a parameter.");
 		IConsolePrint(CC_HELP, "  Core: render_scale (50-200), sharpening (0-100), upscale (0-4), texture_filter (0-2)");
 		IConsolePrint(CC_HELP, "  Color: brightness (-50..50), contrast (50-200), saturation (0-200), temperature (-100..100)");
@@ -3134,7 +3145,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 	if (argv[1] == "status") {
 		IConsolePrint(CC_INFO, "Post-processing: {}", _video_post_processing ? "ON" : "OFF");
 		IConsolePrint(CC_INFO, "  Render scale: {}%", _video_render_scale);
-		static const char *upscale_names[] = {"None", "Bilinear", "FSR1", "Temporal", "Plugin"};
+		static const char *upscale_names[] = {"None", "Bilinear", "FSR1", "Temporal [LAB]", "Plugin [LAB]"};
 		IConsolePrint(CC_INFO, "  Upscale mode: {} ({})", _video_upscale_mode,
 			_video_upscale_mode <= 4 ? upscale_names[_video_upscale_mode] : "Unknown");
 		static const char *texfilter_names[] = {"Nearest", "Bilinear", "Bicubic"};
@@ -3153,13 +3164,13 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		IConsolePrint(CC_INFO, "  Pixel smooth: {} (amount={})", _video_pixel_smoothing ? "ON" : "OFF", _video_pixel_smooth_amount);
 		IConsolePrint(CC_INFO, "  Auto-supersample: {}", _video_auto_supersample ? "ON" : "OFF");
 		IConsolePrint(CC_INFO, "  CPU viewport scaling: {}", _video_cpu_viewport_scaling ? "ON" : "OFF");
-		IConsolePrint(CC_INFO, "  Fake shadows: {} (intensity={}, angle={}°, length={}px, softness={})", _video_fake_shadows ? "ON" : "OFF", _video_shadow_intensity, _video_shadow_angle, _video_shadow_length, _video_shadow_softness);
-		IConsolePrint(CC_INFO, "  Water reflections: {} (intensity={}, distortion={})", _video_water_reflections ? "ON" : "OFF", _video_reflection_intensity, _video_reflection_distortion);
-		IConsolePrint(CC_INFO, "  SSAO: {} (radius={}, intensity={}, samples={})", _video_ssao ? "ON" : "OFF", _video_ssao_radius, _video_ssao_intensity, _video_ssao_samples);
-		IConsolePrint(CC_INFO, "  Terrain smooth: {} (radius={}, strength={})", _video_terrain_smooth ? "ON" : "OFF", _video_terrain_smooth_radius, _video_terrain_smooth_strength);
-		IConsolePrint(CC_INFO, "  Tree sway: {} (amount={}, speed={})", _video_tree_sway ? "ON" : "OFF", _video_tree_sway_amount, _video_tree_sway_speed);
-		IConsolePrint(CC_INFO, "  Sky clouds: {} (density={}, speed={}, brightness={})", _video_sky_clouds ? "ON" : "OFF", _video_cloud_density, _video_cloud_speed, _video_sky_brightness);
-		IConsolePrint(CC_INFO, "  Depth of field: {} (focus={}, aperture={}, range={})", _video_depth_of_field ? "ON" : "OFF", _video_dof_focus_point, _video_dof_aperture, _video_dof_range);
+		IConsolePrint(CC_INFO, "  Fake shadows: {} (intensity={}, angle={}°, length={}px, softness={}) [LAB]", _video_fake_shadows ? "ON" : "OFF", _video_shadow_intensity, _video_shadow_angle, _video_shadow_length, _video_shadow_softness);
+		IConsolePrint(CC_INFO, "  Water reflections: {} (intensity={}, distortion={}) [LAB]", _video_water_reflections ? "ON" : "OFF", _video_reflection_intensity, _video_reflection_distortion);
+		IConsolePrint(CC_INFO, "  SSAO: {} (radius={}, intensity={}, samples={}) [LAB]", _video_ssao ? "ON" : "OFF", _video_ssao_radius, _video_ssao_intensity, _video_ssao_samples);
+		IConsolePrint(CC_INFO, "  Terrain smooth: {} (radius={}, strength={}) [LAB]", _video_terrain_smooth ? "ON" : "OFF", _video_terrain_smooth_radius, _video_terrain_smooth_strength);
+		IConsolePrint(CC_INFO, "  Tree sway: {} (amount={}, speed={}) [LAB]", _video_tree_sway ? "ON" : "OFF", _video_tree_sway_amount, _video_tree_sway_speed);
+		IConsolePrint(CC_INFO, "  Sky clouds: {} (density={}, speed={}, brightness={}) [LAB]", _video_sky_clouds ? "ON" : "OFF", _video_cloud_density, _video_cloud_speed, _video_sky_brightness);
+		IConsolePrint(CC_INFO, "  Depth of field: {} (focus={}, aperture={}, range={}) [LAB]", _video_depth_of_field ? "ON" : "OFF", _video_dof_focus_point, _video_dof_aperture, _video_dof_range);
 		IConsolePrint(CC_INFO, "  Brightness: {}", _video_brightness);
 		IConsolePrint(CC_INFO, "  Contrast: {}", _video_contrast);
 		IConsolePrint(CC_INFO, "  Saturation: {}", _video_saturation);
@@ -3237,7 +3248,9 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 
 	if (argv[1] == "enable" || argv[1] == "disable") {
 		if (argv.size() < 3) {
-			IConsolePrint(CC_ERROR, "Usage: 'pp {} <effect>' - Effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather, smooth, supersample, cpu_scale, shadows, water, ssao, terrain_smooth, tree_sway, sky, dof", argv[1]);
+			IConsolePrint(CC_ERROR, "Usage: 'pp {} <effect>'", argv[1]);
+			IConsolePrint(CC_ERROR, "  Ship: fxaa, night, crt, vignette, tiltshift, grain, smooth, supersample, lighting, bloom, weather, cpu_scale");
+			IConsolePrint(CC_ERROR, "  Lab:  shadows, water, ssao, terrain_smooth, tree_sway, sky, dof");
 			return false;
 		}
 		bool enable = (argv[1] == "enable");
@@ -3286,11 +3299,25 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		} else if (effect == "cpu_scale" || effect == "cpu_viewport_scaling") {
 			_video_cpu_viewport_scaling = enable;
 		} else {
-			IConsolePrint(CC_ERROR, "Unknown effect '{}'. Valid effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather, smooth, supersample, shadows, water, ssao, terrain_smooth, tree_sway, sky, dof, cpu_scale", effect);
+			IConsolePrint(CC_ERROR, "Unknown effect '{}'.", effect);
+			IConsolePrint(CC_ERROR, "  Ship: fxaa, night, crt, vignette, tiltshift, grain, smooth, supersample, lighting, bloom, weather, cpu_scale");
+			IConsolePrint(CC_ERROR, "  Lab:  shadows, water, ssao, terrain_smooth, tree_sway, sky, dof");
 			return false;
 		}
 
 		IConsolePrint(CC_INFO, "Effect '{}' {}.", effect, enable ? "enabled" : "disabled");
+
+		/* Warn if a lab-mode effect was just enabled. */
+		if (enable) {
+			static const std::string_view lab_effects[] = {"shadows", "fake_shadows", "water", "water_reflections", "ssao", "terrain_smooth", "tree_sway", "sway", "sky", "sky_clouds", "dof", "depth_of_field"};
+			for (auto lab : lab_effects) {
+				if (effect == lab) {
+					IConsolePrint(CC_WARNING, "Note: '{}' is a lab-mode effect using colour heuristics. Results may vary with different graphics sets.", effect);
+					break;
+				}
+			}
+		}
+
 		return true;
 	}
 
@@ -3501,11 +3528,11 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			IConsolePrint(CC_HELP, "  sharp     - FSR1 upscale + CAS sharpening at 75% render scale");
 			IConsolePrint(CC_HELP, "  temporal  - Temporal upscale at 67% render scale");
 			IConsolePrint(CC_HELP, "  zoom      - Auto-supersample + pixel smoothing for close zoom");
-			IConsolePrint(CC_HELP, "  realistic - Shadows + water reflections + SSAO + tree sway + lighting");
-			IConsolePrint(CC_HELP, "  fantasy   - Sky clouds + bloom + vivid colors + reflections");
-			IConsolePrint(CC_HELP, "  photo     - Depth of field + shadows + vignette (photography)");
-			IConsolePrint(CC_HELP, "  stormy    - Rain + dark clouds + desaturated + reflections");
-			IConsolePrint(CC_HELP, "  postcard  - Smooth terrain + shadows + sky + tilt-shift");
+			IConsolePrint(CC_HELP, "  realistic - Dynamic lighting + FXAA (lab effects quarantined)");
+			IConsolePrint(CC_HELP, "  fantasy   - Bloom + vivid colours + vignette (lab effects quarantined)");
+			IConsolePrint(CC_HELP, "  photo     - Vignette + warm tones + FXAA (lab effects quarantined)");
+			IConsolePrint(CC_HELP, "  stormy    - Rain + desaturated + lighting (lab effects quarantined)");
+			IConsolePrint(CC_HELP, "  postcard  - Tilt-shift + vivid colours (lab effects quarantined)");
 			IConsolePrint(CC_HELP, "  performance - CPU viewport scaling at 50% + bilinear upscale");
 			IConsolePrint(CC_HELP, "  clean     - Disable all effects (same as reset + on)");
 			return true;
