@@ -1884,6 +1884,16 @@ void ViewportDoDraw(const Viewport &vp, int left, int top, int right, int bottom
 		ViewportDrawStrings(zoom, &_vd.string_sprites_to_draw);
 	}
 
+	/* Clear vectors but preserve allocated capacity to avoid reallocation next frame.
+	 * On first call, reserve typical capacities for a large viewport to prevent
+	 * repeated growth during the frame. */
+	if (_vd.parent_sprites_to_draw.capacity() < 4000) {
+		_vd.parent_sprites_to_draw.reserve(4000);
+		_vd.parent_sprites_to_sort.reserve(4000);
+		_vd.tile_sprites_to_draw.reserve(2000);
+		_vd.child_screen_sprites_to_draw.reserve(8000);
+		_vd.string_sprites_to_draw.reserve(500);
+	}
 	_vd.string_sprites_to_draw.clear();
 	_vd.tile_sprites_to_draw.clear();
 	_vd.parent_sprites_to_draw.clear();
