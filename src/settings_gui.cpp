@@ -749,12 +749,6 @@ struct GameOptionsWindow : Window {
 			case WID_GO_VIDEO_FILM_GRAIN_TEXT:
 				return GetToggleString(STR_GAME_OPTIONS_FILM_GRAIN, WID_GO_VIDEO_FILM_GRAIN_BUTTON);
 
-			case WID_GO_VIDEO_FAKE_SHADOWS_TEXT:
-				return GetToggleString(STR_GAME_OPTIONS_FAKE_SHADOWS, WID_GO_VIDEO_FAKE_SHADOWS_BUTTON);
-
-			case WID_GO_VIDEO_WATER_REFLECT_TEXT:
-				return GetToggleString(STR_GAME_OPTIONS_WATER_REFLECTIONS, WID_GO_VIDEO_WATER_REFLECT_BUTTON);
-
 			case WID_GO_VIDEO_DYNAMIC_LIGHTING_TEXT:
 				return GetToggleString(STR_GAME_OPTIONS_DYNAMIC_LIGHTING, WID_GO_VIDEO_DYNAMIC_LIGHTING_BUTTON);
 
@@ -908,30 +902,6 @@ struct GameOptionsWindow : Window {
 
 			case WID_GO_VIDEO_WEATHER_INTENSITY:
 				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 100, 5, _video_weather_intensity, GpuPercentMarkFunc);
-				break;
-
-			case WID_GO_VIDEO_SHADOW_INTENSITY:
-				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 100, 5, _video_shadow_intensity, GpuPercentMarkFunc);
-				break;
-
-			case WID_GO_VIDEO_SHADOW_ANGLE:
-				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 359, 8, _video_shadow_angle, GpuValueMarkFunc);
-				break;
-
-			case WID_GO_VIDEO_SHADOW_LENGTH:
-				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 1, 30, 6, _video_shadow_length, GpuValueMarkFunc);
-				break;
-
-			case WID_GO_VIDEO_SHADOW_SOFTNESS:
-				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 1, 10, 5, _video_shadow_softness, GpuValueMarkFunc);
-				break;
-
-			case WID_GO_VIDEO_REFLECTION_INTENSITY:
-				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 100, 5, _video_reflection_intensity, GpuPercentMarkFunc);
-				break;
-
-			case WID_GO_VIDEO_REFLECTION_DISTORTION:
-				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 20, 5, _video_reflection_distortion, GpuValueMarkFunc);
 				break;
 
 			case WID_GO_BASE_SFX_VOLUME:
@@ -1371,20 +1341,6 @@ struct GameOptionsWindow : Window {
 				this->ReInit();
 				break;
 
-			case WID_GO_VIDEO_FAKE_SHADOWS_BUTTON:
-				_video_fake_shadows = !_video_fake_shadows;
-				this->SetWidgetLoweredState(WID_GO_VIDEO_FAKE_SHADOWS_BUTTON, _video_fake_shadows);
-				this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_SHADOW_PARAMS_SEL)->SetDisplayedPlane(_video_fake_shadows ? 0 : SZSP_NONE);
-				this->ReInit();
-				break;
-
-			case WID_GO_VIDEO_WATER_REFLECT_BUTTON:
-				_video_water_reflections = !_video_water_reflections;
-				this->SetWidgetLoweredState(WID_GO_VIDEO_WATER_REFLECT_BUTTON, _video_water_reflections);
-				this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_WATER_PARAMS_SEL)->SetDisplayedPlane(_video_water_reflections ? 0 : SZSP_NONE);
-				this->ReInit();
-				break;
-
 			case WID_GO_VIDEO_DYNAMIC_LIGHTING_BUTTON:
 				_video_dynamic_lighting = !_video_dynamic_lighting;
 				this->SetWidgetLoweredState(WID_GO_VIDEO_DYNAMIC_LIGHTING_BUTTON, _video_dynamic_lighting);
@@ -1429,13 +1385,6 @@ struct GameOptionsWindow : Window {
 			GPU_SLIDER_CLICK(WID_GO_VIDEO_BLOOM_THRESHOLD, 0, 100, 5, _video_bloom_threshold)
 			GPU_SLIDER_CLICK(WID_GO_VIDEO_BLOOM_INTENSITY, 0, 100, 5, _video_bloom_intensity)
 			GPU_SLIDER_CLICK(WID_GO_VIDEO_WEATHER_INTENSITY, 0, 100, 5, _video_weather_intensity)
-			GPU_SLIDER_CLICK(WID_GO_VIDEO_SHADOW_INTENSITY, 0, 100, 5, _video_shadow_intensity)
-			GPU_SLIDER_CLICK(WID_GO_VIDEO_SHADOW_ANGLE, 0, 359, 8, _video_shadow_angle)
-			GPU_SLIDER_CLICK(WID_GO_VIDEO_SHADOW_LENGTH, 1, 30, 6, _video_shadow_length)
-			GPU_SLIDER_CLICK(WID_GO_VIDEO_SHADOW_SOFTNESS, 1, 10, 5, _video_shadow_softness)
-			GPU_SLIDER_CLICK(WID_GO_VIDEO_REFLECTION_INTENSITY, 0, 100, 5, _video_reflection_intensity)
-			GPU_SLIDER_CLICK(WID_GO_VIDEO_REFLECTION_DISTORTION, 0, 20, 5, _video_reflection_distortion)
-
 #undef GPU_SLIDER_CLICK
 
 			case WID_GO_GUI_SCALE_BEVEL_BUTTON: {
@@ -1992,9 +1941,6 @@ struct GameOptionsWindow : Window {
 		this->SetWidgetLoweredState(WID_GO_VIDEO_FILM_GRAIN_BUTTON, _video_film_grain);
 		this->SetWidgetLoweredState(WID_GO_VIDEO_DYNAMIC_LIGHTING_BUTTON, _video_dynamic_lighting);
 		this->SetWidgetLoweredState(WID_GO_VIDEO_BLOOM_BUTTON, _video_bloom);
-		this->SetWidgetLoweredState(WID_GO_VIDEO_FAKE_SHADOWS_BUTTON, _video_fake_shadows);
-		this->SetWidgetLoweredState(WID_GO_VIDEO_WATER_REFLECT_BUTTON, _video_water_reflections);
-
 		bool gpu_enabled = _video_hw_accel && _video_post_processing;
 
 		/* Collapse entire effects section when PP is off to keep tab compact. */
@@ -2009,8 +1955,6 @@ struct GameOptionsWindow : Window {
 		this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_GRAIN_PARAMS_SEL)->SetDisplayedPlane(_video_film_grain ? 0 : SZSP_NONE);
 		this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_BLOOM_PARAMS_SEL)->SetDisplayedPlane(_video_bloom ? 0 : SZSP_NONE);
 		this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_WEATHER_PARAMS_SEL)->SetDisplayedPlane(_video_weather_type > 0 ? 0 : SZSP_NONE);
-		this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_SHADOW_PARAMS_SEL)->SetDisplayedPlane(_video_fake_shadows ? 0 : SZSP_NONE);
-		this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_WATER_PARAMS_SEL)->SetDisplayedPlane(_video_water_reflections ? 0 : SZSP_NONE);
 		this->SetWidgetDisabledState(WID_GO_VIDEO_RENDER_SCALE, !gpu_enabled);
 		this->SetWidgetDisabledState(WID_GO_VIDEO_UPSCALE_DROPDOWN, !gpu_enabled);
 		this->SetWidgetDisabledState(WID_GO_VIDEO_SHARPENING, !gpu_enabled);
@@ -2045,15 +1989,6 @@ struct GameOptionsWindow : Window {
 		this->SetWidgetDisabledState(WID_GO_VIDEO_BLOOM_INTENSITY, !gpu_enabled);
 		this->SetWidgetDisabledState(WID_GO_VIDEO_WEATHER_DROPDOWN, !gpu_enabled);
 		this->SetWidgetDisabledState(WID_GO_VIDEO_WEATHER_INTENSITY, !gpu_enabled);
-		this->SetWidgetDisabledState(WID_GO_VIDEO_FAKE_SHADOWS_BUTTON, !gpu_enabled);
-		this->SetWidgetDisabledState(WID_GO_VIDEO_SHADOW_INTENSITY, !gpu_enabled);
-		this->SetWidgetDisabledState(WID_GO_VIDEO_SHADOW_ANGLE, !gpu_enabled);
-		this->SetWidgetDisabledState(WID_GO_VIDEO_SHADOW_LENGTH, !gpu_enabled);
-		this->SetWidgetDisabledState(WID_GO_VIDEO_SHADOW_SOFTNESS, !gpu_enabled);
-		this->SetWidgetDisabledState(WID_GO_VIDEO_WATER_REFLECT_BUTTON, !gpu_enabled);
-		this->SetWidgetDisabledState(WID_GO_VIDEO_REFLECTION_INTENSITY, !gpu_enabled);
-		this->SetWidgetDisabledState(WID_GO_VIDEO_REFLECTION_DISTORTION, !gpu_enabled);
-
 		this->SetWidgetLoweredState(WID_GO_GUI_SCALE_AUTO, _gui_scale_cfg == -1);
 		this->SetWidgetLoweredState(WID_GO_GUI_SCALE_BEVEL_BUTTON, _settings_client.gui.scale_bevels);
 #ifdef HAS_TRUETYPE_FONT
@@ -2399,49 +2334,7 @@ static constexpr std::initializer_list<NWidgetPart> _nested_game_options_widgets
 									EndContainer(),
 								EndContainer(),
 							EndContainer(),
-							/* Fake shadows + collapsible sub-parameters */
-							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
-								NWidget(WWT_BOOLBTN, GAME_OPTIONS_BACKGROUND, WID_GO_VIDEO_FAKE_SHADOWS_BUTTON), SetAlternateColourTip(GAME_OPTIONS_BUTTON, STR_GAME_OPTIONS_FAKE_SHADOWS_TOOLTIP),
-								NWidget(WWT_TEXT, INVALID_COLOUR, WID_GO_VIDEO_FAKE_SHADOWS_TEXT), SetFill(1, 0), SetResize(1, 0), SetTextStyle(GAME_OPTIONS_LABEL),
-							EndContainer(),
-							NWidget(NWID_SELECTION, INVALID_COLOUR, WID_GO_VIDEO_SHADOW_PARAMS_SEL),
-								NWidget(NWID_VERTICAL), SetPIP(0, WidgetDimensions::unscaled.vsep_normal, 0),
-									NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
-										NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_SHADOW_INTENSITY), SetTextStyle(GAME_OPTIONS_LABEL),
-										NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_SHADOW_INTENSITY), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_SHADOW_INTENSITY_TOOLTIP),
-									EndContainer(),
-									NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
-										NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_SHADOW_ANGLE), SetTextStyle(GAME_OPTIONS_LABEL),
-										NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_SHADOW_ANGLE), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_SHADOW_ANGLE_TOOLTIP),
-									EndContainer(),
-									NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
-										NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_SHADOW_LENGTH), SetTextStyle(GAME_OPTIONS_LABEL),
-										NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_SHADOW_LENGTH), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_SHADOW_LENGTH_TOOLTIP),
-									EndContainer(),
-									NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
-										NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_SHADOW_SOFTNESS), SetTextStyle(GAME_OPTIONS_LABEL),
-										NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_SHADOW_SOFTNESS), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_SHADOW_SOFTNESS_TOOLTIP),
-									EndContainer(),
-								EndContainer(),
-							EndContainer(),
-							/* Water reflections + collapsible sub-parameters */
-							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
-								NWidget(WWT_BOOLBTN, GAME_OPTIONS_BACKGROUND, WID_GO_VIDEO_WATER_REFLECT_BUTTON), SetAlternateColourTip(GAME_OPTIONS_BUTTON, STR_GAME_OPTIONS_WATER_REFLECTIONS_TOOLTIP),
-								NWidget(WWT_TEXT, INVALID_COLOUR, WID_GO_VIDEO_WATER_REFLECT_TEXT), SetFill(1, 0), SetResize(1, 0), SetTextStyle(GAME_OPTIONS_LABEL),
-							EndContainer(),
-							NWidget(NWID_SELECTION, INVALID_COLOUR, WID_GO_VIDEO_WATER_PARAMS_SEL),
-								NWidget(NWID_VERTICAL), SetPIP(0, WidgetDimensions::unscaled.vsep_normal, 0),
-									NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
-										NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_REFLECTION_INTENSITY), SetTextStyle(GAME_OPTIONS_LABEL),
-										NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_REFLECTION_INTENSITY), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_REFLECTION_INTENSITY_TOOLTIP),
-									EndContainer(),
-									NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
-										NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_REFLECTION_DISTORTION), SetTextStyle(GAME_OPTIONS_LABEL),
-										NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_REFLECTION_DISTORTION), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_REFLECTION_DISTORTION_TOOLTIP),
-									EndContainer(),
-								EndContainer(),
-							EndContainer(),
-							/* Weather overlay + collapsible sub-parameter */
+								/* Weather overlay + collapsible sub-parameter */
 							NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize), SetPIP(0, WidgetDimensions::unscaled.hsep_normal, 0),
 								NWidget(WWT_TEXT, INVALID_COLOUR), SetFill(1, 0), SetResize(1, 0), SetStringTip(STR_GAME_OPTIONS_WEATHER_TYPE), SetTextStyle(GAME_OPTIONS_LABEL),
 								NWidget(WWT_DROPDOWN, GAME_OPTIONS_BUTTON, WID_GO_VIDEO_WEATHER_DROPDOWN), SetFill(1, 0), SetToolTip(STR_GAME_OPTIONS_WEATHER_TYPE_TOOLTIP),
