@@ -65,8 +65,10 @@ private:
 	GLint  sprite_crash_loc = 0; ///< Uniform location for crash remap mode flag.
 
 	/* Post-processing pipeline resources. */
-	GLuint pp_fbo[2] = {};           ///< Ping-pong framebuffer objects.
+	GLuint pp_fbo[2] = {};           ///< Ping-pong framebuffer objects (display resolution).
 	GLuint pp_tex[2] = {};           ///< Colour texture attachments for ping-pong FBOs.
+	GLuint pp_scene_fbo = 0;         ///< Scene FBO at render resolution (for upscaling).
+	GLuint pp_scene_tex = 0;         ///< Scene texture at render resolution.
 	Dimension pp_render_size = {};   ///< Internal render resolution.
 	Dimension pp_display_size = {};  ///< Display/window resolution.
 	bool pp_active = false;          ///< Post-processing pipeline is currently active.

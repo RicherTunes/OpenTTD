@@ -1429,7 +1429,11 @@ void OpenGLBackend::Paint()
 	}
 
 	/* CPU viewport scaling: manage scratch buffer lifecycle.
-	 * Wave 7: Require 32bpp blitter — 8bpp palette indices are not valid RGBA. */
+	 * Requires: pp_fbo_supported, PP on, render_scale<=50, 32bpp blitter.
+	 * render_scale determines zoom step: 50%→zoom+1 (4x fewer pixels), 25%→zoom+2 (16x).
+	 * _screen stays at display res (mouse/UI unaffected). Only main viewport is scaled.
+	 * Motion vectors disabled when active (MV coords assume display resolution).
+	 * Palette animation disabled in viewport (water shimmer) — acceptable trade-off. */
 	this->vp_cpu_scaling = false;
 	Blitter *vp_blitter = BlitterFactory::GetCurrentBlitter();
 	if (this->pp_fbo_supported && this->pp_config.cpu_viewport_scaling &&
@@ -1878,12 +1882,40 @@ bool OpenGLBackend::SetupPostProcessFBOs(int display_w, int display_h)
 	_glGenFramebuffers(2, this->pp_fbo);
 	_glGenTextures(2, this->pp_tex);
 
-	/* Both FBOs at the max of render/display size to handle all cases.
-	 * For upscaling: FBOs at display size. Scene is rendered with a smaller
-	 *   viewport into FBO[0], then the upscale shader reads the reduced area
-	 *   and writes full display-size output. This avoids FBO size mismatch
-	 *   when ping-ponging after the upscale pass.
-	 * For supersampling: FBOs at render size (larger than display). */
+	/* Create a dedicated scene FBO at render resolution when upscaling.
+	 * The CPU blitter renders at display resolution into vid_texture.
+	 * Paint() blits vid_texture into pp_scene_fbo at render_size viewport.
+	 * The upscale shader (FSR/bilinear) reads from pp_scene_tex (render-sized)
+	 * and writes to pp_fbo[0] (display-sized). This ensures the upscale shader
+	 * actually has a lower-resolution input to upscale from. */
+	if (dims.render.width < dims.display.width) {
+		_glGenFramebuffers(1, &this->pp_scene_fbo);
+		_glGenTextures(1, &this->pp_scene_tex);
+		_glBindTexture(GL_TEXTURE_2D, this->pp_scene_tex);
+		_glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
+			dims.render.width, dims.render.height,
+			0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+		_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+		_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		_glBindFramebuffer(GL_FRAMEBUFFER, this->pp_scene_fbo);
+		_glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, this->pp_scene_tex, 0);
+		if (_glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+			Debug(driver, 0, "OpenGL: Scene FBO incomplete, disabling render scaling");
+			_glDeleteFramebuffers(1, &this->pp_scene_fbo);
+			_glDeleteTextures(1, &this->pp_scene_tex);
+			this->pp_scene_fbo = 0;
+			this->pp_scene_tex = 0;
+			dims.render = dims.display;
+			this->pp_render_size = dims.display;
+		}
+		_glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		_glBindTexture(GL_TEXTURE_2D, 0);
+	}
+
+	/* Ping-pong FBOs always at max of render/display for correct post-upscale passes. */
 	Dimension fbo_size = (dims.render.width > dims.display.width) ? dims.render : dims.display;
 
 	for (int i = 0; i < 2; i++) {
@@ -1996,7 +2028,8 @@ bool OpenGLBackend::SetupViewportScratchBuffer(int vp_w, int vp_h, uint8_t rende
  */
 void OpenGLBackend::DestroyViewportScratchBuffer()
 {
-	if (this->vp_texture != 0) {
+	/* Wave 42: Guard against GL context loss during shutdown. */
+	if (this->vp_texture != 0 && _glDeleteTextures != nullptr) {
 		_glDeleteTextures(1, &this->vp_texture);
 		this->vp_texture = 0;
 	}

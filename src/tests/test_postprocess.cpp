@@ -2627,7 +2627,8 @@ TEST_CASE("PostProcess - PassCount increments for each new effect")
 TEST_CASE("PostProcess - NeedsFBO includes cpu_viewport_scaling")
 {
 	PostProcessConfig config;
-	/* CPU viewport scaling alone should NOT require FBO -- it's a CPU-side feature. */
+	/* CPU viewport scaling requires FBO for two-pass GPU compositing
+	 * (viewport texture upscaled, then UI overlaid). */
 	config.cpu_viewport_scaling = true;
-	CHECK(!PostProcessNeedsFBO(config));
+	CHECK(PostProcessNeedsFBO(config));
 }
