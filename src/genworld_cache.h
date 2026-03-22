@@ -1,0 +1,23 @@
+/*
+ * This file is part of OpenTTD.
+ * OpenTTD is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 2.
+ * OpenTTD is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <https://www.gnu.org/licenses/old-licenses/gpl-2.0>.
+ */
+
+/** @file genworld_cache.h Precomputed valid tile caches for map generation. */
+
+#ifndef GENWORLD_CACHE_H
+#define GENWORLD_CACHE_H
+
+#include "tile_type.h"
+#include <vector>
+
+void BuildGenerationTileCache();
+void FreeGenerationTileCache();
+TileIndex GetRandomValidTreeTile();
+TileIndex GetRandomValidTownTile();
+bool HasValidTreeTiles();
+bool HasValidTownTiles();
+
+#endif /* GENWORLD_CACHE_H */
