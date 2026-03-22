@@ -107,11 +107,14 @@ void ComputeHarborScores()
 			}
 		}
 
-		/* Score: more surrounding land + deeper water access = better harbor */
+		/* Score: more surrounding land + deeper water access = better harbor.
+		 * Normalize to [0, 255] using theoretical max (8 land rays * 16 avg depth). */
 		if (land_rays > 0 && water_rays > 0) {
 			int avg_depth = total_water_depth / water_rays;
 			int raw_score = land_rays * avg_depth;
-			_harbor_scores[(uint)tile] = static_cast<uint8_t>(Clamp(raw_score * 4, 0, 255));
+			int max_possible = 8 * max_ray_length;
+			int normalized = (raw_score * 255) / std::max(1, max_possible);
+			_harbor_scores[(uint)tile] = static_cast<uint8_t>(Clamp(normalized, 0, 255));
 		}
 	}
 }
