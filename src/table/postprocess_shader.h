@@ -69,7 +69,7 @@ static const char *_frag_shader_pp_cas[] = {
 /**
  * Fragment shader implementing FSR 1.0 EASU.
  *
- * Performs a 12-tap edge-adaptive spatial upsampling using a Lanczos2-like
+ * Performs an 11-tap edge-adaptive spatial upsampling using a Lanczos2-like
  * kernel that adapts its shape based on detected edge direction. The filter
  * is sharper along edges and smoother perpendicular to edges.
  *
@@ -119,7 +119,7 @@ static const char *_frag_shader_pp_fsr_easu[] = {
 	"  vec2 texel_size = easu_con1.xy;",
 	"  vec2 center_uv = center * texel_size;",
 	"",
-	"  /* Sample the 12 texels in the cross/diamond pattern. */",
+	"  /* Sample 11 texels in a cross/diamond pattern (1-3-3-3-1). */",
 	"  /*        b         */",
 	"  /*      e f g       */",
 	"  /*      h i j       */",
@@ -581,10 +581,12 @@ static const char *_frag_shader_pp_downsample[] = {
 	"out vec4 frag_colour;",
 	"void main() {",
 	"  /* 4-tap box filter for clean 2x downsample. */",
-	"  vec4 a = texture(source_tex, tex_coord + vec2(-0.25, -0.25) * texel_size);",
-	"  vec4 b = texture(source_tex, tex_coord + vec2( 0.25, -0.25) * texel_size);",
-	"  vec4 c = texture(source_tex, tex_coord + vec2(-0.25,  0.25) * texel_size);",
-	"  vec4 d = texture(source_tex, tex_coord + vec2( 0.25,  0.25) * texel_size);",
+	"  /* Sample at the centers of a 2x2 source texel block. With GL_LINEAR, each */",
+	"  /* tap bilinearly blends 4 source texels, giving a proper area average. */",
+	"  vec4 a = texture(source_tex, tex_coord + vec2(-0.5, -0.5) * texel_size);",
+	"  vec4 b = texture(source_tex, tex_coord + vec2( 0.5, -0.5) * texel_size);",
+	"  vec4 c = texture(source_tex, tex_coord + vec2(-0.5,  0.5) * texel_size);",
+	"  vec4 d = texture(source_tex, tex_coord + vec2( 0.5,  0.5) * texel_size);",
 	"  frag_colour = (a + b + c + d) * 0.25;",
 	"}",
 };
@@ -643,7 +645,10 @@ static const char *_frag_shader_pp_lighting[] = {
 	"  float sun = clamp(sin(time_of_day * 6.28318530) * 0.5 + 0.5, 0.0, 1.0);",
 	"  float brightness = 0.45 + sun * 0.55;",
 	"  /* Color temperature: warm yellow at noon, cool blue at night, orange at dawn/dusk. */",
-	"  float dawn_dusk = pow(sin(time_of_day * 6.28318530 * 2.0) * 0.5 + 0.5, 3.0);",
+	"  /* Dawn at 0.25, dusk at 0.75. Use Gaussian-like peaks at those positions. */",
+	"  float dawn = exp(-pow((time_of_day - 0.25) * 8.0, 2.0));",
+	"  float dusk = exp(-pow((time_of_day - 0.75) * 8.0, 2.0));",
+	"  float dawn_dusk = max(dawn, dusk);",
 	"  vec3 noon_light  = vec3(1.00, 0.97, 0.90);",
 	"  vec3 night_light = vec3(0.60, 0.65, 0.85);",
 	"  vec3 dawn_light  = vec3(1.00, 0.80, 0.55);",
