@@ -1244,7 +1244,7 @@ void OpenGLBackend::Paint()
 		if (_video_post_processing) {
 			/* Core upscaling settings. */
 			new_config.render_scale = _video_render_scale;
-			uint8_t clamped_mode = Clamp<uint8_t>(_video_upscale_mode, 0, static_cast<uint8_t>(UpscaleMode::Temporal));
+			uint8_t clamped_mode = Clamp<uint8_t>(_video_upscale_mode, 0, static_cast<uint8_t>(UpscaleMode::Plugin));
 			new_config.upscale_mode = static_cast<UpscaleMode>(clamped_mode);
 			new_config.sharpening = _video_sharpening;
 

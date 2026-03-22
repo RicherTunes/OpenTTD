@@ -1796,3 +1796,55 @@ TEST_CASE("PostProcess - CalculateDimensions 4x4 at 50% gives exactly 2x2")
 	CHECK(dims.render.width == 2);
 	CHECK(dims.render.height == 2);
 }
+
+/* ====== Plugin upscale mode (Phase 3 DLSS/FSR2 plugin architecture) ====== */
+
+TEST_CASE("PostProcess - Plugin is valid UpscaleMode value 4")
+{
+	CHECK(static_cast<uint8_t>(UpscaleMode::Plugin) == 4);
+}
+
+TEST_CASE("PostProcess - Plugin mode needs FBO")
+{
+	PostProcessConfig config;
+	config.upscale_mode = UpscaleMode::Plugin;
+	config.render_scale = 75;
+	CHECK(PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("PostProcess - Plugin mode adds 1 pass")
+{
+	PostProcessConfig config;
+	config.upscale_mode = UpscaleMode::Plugin;
+	config.render_scale = 75;
+	CHECK(PostProcessPassCount(config) == 1);
+}
+
+TEST_CASE("PostProcess - Plugin mode suppresses CAS sharpening")
+{
+	PostProcessConfig config;
+	config.upscale_mode = UpscaleMode::Plugin;
+	config.sharpening = 80;
+	/* Plugin(1) only — CAS suppressed. */
+	CHECK(PostProcessPassCount(config) == 1);
+}
+
+TEST_CASE("PostProcess - Plugin mode at 100% still needs FBO")
+{
+	PostProcessConfig config;
+	config.upscale_mode = UpscaleMode::Plugin;
+	config.render_scale = 100;
+	CHECK(PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("PostProcess - all UpscaleMode values produce valid pass counts")
+{
+	for (uint8_t mode = 0; mode <= static_cast<uint8_t>(UpscaleMode::Plugin); mode++) {
+		PostProcessConfig config;
+		config.upscale_mode = static_cast<UpscaleMode>(mode);
+		config.render_scale = 75;
+		int passes = PostProcessPassCount(config);
+		CHECK(passes >= 0);
+		CHECK(passes <= 50); /* Sanity: no mode should produce absurd pass count. */
+	}
+}
