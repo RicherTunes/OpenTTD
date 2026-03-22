@@ -2022,15 +2022,26 @@ void Window::DrawViewportCPUScaled() const
 	while ((1 << extra_zoom) < scale_divisor && extra_zoom < 3) extra_zoom++;
 	if (extra_zoom == 0) return; /* No zoom reduction possible. */
 
-	/* Compute the scaled zoom level, clamped to ZoomLevel::Max. */
+	/* Compute the scaled zoom level, clamped to ZoomLevel::Max.
+	 * If clamped, adjust scratch dimensions so virtual extents match
+	 * the original viewport's world coverage. */
 	int new_zoom_val = to_underlying(this->viewport->zoom) + extra_zoom;
 	if (new_zoom_val > to_underlying(ZoomLevel::Max)) {
 		extra_zoom = static_cast<uint8_t>(to_underlying(ZoomLevel::Max) - to_underlying(this->viewport->zoom));
 		new_zoom_val = to_underlying(ZoomLevel::Max);
+		if (extra_zoom == 0) return; /* No zoom reduction possible after clamping. */
+		/* Recompute scratch dimensions to match the actual zoom step. */
+		int actual_divisor = 1 << extra_zoom;
+		vp_w = std::max(1, this->viewport->width / actual_divisor);
+		vp_h = std::max(1, this->viewport->height / actual_divisor);
+		vp_pitch = vp_w;
 	}
 	ZoomLevel scaled_zoom = static_cast<ZoomLevel>(new_zoom_val);
 
-	/* Build a temporary viewport at reduced size but same virtual extents. */
+	/* Build a temporary viewport at reduced size but same virtual extents.
+	 * virtual_width = vp_w << scaled_zoom should match original viewport->virtual_width
+	 * when extra_zoom steps are not clamped. When clamped, we show the same world area
+	 * at the max available reduced resolution. */
 	Viewport scaled_vp;
 	scaled_vp.left = 0;
 	scaled_vp.top = 0;
