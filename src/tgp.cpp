@@ -1409,7 +1409,9 @@ static void HeightMapMountainRanges()
 			Height add = static_cast<Height>(peak_amplitude * falloff);
 
 			if (add > 0) {
-				_height_map.height(static_cast<uint>(x), static_cast<uint>(y)) += add;
+				/* Clamp to prevent int16_t overflow when adding ridge height to existing terrain. */
+				Height &h = _height_map.height(static_cast<uint>(x), static_cast<uint>(y));
+				h = static_cast<Height>(Clamp(static_cast<int32_t>(h) + add, INT16_MIN, INT16_MAX));
 			}
 		}
 	}

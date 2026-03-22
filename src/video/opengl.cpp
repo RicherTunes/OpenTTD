@@ -1469,7 +1469,17 @@ void OpenGLBackend::Paint()
 	/* Post-processing requires 32bpp blitter -- 8bpp palette indices are not valid RGBA input. */
 	bool pp_this_frame = this->pp_active && bpp != 8;
 
-tif (pp_this_frame) {		if (this->pp_scene_fbo != 0) {			/* Upscaling: render scene into dedicated render-sized scene FBO. */			_glBindFramebuffer(GL_FRAMEBUFFER, this->pp_scene_fbo);			_glViewport(0, 0, this->pp_render_size.width, this->pp_render_size.height);		} else {			/* No upscaling: render scene into ping-pong FBO[0]. */			_glBindFramebuffer(GL_FRAMEBUFFER, this->pp_fbo[0]);			_glViewport(0, 0, this->pp_render_size.width, this->pp_render_size.height);		}	}
+	if (pp_this_frame) {
+		if (this->pp_scene_fbo != 0) {
+			/* Upscaling: render scene into dedicated render-sized scene FBO. */
+			_glBindFramebuffer(GL_FRAMEBUFFER, this->pp_scene_fbo);
+			_glViewport(0, 0, this->pp_render_size.width, this->pp_render_size.height);
+		} else {
+			/* No upscaling: render scene into ping-pong FBO[0]. */
+			_glBindFramebuffer(GL_FRAMEBUFFER, this->pp_fbo[0]);
+			_glViewport(0, 0, this->pp_render_size.width, this->pp_render_size.height);
+		}
+	}
 
 	_glClear(GL_COLOR_BUFFER_BIT);
 
@@ -1747,6 +1757,7 @@ bool OpenGLBackend::InitPostProcessShaders()
 		this->pp_ts_focus_loc[i] = CacheLoc(ts_progs[i], "focus_y");
 		this->pp_ts_width_loc[i] = CacheLoc(ts_progs[i], "focus_spread");
 		this->pp_ts_blur_loc[i] = CacheLoc(ts_progs[i], "blur_strength");
+		this->pp_ts_viewport_loc[i] = CacheLoc(ts_progs[i], "viewport_uv");
 	}
 
 	/* Color grading uniforms. */
@@ -1809,6 +1820,7 @@ bool OpenGLBackend::InitPostProcessShaders()
 	this->pp_water_reflect_distortion_loc = CacheLoc(this->pp_water_reflect_program, "distortion_amount");
 	this->pp_water_reflect_time_loc = CacheLoc(this->pp_water_reflect_program, "time");
 	this->pp_water_reflect_texel_loc = CacheLoc(this->pp_water_reflect_program, "texel_size");
+	this->pp_water_reflect_viewport_loc = CacheLoc(this->pp_water_reflect_program, "viewport_uv");
 
 	/* SSAO uniforms. */
 	this->pp_ssao_radius_loc = CacheLoc(this->pp_ssao_program, "ssao_radius");
@@ -2068,7 +2080,7 @@ void OpenGLBackend::RenderPostProcess()
 		_glViewport(0, 0, this->pp_display_size.width, this->pp_display_size.height);
 		_glClear(GL_COLOR_BUFFER_BIT);
 		_glActiveTexture(GL_TEXTURE0);
-		_glBindTexture(GL_TEXTURE_2D, this->pp_tex[0]);
+		_glBindTexture(GL_TEXTURE_2D, this->pp_scene_tex != 0 ? this->pp_scene_tex : this->pp_tex[0]);
 		if (this->pp_blit_program == 0) {
 			/* Blit shader not available -- unbind FBO and return. */
 			return;
@@ -2144,7 +2156,12 @@ void OpenGLBackend::RenderPostProcess()
 		_glClear(GL_COLOR_BUFFER_BIT);
 
 		_glActiveTexture(GL_TEXTURE0);
-		_glBindTexture(GL_TEXTURE_2D, this->pp_tex[src]);
+		/* First pass reads from scene FBO (render-sized) when upscaling. */
+		if (pass == 0 && this->pp_scene_tex != 0) {
+			_glBindTexture(GL_TEXTURE_2D, this->pp_scene_tex);
+		} else {
+			_glBindTexture(GL_TEXTURE_2D, this->pp_tex[src]);
+		}
 
 		/* PP vertex shader uses gl_VertexID fullscreen triangle (3 verts, not 4). */
 		_glBindVertexArray(this->vao_quad);
@@ -2394,6 +2411,19 @@ void OpenGLBackend::RenderPostProcess()
 		_glUniform1f(this->pp_water_reflect_intensity_loc, this->pp_config.reflection_intensity / 100.0f);
 		_glUniform1f(this->pp_water_reflect_distortion_loc, (float)this->pp_config.reflection_distortion);
 		_glUniform1f(this->pp_water_reflect_time_loc, reflect_time);
+		/* Upload viewport UV bounds so water reflections don't affect the UI. */
+		const Window *vp_win = GetMainWindow();
+		if (vp_win != nullptr && vp_win->viewport != nullptr && this->pp_water_reflect_viewport_loc >= 0) {
+			float sw = (float)work_size.width;
+			float sh = (float)work_size.height;
+			float uv_left = (float)vp_win->left / sw;
+			float uv_top = 1.0f - (float)(vp_win->top + vp_win->height) / sh;
+			float uv_right = (float)(vp_win->left + vp_win->width) / sw;
+			float uv_bottom = 1.0f - (float)vp_win->top / sh;
+			_glUniform4f(this->pp_water_reflect_viewport_loc, uv_left, uv_top, uv_right, uv_bottom);
+		} else if (this->pp_water_reflect_viewport_loc >= 0) {
+			_glUniform4f(this->pp_water_reflect_viewport_loc, 0.0f, 0.0f, 0.0f, 0.0f);
+		}
 		RunPass();
 	}
 
@@ -2429,6 +2459,19 @@ void OpenGLBackend::RenderPostProcess()
 			_glUniform1f(this->pp_ts_focus_loc[i], focus_y);
 			_glUniform1f(this->pp_ts_width_loc[i], focus_spread);
 			_glUniform1f(this->pp_ts_blur_loc[i], blur_s);
+			/* Upload viewport UV bounds so tilt-shift doesn't blur the UI. */
+			const Window *vp_win = GetMainWindow();
+			if (vp_win != nullptr && vp_win->viewport != nullptr && this->pp_ts_viewport_loc[i] >= 0) {
+				float sw = (float)work_size.width;
+				float sh = (float)work_size.height;
+				float uv_left = (float)vp_win->left / sw;
+				float uv_top = 1.0f - (float)(vp_win->top + vp_win->height) / sh;
+				float uv_right = (float)(vp_win->left + vp_win->width) / sw;
+				float uv_bottom = 1.0f - (float)vp_win->top / sh;
+				_glUniform4f(this->pp_ts_viewport_loc[i], uv_left, uv_top, uv_right, uv_bottom);
+			} else if (this->pp_ts_viewport_loc[i] >= 0) {
+				_glUniform4f(this->pp_ts_viewport_loc[i], 0.0f, 0.0f, 0.0f, 0.0f);
+			}
 			RunPass();
 		}
 	}

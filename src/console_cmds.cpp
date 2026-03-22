@@ -3498,15 +3498,15 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			IConsolePrint(CC_HELP, "  cinematic - Vignette + color grading + film grain");
 			IConsolePrint(CC_HELP, "  night     - Night mode with blue tint");
 			IConsolePrint(CC_HELP, "  miniature - Tilt-shift miniature effect");
-			IConsolePrint(CC_HELP, "  sharp     - FSR1 upscale + CAS sharpening at 75%% render scale");
-			IConsolePrint(CC_HELP, "  temporal  - Temporal upscale at 67%% render scale");
+			IConsolePrint(CC_HELP, "  sharp     - FSR1 upscale + CAS sharpening at 75% render scale");
+			IConsolePrint(CC_HELP, "  temporal  - Temporal upscale at 67% render scale");
 			IConsolePrint(CC_HELP, "  zoom      - Auto-supersample + pixel smoothing for close zoom");
 			IConsolePrint(CC_HELP, "  realistic - Shadows + water reflections + SSAO + tree sway + lighting");
 			IConsolePrint(CC_HELP, "  fantasy   - Sky clouds + bloom + vivid colors + reflections");
 			IConsolePrint(CC_HELP, "  photo     - Depth of field + shadows + vignette (photography)");
 			IConsolePrint(CC_HELP, "  stormy    - Rain + dark clouds + desaturated + reflections");
 			IConsolePrint(CC_HELP, "  postcard  - Smooth terrain + shadows + sky + tilt-shift");
-			IConsolePrint(CC_HELP, "  performance - CPU viewport scaling at 50%% + bilinear upscale");
+			IConsolePrint(CC_HELP, "  performance - CPU viewport scaling at 50% + bilinear upscale");
 			IConsolePrint(CC_HELP, "  clean     - Disable all effects (same as reset + on)");
 			return true;
 		}

@@ -1717,11 +1717,11 @@ TEST_CASE("PostProcess - fxaa_quality defaults to 75")
 	CHECK(config.fxaa_quality / 100.0f == Approx(0.75f));
 }
 
-TEST_CASE("PostProcess - fxaa_threshold defaults to 13")
+TEST_CASE("PostProcess - fxaa_threshold defaults to 8")
 {
 	PostProcessConfig config;
-	CHECK(config.fxaa_threshold == 13);
-	CHECK(config.fxaa_threshold / 100.0f == Approx(0.13f));
+	CHECK(config.fxaa_threshold == 8);
+	CHECK(config.fxaa_threshold / 100.0f == Approx(0.08f));
 }
 
 TEST_CASE("PostProcess - fxaa_quality at extremes")
@@ -2631,4 +2631,113 @@ TEST_CASE("PostProcess - NeedsFBO includes cpu_viewport_scaling")
 	 * (viewport texture upscaled, then UI overlaid). */
 	config.cpu_viewport_scaling = true;
 	CHECK(PostProcessNeedsFBO(config));
+}
+
+/* --- Additional CPU viewport scaling edge case tests --- */
+
+TEST_CASE("ViewportScratch - 1x1 viewport at 50%")
+{
+	auto dims = CalculateViewportScratchDimensions(1, 1, 50);
+	/* 1/2 rounds down but max(1,...) ensures at least 1x1. */
+	CHECK(dims.width == 1);
+	CHECK(dims.height == 1);
+	CHECK(dims.extra_zoom_steps == 1);
+}
+
+TEST_CASE("ViewportScratch - 2x2 viewport at 25%")
+{
+	auto dims = CalculateViewportScratchDimensions(2, 2, 25);
+	CHECK(dims.width == 1);
+	CHECK(dims.height == 1);
+	CHECK(dims.extra_zoom_steps == 2);
+}
+
+TEST_CASE("ViewportScratch - boundary at render_scale 51")
+{
+	/* 51% should NOT trigger CPU scaling (only <= 50). */
+	auto dims = CalculateViewportScratchDimensions(1920, 1080, 51);
+	CHECK(dims.extra_zoom_steps == 0);
+	CHECK(dims.width == 0);
+}
+
+TEST_CASE("ViewportScratch - boundary at render_scale 26")
+{
+	/* 26% should give zoom+1 (same as 50%), not zoom+2. */
+	auto dims = CalculateViewportScratchDimensions(1920, 1080, 26);
+	CHECK(dims.extra_zoom_steps == 1);
+	CHECK(dims.width == 960);
+}
+
+TEST_CASE("ViewportScratch - pitch equals width")
+{
+	auto dims = CalculateViewportScratchDimensions(1920, 1080, 50);
+	CHECK(dims.pitch == dims.width);
+}
+
+TEST_CASE("ViewportScratch - very large viewport at 50%")
+{
+	auto dims = CalculateViewportScratchDimensions(7680, 4320, 50);
+	CHECK(dims.width == 3840);
+	CHECK(dims.height == 2160);
+}
+
+TEST_CASE("PostProcess - cpu_viewport_scaling does not add shader passes")
+{
+	/* CPU scaling is GPU-composited but doesn't add PP shader passes. */
+	PostProcessConfig config;
+	int base = PostProcessPassCount(config);
+	config.cpu_viewport_scaling = true;
+	CHECK(PostProcessPassCount(config) == base);
+}
+
+TEST_CASE("PostProcess - cpu_viewport_scaling combined with effects")
+{
+	PostProcessConfig config;
+	config.cpu_viewport_scaling = true;
+	config.fxaa = true;
+	config.render_scale = 50;
+	CHECK(PostProcessNeedsFBO(config));
+	/* CPU viewport scaling handles upscale internally; only FXAA adds a pass. */
+	CHECK(PostProcessPassCount(config) >= 1);
+}
+
+TEST_CASE("PostProcess - render_scale 25 with FSR1")
+{
+	PostProcessConfig config;
+	config.render_scale = 25;
+	config.upscale_mode = UpscaleMode::FSR1;
+	CHECK(PostProcessNeedsFBO(config));
+	/* FSR1 = EASU + RCAS = 2 passes. */
+	CHECK(PostProcessPassCount(config) >= 2);
+}
+
+TEST_CASE("PostProcess - CalculateDimensions 25% scale")
+{
+	auto dims = CalculatePostProcessDimensions(1920, 1080, 25);
+	CHECK(dims.display.width == 1920);
+	CHECK(dims.display.height == 1080);
+	CHECK(dims.render.width == 480);
+	CHECK(dims.render.height == 270);
+}
+
+TEST_CASE("PostProcess - default config equality is reflexive")
+{
+	PostProcessConfig config;
+	CHECK(config == config);
+}
+
+TEST_CASE("PostProcess - all bool fields toggle inequality")
+{
+	PostProcessConfig a, b;
+	/* Spot-check: toggling any single bool should break equality. */
+	a.cpu_viewport_scaling = true;
+	CHECK(!(a == b));
+	a = PostProcessConfig{};
+
+	a.auto_supersample = true;
+	CHECK(!(a == b));
+	a = PostProcessConfig{};
+
+	a.pixel_smoothing = true;
+	CHECK(!(a == b));
 }

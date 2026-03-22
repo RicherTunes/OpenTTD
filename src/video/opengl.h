@@ -163,6 +163,7 @@ private:
 	GLint pp_ts_focus_loc[2] = {-1, -1}; ///< Tilt-shift focus_position locations.
 	GLint pp_ts_width_loc[2] = {-1, -1}; ///< Tilt-shift focus_width locations.
 	GLint pp_ts_blur_loc[2] = {-1, -1};  ///< Tilt-shift blur_strength locations.
+	GLint pp_ts_viewport_loc[2] = {-1, -1}; ///< Tilt-shift viewport_uv locations [h, v].
 	GLint pp_cg_brightness_loc = -1; ///< Color grading brightness uniform location.
 	GLint pp_cg_contrast_loc = -1;   ///< Color grading contrast uniform location.
 	GLint pp_cg_saturation_loc = -1; ///< Color grading saturation uniform location.
@@ -198,6 +199,7 @@ private:
 	GLint pp_water_reflect_distortion_loc = -1;  ///< Wave distortion uniform.
 	GLint pp_water_reflect_time_loc = -1;        ///< Animation time uniform.
 	GLint pp_water_reflect_texel_loc = -1;       ///< Texel size uniform.
+	GLint pp_water_reflect_viewport_loc = -1;    ///< Water reflection viewport_uv uniform.
 	GLint pp_ssao_radius_loc = -1;       ///< SSAO radius uniform location.
 	GLint pp_ssao_intensity_loc = -1;    ///< SSAO intensity uniform location.
 	GLint pp_ssao_samples_loc = -1;      ///< SSAO samples uniform location.
