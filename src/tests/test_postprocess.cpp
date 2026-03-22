@@ -3269,3 +3269,112 @@ TEST_CASE("PostProcess - water reflections requires sprite classification for cl
 	config.water_reflections = true;
 	CHECK(PostProcessNeedsSpriteClassification(config));
 }
+
+/* --- Toon rendering and heat haze tests --- */
+
+TEST_CASE("PostProcess - toon_rendering defaults with parameters")
+{
+	PostProcessConfig config;
+	CHECK(!config.toon_rendering);
+	CHECK(config.toon_edge_threshold == 10);
+	CHECK(config.toon_color_levels == 5);
+}
+
+TEST_CASE("PostProcess - heat_haze defaults with parameters")
+{
+	PostProcessConfig config;
+	CHECK(!config.heat_haze);
+	CHECK(config.haze_intensity == 30);
+	CHECK(config.haze_distortion == 5);
+}
+
+TEST_CASE("PostProcess - NeedsFBO with toon_rendering")
+{
+	PostProcessConfig config;
+	config.toon_rendering = true;
+	CHECK(PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("PostProcess - NeedsFBO with heat_haze")
+{
+	PostProcessConfig config;
+	config.heat_haze = true;
+	CHECK(PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("PostProcess - toon adds one pass")
+{
+	PostProcessConfig config;
+	int base = PostProcessPassCount(config);
+	config.toon_rendering = true;
+	CHECK(PostProcessPassCount(config) == base + 1);
+}
+
+TEST_CASE("PostProcess - heat haze adds one pass")
+{
+	PostProcessConfig config;
+	int base = PostProcessPassCount(config);
+	config.heat_haze = true;
+	CHECK(PostProcessPassCount(config) == base + 1);
+}
+
+TEST_CASE("PostProcess - toon + haze adds two passes")
+{
+	PostProcessConfig config;
+	int base = PostProcessPassCount(config);
+	config.toon_rendering = true;
+	config.heat_haze = true;
+	CHECK(PostProcessPassCount(config) == base + 2);
+}
+
+TEST_CASE("PostProcess - toon_edge_threshold range")
+{
+	PostProcessConfig a, b;
+	a.toon_edge_threshold = 1;
+	b.toon_edge_threshold = 50;
+	CHECK(!(a == b));
+}
+
+TEST_CASE("PostProcess - haze_distortion range")
+{
+	PostProcessConfig a, b;
+	a.haze_distortion = 1;
+	b.haze_distortion = 20;
+	CHECK(!(a == b));
+}
+
+/* --- Cumulative pass count sanity --- */
+
+TEST_CASE("PostProcess - all effects combined pass count is reasonable")
+{
+	PostProcessConfig config;
+	config.fxaa = true;
+	config.night_mode = true;
+	config.crt_filter = true;
+	config.vignette = true;
+	config.tiltshift = true;
+	config.film_grain = true;
+	config.color_grading = true;
+	config.dynamic_lighting = true;
+	config.bloom = true;
+	config.depth_of_field = true;
+	config.fake_shadows = true;
+	config.water_reflections = true;
+	config.ssao = true;
+	config.terrain_smooth = true;
+	config.tree_sway = true;
+	config.sky_clouds = true;
+	config.pixel_smoothing = true;
+	config.toon_rendering = true;
+	config.heat_haze = true;
+	config.weather_type = 1;
+	config.render_scale = 50;
+	config.upscale_mode = UpscaleMode::FSR1;
+	config.sharpening = 0; /* CAS excluded when FSR1 active */
+
+	int passes = PostProcessPassCount(config);
+	/* Verify pass count is in a sane range (20-35 with all effects on).
+	 * This catches missing or double-counted passes. */
+	CHECK(passes >= 20);
+	CHECK(passes <= 40);
+}

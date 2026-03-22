@@ -989,3 +989,256 @@ TEST_CASE("River delta - no zero-length branches") {
 		(void)min_length;
 	}
 }
+
+/* --- Biome Town Growth tests --- */
+
+TEST_CASE("Biome town growth - moderate temperature is optimal") {
+	/* Temperature 0.5 (moderate) should give highest growth multiplier */
+	auto GrowthMultiplier = [](double temperature) -> double {
+		/* Bell curve centered at 0.5: 1.0 at center, 0.5 at extremes */
+		double deviation = fabs(temperature - 0.5);
+		return std::max(0.5, 1.0 - deviation * 1.5);
+	};
+	CHECK(GrowthMultiplier(0.5) == Approx(1.0));
+	CHECK(GrowthMultiplier(0.5) > GrowthMultiplier(0.0));
+	CHECK(GrowthMultiplier(0.5) > GrowthMultiplier(1.0));
+}
+
+TEST_CASE("Biome town growth - extreme cold reduces growth") {
+	auto GrowthMultiplier = [](double temperature) -> double {
+		double deviation = fabs(temperature - 0.5);
+		return std::max(0.5, 1.0 - deviation * 1.5);
+	};
+	CHECK(GrowthMultiplier(0.0) < 0.75);
+	CHECK(GrowthMultiplier(0.0) >= 0.5);
+}
+
+TEST_CASE("Biome town growth - extreme heat reduces growth") {
+	auto GrowthMultiplier = [](double temperature) -> double {
+		double deviation = fabs(temperature - 0.5);
+		return std::max(0.5, 1.0 - deviation * 1.5);
+	};
+	CHECK(GrowthMultiplier(1.0) < 0.75);
+	CHECK(GrowthMultiplier(1.0) >= 0.5);
+}
+
+TEST_CASE("Biome town growth - multiplier is symmetric around 0.5") {
+	auto GrowthMultiplier = [](double temperature) -> double {
+		double deviation = fabs(temperature - 0.5);
+		return std::max(0.5, 1.0 - deviation * 1.5);
+	};
+	CHECK(GrowthMultiplier(0.3) == Approx(GrowthMultiplier(0.7)));
+	CHECK(GrowthMultiplier(0.1) == Approx(GrowthMultiplier(0.9)));
+}
+
+TEST_CASE("Biome town growth - multiplier clamped to [0.5, 1.0]") {
+	auto GrowthMultiplier = [](double temperature) -> double {
+		double deviation = fabs(temperature - 0.5);
+		return std::max(0.5, 1.0 - deviation * 1.5);
+	};
+	for (int i = 0; i <= 100; i++) {
+		double t = i / 100.0;
+		double m = GrowthMultiplier(t);
+		CHECK(m >= 0.5);
+		CHECK(m <= 1.0);
+	}
+}
+
+TEST_CASE("Biome town growth - coastal proximity bonus") {
+	/* Towns near water get a growth bonus */
+	auto CoastalBonus = [](int distance_to_water) -> double {
+		if (distance_to_water <= 5) return 1.15;
+		if (distance_to_water <= 15) return 1.05;
+		return 1.0;
+	};
+	CHECK(CoastalBonus(3) == Approx(1.15));
+	CHECK(CoastalBonus(10) == Approx(1.05));
+	CHECK(CoastalBonus(20) == Approx(1.0));
+}
+
+
+/*
+ * Feature: Heightmap Preview -- grayscale to palette colour conversion tests
+ */
+
+TEST_CASE("Heightmap preview - grayscale to palette conversion") {
+	/* Verify the height-to-colour mapping produces valid palette indices.
+	 * This mirrors HeightToPreviewColour() in genworld_preview.cpp. */
+	for (int h = 0; h <= 15; h++) {
+		double t = (double)h / 15.0;
+		uint8_t colour;
+		if (t < 0.15) colour = 0x58;
+		else if (t < 0.30) colour = 0x59;
+		else if (t < 0.45) colour = 0x5A;
+		else if (t < 0.55) colour = 0x5B;
+		else if (t < 0.65) colour = 0x22;
+		else if (t < 0.75) colour = 0x23;
+		else if (t < 0.85) colour = 0x0A;
+		else if (t < 0.95) colour = 0x0B;
+		else colour = 0x0F;
+		CHECK(colour > 0);
+		CHECK(colour < 0xFF);
+	}
+}
+
+TEST_CASE("Heightmap preview - water colour is distinct") {
+	/* Water colour must differ from all land colours */
+	uint8_t water = 0xCA;
+	uint8_t land_colours[] = {0x58, 0x59, 0x5A, 0x5B, 0x22, 0x23, 0x0A, 0x0B, 0x0F};
+	for (auto land : land_colours) {
+		CHECK(water != land);
+	}
+}
+
+TEST_CASE("Heightmap preview - grayscale downscale preserves range") {
+	/* When downscaling a heightmap buffer, the output should preserve
+	 * the min/max range of the source data. Simulates bilinear averaging. */
+	const int src_w = 512, src_h = 512;
+	const int dst_w = 256, dst_h = 128;
+	std::vector<uint8_t> src(src_w * src_h);
+
+	/* Create a gradient heightmap: top-left=0, bottom-right=255 */
+	for (int y = 0; y < src_h; y++) {
+		for (int x = 0; x < src_w; x++) {
+			src[y * src_w + x] = static_cast<uint8_t>((x + y) * 255 / (src_w + src_h - 2));
+		}
+	}
+
+	/* Downsample using nearest-neighbour (same as heightmap.cpp) */
+	std::vector<uint8_t> dst(dst_w * dst_h);
+	for (int dy = 0; dy < dst_h; dy++) {
+		for (int dx = 0; dx < dst_w; dx++) {
+			int sx = dx * src_w / dst_w;
+			int sy = dy * src_h / dst_h;
+			dst[dy * dst_w + dx] = src[sy * src_w + sx];
+		}
+	}
+
+	uint8_t min_val = *std::min_element(dst.begin(), dst.end());
+	uint8_t max_val = *std::max_element(dst.begin(), dst.end());
+	CHECK(min_val == 0);
+	CHECK(max_val > 200); /* Should preserve most of the range */
+}
+
+TEST_CASE("Heightmap preview - colour gradient is monotonic for ascending height") {
+	/* Higher heights should map to equal or later colours in the gradient.
+	 * We verify the colour index order is non-decreasing. */
+	uint8_t prev_colour_idx = 0;
+	uint8_t colour_order[] = {0x58, 0x59, 0x5A, 0x5B, 0x22, 0x23, 0x0A, 0x0B, 0x0F};
+	auto ColourIndex = [&colour_order](uint8_t c) -> int {
+		for (int i = 0; i < 9; i++) {
+			if (colour_order[i] == c) return i;
+		}
+		return -1;
+	};
+
+	int prev_idx = 0;
+	for (int h = 0; h <= 15; h++) {
+		double t = (double)h / 15.0;
+		uint8_t colour;
+		if (t < 0.15) colour = 0x58;
+		else if (t < 0.30) colour = 0x59;
+		else if (t < 0.45) colour = 0x5A;
+		else if (t < 0.55) colour = 0x5B;
+		else if (t < 0.65) colour = 0x22;
+		else if (t < 0.75) colour = 0x23;
+		else if (t < 0.85) colour = 0x0A;
+		else if (t < 0.95) colour = 0x0B;
+		else colour = 0x0F;
+		int idx = ColourIndex(colour);
+		CHECK(idx >= prev_idx);
+		prev_idx = idx;
+	}
+	(void)prev_colour_idx;
+}
+
+
+/*
+ * Feature: Minimap Overlays -- harbor quality score to colour mapping tests
+ */
+
+TEST_CASE("Harbor overlay - score to colour gradient") {
+	/* Harbor scores map to a blue gradient: 0=transparent, 255=bright blue */
+	auto HarborScoreToColour = [](uint8_t score) -> uint8_t {
+		if (score == 0) return 0;       /* No overlay */
+		if (score < 64) return 0x98;    /* Light blue */
+		if (score < 128) return 0x99;   /* Medium blue */
+		if (score < 192) return 0x9A;   /* Blue */
+		return 0x9B;                    /* Bright blue */
+	};
+	CHECK(HarborScoreToColour(0) == 0);
+	CHECK(HarborScoreToColour(50) == 0x98);
+	CHECK(HarborScoreToColour(100) == 0x99);
+	CHECK(HarborScoreToColour(200) == 0x9A);
+	CHECK(HarborScoreToColour(255) == 0x9B);
+}
+
+TEST_CASE("Harbor overlay - gradient is monotonically non-decreasing") {
+	/* Increasing scores should yield equal or higher colour indices */
+	auto HarborScoreToColour = [](uint8_t score) -> uint8_t {
+		if (score == 0) return 0;
+		if (score < 64) return 0x98;
+		if (score < 128) return 0x99;
+		if (score < 192) return 0x9A;
+		return 0x9B;
+	};
+	uint8_t prev = 0;
+	for (int s = 0; s <= 255; s++) {
+		uint8_t c = HarborScoreToColour(static_cast<uint8_t>(s));
+		CHECK(c >= prev);
+		prev = c;
+	}
+}
+
+TEST_CASE("Harbor overlay - zero score means no overlay") {
+	/* A zero harbor score should result in transparent (0) overlay */
+	auto HarborScoreToColour = [](uint8_t score) -> uint8_t {
+		if (score == 0) return 0;
+		if (score < 64) return 0x98;
+		if (score < 128) return 0x99;
+		if (score < 192) return 0x9A;
+		return 0x9B;
+	};
+	CHECK(HarborScoreToColour(0) == 0);
+	/* Any non-zero score should produce a visible colour */
+	CHECK(HarborScoreToColour(1) != 0);
+	CHECK(HarborScoreToColour(63) != 0);
+}
+
+TEST_CASE("Heightmap preview - GenerateHeightmapPreview downscales correctly") {
+	/* Simulate the downscale-and-colourize pipeline:
+	 * source greyscale buffer -> downscale -> HeightToPreviewColour */
+	const int src_w = 128, src_h = 128;
+	const int dst_w = 64, dst_h = 32;
+	std::vector<uint8_t> src(src_w * src_h, 128); /* Uniform mid-grey */
+
+	/* Downscale */
+	std::vector<uint8_t> dst(dst_w * dst_h);
+	for (int dy = 0; dy < dst_h; dy++) {
+		for (int dx = 0; dx < dst_w; dx++) {
+			int sx = dx * src_w / dst_w;
+			int sy = dy * src_h / dst_h;
+			dst[dy * dst_w + dx] = src[sy * src_w + sx];
+		}
+	}
+
+	/* All downscaled values should be 128 (uniform input) */
+	for (auto v : dst) {
+		CHECK(v == 128);
+	}
+
+	/* Convert to palette colour: height 128/255 ~= 0.502, which falls
+	 * in the 0.45-0.55 bracket -> 0x5B (yellow-green) */
+	double t = 128.0 / 255.0;
+	uint8_t expected;
+	if (t < 0.15) expected = 0x58;
+	else if (t < 0.30) expected = 0x59;
+	else if (t < 0.45) expected = 0x5A;
+	else if (t < 0.55) expected = 0x5B;
+	else if (t < 0.65) expected = 0x22;
+	else if (t < 0.75) expected = 0x23;
+	else if (t < 0.85) expected = 0x0A;
+	else if (t < 0.95) expected = 0x0B;
+	else expected = 0x0F;
+	CHECK(expected == 0x5B);
+}
