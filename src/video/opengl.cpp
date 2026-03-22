@@ -2094,7 +2094,14 @@ void OpenGLBackend::RenderPostProcess()
 			params.output.height = this->pp_display_size.height;
 			params.jitter_x = jitter_x;
 			params.jitter_y = jitter_y;
-			params.delta_time = 0.016f;
+			/* Compute actual frame delta for temporal upscaling (not hardcoded 60 FPS). */
+			auto now_plugin = std::chrono::steady_clock::now();
+			if (this->pp_last_frame_time != std::chrono::steady_clock::time_point{}) {
+				params.delta_time = std::chrono::duration<float>(now_plugin - this->pp_last_frame_time).count();
+			} else {
+				params.delta_time = 0.016f; /* First frame: assume 60 FPS. */
+			}
+			this->pp_last_frame_time = now_plugin;
 			params.render_width = this->pp_render_size.width;
 			params.render_height = this->pp_render_size.height;
 			params.display_width = this->pp_display_size.width;

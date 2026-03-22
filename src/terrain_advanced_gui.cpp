@@ -104,14 +104,20 @@ struct TerrainAdvancedWindow : public Window {
 			case WID_TA_MOUNTAIN_RANGES_PULLDOWN:
 				return GetString(_mountain_ranges[_settings_newgame.game_creation.amount_of_mountain_ranges]);
 
-			case WID_TA_CONTINENT_SHAPE_PULLDOWN:
-				return GetString(_continent_shapes[static_cast<uint8_t>(_settings_newgame.game_creation.continent_shape)]);
+			case WID_TA_CONTINENT_SHAPE_PULLDOWN: {
+				uint8_t idx = static_cast<uint8_t>(_settings_newgame.game_creation.continent_shape);
+				return GetString(_continent_shapes[std::min<uint8_t>(idx, lengthof(_continent_shapes) - 1)]);
+			}
 
-			case WID_TA_TERRAIN_ALGO_PULLDOWN:
-				return GetString(_terrain_algorithms[static_cast<uint8_t>(_settings_newgame.game_creation.terrain_algorithm)]);
+			case WID_TA_TERRAIN_ALGO_PULLDOWN: {
+				uint8_t idx = static_cast<uint8_t>(_settings_newgame.game_creation.terrain_algorithm);
+				return GetString(_terrain_algorithms[std::min<uint8_t>(idx, lengthof(_terrain_algorithms) - 1)]);
+			}
 
-			case WID_TA_BIOME_MODEL_PULLDOWN:
-				return GetString(_biome_models[static_cast<uint8_t>(_settings_newgame.game_creation.biome_model)]);
+			case WID_TA_BIOME_MODEL_PULLDOWN: {
+				uint8_t idx = static_cast<uint8_t>(_settings_newgame.game_creation.biome_model);
+				return GetString(_biome_models[std::min<uint8_t>(idx, lengthof(_biome_models) - 1)]);
+			}
 
 			case WID_TA_TOWN_DISTRIBUTION_PULLDOWN:
 				return GetString(_town_distributions[static_cast<uint8_t>(_settings_newgame.game_creation.town_distribution)]);
