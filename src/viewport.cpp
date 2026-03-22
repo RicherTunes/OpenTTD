@@ -1230,6 +1230,10 @@ static void ViewportAddLandscape()
 	assert(_vd.dpi.top <= _vd.dpi.top + _vd.dpi.height);
 	assert(_vd.dpi.left <= _vd.dpi.left + _vd.dpi.width);
 
+	/* Clear per-frame slope cache. Must be cleared every frame to pick up
+	 * terrain changes (terraform, building, etc.). */
+	_vd.slope_cache.clear();
+
 	Point upper_left = InverseRemapCoords(_vd.dpi.left, _vd.dpi.top);
 	Point upper_right = InverseRemapCoords(_vd.dpi.left + _vd.dpi.width, _vd.dpi.top);
 
