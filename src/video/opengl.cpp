@@ -2042,8 +2042,22 @@ void OpenGLBackend::RenderPostProcess()
 		/* Save the pre-bloom scene before the threshold pass destroys it.
 		 * The 3 intermediate passes (threshold + blur_h + blur_v) overwrite both
 		 * ping-pong FBOs, so the composite can't read the original from pp_tex.
-		 * Copy into the history texture (reused when temporal upscale is inactive). */
+		 * We use the history texture as scratch storage for the pre-bloom scene. */
 		bool bloom_save_valid = false;
+		/* Allocate history texture on demand if not already allocated by temporal mode. */
+		if (this->pp_bloom_composite_program != 0 && this->pp_history_tex == 0) {
+			_glGenTextures(1, &this->pp_history_tex);
+			_glBindTexture(GL_TEXTURE_2D, this->pp_history_tex);
+			_glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
+				this->pp_display_size.width, this->pp_display_size.height,
+				0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+			_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+			_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+			_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+			_glBindTexture(GL_TEXTURE_2D, 0);
+		}
 		if (this->pp_bloom_composite_program != 0 && this->pp_history_tex != 0) {
 			_glBindTexture(GL_TEXTURE_2D, this->pp_history_tex);
 			_glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0,
