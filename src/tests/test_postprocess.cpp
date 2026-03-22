@@ -2711,13 +2711,15 @@ TEST_CASE("PostProcess - render_scale 25 with FSR1")
 	CHECK(PostProcessPassCount(config) >= 2);
 }
 
-TEST_CASE("PostProcess - CalculateDimensions 25% scale")
+TEST_CASE("PostProcess - CalculateDimensions 25% scale clamped to 50%")
 {
+	/* render_scale is clamped to [50, 200], so 25% input clamps to 50%. */
 	auto dims = CalculatePostProcessDimensions(1920, 1080, 25);
 	CHECK(dims.display.width == 1920);
 	CHECK(dims.display.height == 1080);
-	CHECK(dims.render.width == 480);
-	CHECK(dims.render.height == 270);
+	/* 1920 * 50 / 100 = 960, 1080 * 50 / 100 = 540 */
+	CHECK(dims.render.width == 960);
+	CHECK(dims.render.height == 540);
 }
 
 TEST_CASE("PostProcess - default config equality is reflexive")
