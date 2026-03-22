@@ -301,6 +301,7 @@ Global variables (`_video_*` in `video_driver.cpp`, 66+ vars) -> synced per-fram
 - Update rect clamped to screen bounds in ReleaseVideoBuffer (prevents OOB texSubImage)
 - Viewport string rendering caches font metrics and bevel dimensions
 - Night mode, tilt-shift, water reflections apply to viewport only (not UI)
+- sRGB-correct pipeline: bloom, color grading, dynamic lighting linearize input before math, encode back to sRGB
 
 ## Map Generation Improvements
 
