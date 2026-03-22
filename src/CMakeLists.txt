@@ -393,8 +393,6 @@ add_files(
     road.h
     road_cmd.cpp
     road_cmd.h
-    save_thumbnail.cpp
-    save_thumbnail.h
     road_func.h
     road_gui.cpp
     road_gui.h
@@ -409,6 +407,8 @@ add_files(
     roadveh_cmd.h
     roadveh_gui.cpp
     safeguards.h
+    save_thumbnail.cpp
+    save_thumbnail.h
     screenshot_bmp.cpp
     screenshot_gui.cpp
     screenshot_gui.h
@@ -416,8 +416,6 @@ add_files(
     screenshot.h
     screenshot_type.h
     screenshot_pcx.cpp
-    save_thumbnail.cpp
-    save_thumbnail.h
     settingentry_gui.cpp
     settingentry_gui.h
     settings.cpp
