@@ -47,20 +47,21 @@
 #include "misc_cmd.h"
 #include "benchmark.h"
 #include "video/video_driver.hpp"
-/* opengl.h requires GL headers -- only include when OpenGL is available.
- * The GL headers are pulled in via the precompiled stdafx.h when WITH_OPENGL. */
+/* opengl.h requires GL type definitions (GLuint, GLsync, etc.). */
 #ifdef WITH_OPENGL
-#if defined(_WIN32)
-#	include <windows.h>
+#	if defined(_WIN32)
+#		define WINGDIAPI
+#		define APIENTRY
+#	endif
+#	define GL_GLEXT_PROTOTYPES
+#	if defined(__APPLE__)
+#		include <OpenGL/gl3.h>
+#	else
+#		include <GL/gl.h>
+#	endif
+#	include "3rdparty/opengl/glext.h"
+#	include "video/opengl.h"
 #endif
-#define GL_GLEXT_PROTOTYPES
-#if defined(__APPLE__)
-#	include <OpenGL/gl3.h>
-#else
-#	include <GL/gl.h>
-#endif
-#include "video/opengl.h"
-#endif /* WITH_OPENGL */
 #include "video/upscale_plugin.h"
 #include "video/pp_screenshot.h"
 
