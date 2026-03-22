@@ -21,6 +21,16 @@ static const char *_vertex_shader_pp[] = {
 	"}",
 };
 
+/* ---- Shared colour-space conversion helpers ---- */
+
+/** GLSL helpers for sRGB-to-linear and linear-to-sRGB conversion.
+ *  Prepended to shaders that need linear-space math (bloom, grading, lighting).
+ *  Uses the standard gamma 2.2 approximation. */
+static const char *_glsl_color_helpers[] = {
+	"vec3 SrgbToLinear(vec3 c) { return pow(max(c, vec3(0.0)), vec3(2.2)); }\n",
+	"vec3 LinearToSrgb(vec3 c) { return pow(max(c, vec3(0.0)), vec3(1.0 / 2.2)); }\n",
+};
+
 /* ---- Simple blit (passthrough) ---- */
 
 /** Fragment shader that copies the source texture without modification. */
@@ -320,16 +330,19 @@ static const char *_frag_shader_pp_color_grading[] = {
 	"uniform float temperature;",
 	"in vec2 tex_coord;",
 	"out vec4 frag_colour;",
+	"vec3 SrgbToLinear(vec3 c) { return pow(max(c, vec3(0.0)), vec3(2.2)); }",
+	"vec3 LinearToSrgb(vec3 c) { return pow(max(c, vec3(0.0)), vec3(1.0 / 2.2)); }",
 	"void main() {",
 	"  vec4 center = texture(source_tex, tex_coord);",
-	"  vec3 c = center.rgb;",
+	"  vec3 c = SrgbToLinear(center.rgb);",
 	"  float src_alpha = center.a;",
 	"",
-	"  /* Brightness: simple addition. */",
+	"  /* Brightness: addition in linear space. */",
 	"  c += brightness;",
 	"",
-	"  /* Contrast: scale around mid-grey. */",
-	"  c = (c - 0.5) * contrast + 0.5;",
+	"  /* Contrast: scale around linear mid-grey (0.5^2.2 ~ 0.2176). */",
+	"  float mid = 0.2176;",
+	"  c = (c - mid) * contrast + mid;",
 	"",
 	"  /* Saturation: lerp towards luminance. */",
 	"  float luma = dot(c, vec3(0.2126, 0.7152, 0.0722));",
@@ -339,7 +352,7 @@ static const char *_frag_shader_pp_color_grading[] = {
 	"  c.r += temperature * 0.1;",
 	"  c.b -= temperature * 0.1;",
 	"",
-	"  frag_colour = vec4(clamp(c, 0.0, 1.0), src_alpha);",
+	"  frag_colour = vec4(clamp(LinearToSrgb(c), 0.0, 1.0), src_alpha);",
 	"}",
 };
 
@@ -739,8 +752,11 @@ static const char *_frag_shader_pp_lighting[] = {
 	"uniform float time_of_day;",
 	"in vec2 tex_coord;",
 	"out vec4 frag_colour;",
+	"vec3 SrgbToLinear(vec3 c) { return pow(max(c, vec3(0.0)), vec3(2.2)); }",
+	"vec3 LinearToSrgb(vec3 c) { return pow(max(c, vec3(0.0)), vec3(1.0 / 2.2)); }",
 	"void main() {",
 	"  vec4 src = texture(source_tex, tex_coord);",
+	"  vec3 linear = SrgbToLinear(src.rgb);",
 	"  /* Brightness cycle: peaks at noon (0.5), darkest at midnight (0.0/1.0). */",
 	"  float sun = clamp(sin((time_of_day - 0.25) * 6.28318530) * 0.5 + 0.5, 0.0, 1.0);",
 	"  float brightness = 0.45 + sun * 0.55;",
@@ -754,8 +770,8 @@ static const char *_frag_shader_pp_lighting[] = {
 	"  vec3 dawn_light  = vec3(1.00, 0.80, 0.55);",
 	"  vec3 light_color = mix(night_light, noon_light, sun);",
 	"  light_color = mix(light_color, dawn_light, dawn_dusk * 0.6);",
-	"  vec3 result = src.rgb * light_color * brightness;",
-	"  frag_colour = vec4(clamp(result, 0.0, 1.0), src.a);",
+	"  vec3 result = linear * light_color * brightness;",
+	"  frag_colour = vec4(clamp(LinearToSrgb(result), 0.0, 1.0), src.a);",
 	"}",
 };
 
@@ -769,11 +785,13 @@ static const char *_frag_shader_pp_bloom_threshold[] = {
 	"uniform float bloom_intensity;",
 	"in vec2 tex_coord;",
 	"out vec4 frag_colour;",
+	"vec3 SrgbToLinear(vec3 c) { return pow(max(c, vec3(0.0)), vec3(2.2)); }",
 	"void main() {",
 	"  vec4 src = texture(source_tex, tex_coord);",
-	"  float luma = dot(src.rgb, vec3(0.2126, 0.7152, 0.0722));",
+	"  vec3 linear = SrgbToLinear(src.rgb);",
+	"  float luma = dot(linear, vec3(0.2126, 0.7152, 0.0722));",
 	"  float contrib = max(0.0, luma - bloom_threshold) / max(1.0 - bloom_threshold, 0.001);",
-	"  frag_colour = vec4(src.rgb * contrib * bloom_intensity, src.a);",
+	"  frag_colour = vec4(linear * contrib * bloom_intensity, src.a);",
 	"}",
 };
 
@@ -825,10 +843,14 @@ static const char *_frag_shader_pp_bloom_composite[] = {
 	"uniform sampler2D bloom_original;",
 	"in vec2 tex_coord;",
 	"out vec4 frag_colour;",
+	"vec3 SrgbToLinear(vec3 c) { return pow(max(c, vec3(0.0)), vec3(2.2)); }",
+	"vec3 LinearToSrgb(vec3 c) { return pow(max(c, vec3(0.0)), vec3(1.0 / 2.2)); }",
 	"void main() {",
 	"  vec3 bloom = texture(source_tex, tex_coord).rgb;",
 	"  vec4 original = texture(bloom_original, tex_coord);",
-	"  frag_colour = vec4(clamp(original.rgb + bloom, 0.0, 1.0), original.a);",
+	"  vec3 orig_linear = SrgbToLinear(original.rgb);",
+	"  vec3 result = orig_linear + bloom;",
+	"  frag_colour = vec4(clamp(LinearToSrgb(result), 0.0, 1.0), original.a);",
 	"}",
 };
 
