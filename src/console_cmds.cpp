@@ -2905,6 +2905,7 @@ static void ResetPPDefaults()
 	_video_pixel_smoothing = false;
 	_video_pixel_smooth_amount = 70;
 	_video_auto_supersample = false;
+	_video_cpu_viewport_scaling = false;
 	_video_fake_shadows = false;
 	_video_shadow_intensity = 40;
 	_video_shadow_angle = 45;
