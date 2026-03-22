@@ -1721,9 +1721,13 @@ void OpenGLBackend::RenderPostProcess()
 		_glClear(GL_COLOR_BUFFER_BIT);
 		_glActiveTexture(GL_TEXTURE0);
 		_glBindTexture(GL_TEXTURE_2D, this->pp_tex[0]);
+		if (this->pp_blit_program == 0) {
+			/* Blit shader not available -- unbind FBO and return. */
+			return;
+		}
 		_glUseProgram(this->pp_blit_program);
 		_glBindVertexArray(this->vao_quad);
-		_glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+		_glDrawArrays(GL_TRIANGLES, 0, 3);
 		return;
 	}
 
@@ -1779,8 +1783,9 @@ void OpenGLBackend::RenderPostProcess()
 		_glActiveTexture(GL_TEXTURE0);
 		_glBindTexture(GL_TEXTURE_2D, this->pp_tex[src]);
 
+		/* PP vertex shader uses gl_VertexID fullscreen triangle (3 verts, not 4). */
 		_glBindVertexArray(this->vao_quad);
-		_glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+		_glDrawArrays(GL_TRIANGLES, 0, 3);
 
 		if (!is_last) src = 1 - src;
 		pass++;
@@ -2117,7 +2122,7 @@ void OpenGLBackend::RenderPostProcess()
 			_glBindTexture(GL_TEXTURE_2D, this->pp_tex[0]);
 			_glUseProgram(this->pp_blit_program);
 			_glBindVertexArray(this->vao_quad);
-			_glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+			_glDrawArrays(GL_TRIANGLES, 0, 3);
 		}
 	}
 
