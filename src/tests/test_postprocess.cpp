@@ -2806,3 +2806,222 @@ TEST_CASE("PostProcess - supersampling 150% needs exactly one downsample pass")
 	CHECK(PostProcessNeedsFBO(config));
 	CHECK(PostProcessPassCount(config) == 1); /* Downsample pass. */
 }
+
+/* --- Zero-pass path regression tests (M0 baseline guards) --- */
+
+TEST_CASE("PostProcess - zero effects at 100% scale: no FBO, zero passes")
+{
+	/* This is the critical baseline path: PP master toggle on, but nothing
+	 * enabled. Must be a no-op (pixel-identical to PP off). Any regression
+	 * here causes a black screen or unnecessary FBO allocation. */
+	PostProcessConfig config;
+	/* All defaults: render_scale=100, all bools false, all ints at default. */
+	CHECK(PostProcessPassCount(config) == 0);
+	CHECK(!PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("PostProcess - cpu_viewport_scaling alone needs FBO even with zero effects")
+{
+	/* cpu_viewport_scaling requires FBO for two-pass compositing even when
+	 * no post-processing effects are active. */
+	PostProcessConfig config;
+	config.cpu_viewport_scaling = true;
+	CHECK(PostProcessNeedsFBO(config));
+	/* cpu_viewport_scaling does not add post-process shader passes. */
+	CHECK(PostProcessPassCount(config) == 0);
+}
+
+TEST_CASE("PostProcess - auto_supersample alone does not change pass count")
+{
+	/* auto_supersample is a runtime zoom-dependent flag that modifies
+	 * render_scale in the config sync, not in PostProcessPassCount itself.
+	 * With auto_supersample set but render_scale still at 100, there should
+	 * be zero passes and no FBO. */
+	PostProcessConfig config;
+	config.auto_supersample = true;
+	CHECK(PostProcessPassCount(config) == 0);
+	CHECK(!PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("PostProcess - render_scale 50% with no effects needs FBO but bilinear adds a pass only with correct mode")
+{
+	/* render_scale < 100 always needs FBO. But passes depend on upscale mode:
+	 * - None: 0 passes (bilinear done by GL texture filtering, not a shader pass)
+	 * - Bilinear: 1 pass (explicit blit/bicubic)
+	 * - FSR1: 2 passes (EASU + RCAS) */
+	PostProcessConfig config;
+	config.render_scale = 50;
+
+	config.upscale_mode = UpscaleMode::None;
+	CHECK(PostProcessNeedsFBO(config));
+	CHECK(PostProcessPassCount(config) == 0);
+
+	config.upscale_mode = UpscaleMode::Bilinear;
+	CHECK(PostProcessPassCount(config) == 1);
+
+	config.upscale_mode = UpscaleMode::FSR1;
+	CHECK(PostProcessPassCount(config) == 2);
+}
+
+TEST_CASE("PostProcess - each single lab effect adds exactly one pass")
+{
+	/* Verify that each quarantined effect independently adds exactly one pass.
+	 * This is a regression guard for the effect dispatch counting logic. */
+	auto TestSingleEffect = [](auto setter) {
+		PostProcessConfig config;
+		setter(config);
+		return PostProcessPassCount(config);
+	};
+
+	CHECK(TestSingleEffect([](PostProcessConfig &c) { c.fake_shadows = true; }) == 1);
+	CHECK(TestSingleEffect([](PostProcessConfig &c) { c.water_reflections = true; }) == 1);
+	CHECK(TestSingleEffect([](PostProcessConfig &c) { c.ssao = true; }) == 1);
+	CHECK(TestSingleEffect([](PostProcessConfig &c) { c.terrain_smooth = true; }) == 1);
+	CHECK(TestSingleEffect([](PostProcessConfig &c) { c.tree_sway = true; }) == 1);
+	CHECK(TestSingleEffect([](PostProcessConfig &c) { c.sky_clouds = true; }) == 1);
+	CHECK(TestSingleEffect([](PostProcessConfig &c) { c.depth_of_field = true; }) == 1);
+}
+
+TEST_CASE("PostProcess - each single ship effect adds expected passes")
+{
+	/* Ship effects pass count regression guard. */
+	auto TestSingleEffect = [](auto setter) {
+		PostProcessConfig config;
+		setter(config);
+		return PostProcessPassCount(config);
+	};
+
+	CHECK(TestSingleEffect([](PostProcessConfig &c) { c.fxaa = true; }) == 1);
+	CHECK(TestSingleEffect([](PostProcessConfig &c) { c.vignette = true; }) == 1);
+	CHECK(TestSingleEffect([](PostProcessConfig &c) { c.night_mode = true; }) == 1);
+	CHECK(TestSingleEffect([](PostProcessConfig &c) { c.film_grain = true; }) == 1);
+	CHECK(TestSingleEffect([](PostProcessConfig &c) { c.crt_filter = true; }) == 1);
+	CHECK(TestSingleEffect([](PostProcessConfig &c) { c.color_grading = true; }) == 1);
+	CHECK(TestSingleEffect([](PostProcessConfig &c) { c.pixel_smoothing = true; }) == 1);
+	CHECK(TestSingleEffect([](PostProcessConfig &c) { c.dynamic_lighting = true; }) == 1);
+	CHECK(TestSingleEffect([](PostProcessConfig &c) { c.tiltshift = true; }) == 2); /* H + V blur */
+	CHECK(TestSingleEffect([](PostProcessConfig &c) { c.bloom = true; }) == 4); /* threshold + blur H + blur V + composite */
+	CHECK(TestSingleEffect([](PostProcessConfig &c) { c.weather_type = 1; }) == 1);
+	CHECK(TestSingleEffect([](PostProcessConfig &c) { c.sharpening = 50; }) == 1); /* CAS standalone */
+}
+
+/* --- Effect Registry tests (M1 baseline guards) --- */
+
+TEST_CASE("PostProcess - effect registry has entries for all known effects")
+{
+	/* Every effect that can be toggled via console must have a registry entry. */
+	static const std::string_view known_effects[] = {
+		"fxaa", "sharpening", "color_grading", "vignette", "tiltshift",
+		"night", "crt", "grain", "pixel_smooth", "bloom", "weather",
+		"lighting", "supersample", "cpu_scale",
+		"shadows", "water", "ssao", "terrain_smooth", "tree_sway", "sky", "dof",
+		"temporal", "plugin",
+	};
+	for (auto key : known_effects) {
+		INFO("Missing registry entry for: " << key);
+		CHECK(GetPPEffectDescriptor(key) != nullptr);
+	}
+}
+
+TEST_CASE("PostProcess - core effects are shipping and preset-eligible")
+{
+	static const std::string_view core[] = {"fxaa", "sharpening", "color_grading", "vignette", "pixel_smooth", "supersample"};
+	for (auto key : core) {
+		auto *desc = GetPPEffectDescriptor(key);
+		REQUIRE(desc != nullptr);
+		CHECK(desc->category == EffectCategory::Core);
+		CHECK(desc->preset_eligible);
+		CHECK(desc->structurally_sound);
+	}
+}
+
+TEST_CASE("PostProcess - presentation effects are shipping but higher tier")
+{
+	static const std::string_view pres[] = {"bloom", "lighting", "weather", "night", "tiltshift"};
+	for (auto key : pres) {
+		auto *desc = GetPPEffectDescriptor(key);
+		REQUIRE(desc != nullptr);
+		CHECK(desc->category == EffectCategory::Presentation);
+		CHECK(desc->preset_eligible);
+		CHECK(desc->quality_tier_min >= 2); /* High or Photo */
+	}
+}
+
+TEST_CASE("PostProcess - novelty effects are shipping but Photo-only")
+{
+	static const std::string_view nov[] = {"crt", "grain"};
+	for (auto key : nov) {
+		auto *desc = GetPPEffectDescriptor(key);
+		REQUIRE(desc != nullptr);
+		CHECK(desc->category == EffectCategory::Novelty);
+		CHECK(desc->quality_tier_min == 3); /* Photo only */
+	}
+}
+
+TEST_CASE("PostProcess - lab effects are not preset-eligible")
+{
+	static const std::string_view lab[] = {"shadows", "water", "ssao", "terrain_smooth", "tree_sway", "sky", "dof"};
+	for (auto key : lab) {
+		auto *desc = GetPPEffectDescriptor(key);
+		REQUIRE(desc != nullptr);
+		CHECK(desc->category == EffectCategory::Lab);
+		CHECK(!desc->preset_eligible);
+	}
+}
+
+TEST_CASE("PostProcess - structurally unsound effects are marked")
+{
+	/* SSAO and DoF use luminance as depth proxy - structurally wrong. */
+	auto *ssao = GetPPEffectDescriptor("ssao");
+	auto *dof = GetPPEffectDescriptor("dof");
+	REQUIRE(ssao != nullptr);
+	REQUIRE(dof != nullptr);
+	CHECK(!ssao->structurally_sound);
+	CHECK(!dof->structurally_sound);
+}
+
+TEST_CASE("PostProcess - research effects are not preset-eligible")
+{
+	static const std::string_view research[] = {"temporal", "plugin"};
+	for (auto key : research) {
+		auto *desc = GetPPEffectDescriptor(key);
+		REQUIRE(desc != nullptr);
+		CHECK(desc->category == EffectCategory::Research);
+		CHECK(!desc->preset_eligible);
+	}
+}
+
+TEST_CASE("PostProcess - pipeline mode effects are not default candidates")
+{
+	auto *cpu = GetPPEffectDescriptor("cpu_scale");
+	REQUIRE(cpu != nullptr);
+	CHECK(cpu->category == EffectCategory::PipelineMode);
+	CHECK(!cpu->default_candidate);
+}
+
+TEST_CASE("PostProcess - IsLabEffect helper works correctly")
+{
+	CHECK(IsLabEffect("shadows"));
+	CHECK(IsLabEffect("water"));
+	CHECK(IsLabEffect("ssao"));
+	CHECK(IsLabEffect("terrain_smooth"));
+	CHECK(IsLabEffect("tree_sway"));
+	CHECK(IsLabEffect("sky"));
+	CHECK(IsLabEffect("dof"));
+	CHECK(!IsLabEffect("fxaa"));
+	CHECK(!IsLabEffect("bloom"));
+	CHECK(!IsLabEffect("vignette"));
+	CHECK(!IsLabEffect("temporal")); /* Research, not lab */
+	CHECK(!IsLabEffect("nonexistent"));
+}
+
+TEST_CASE("PostProcess - IsPresetEligible helper works correctly")
+{
+	CHECK(IsPresetEligible("fxaa"));
+	CHECK(IsPresetEligible("bloom"));
+	CHECK(IsPresetEligible("vignette"));
+	CHECK(!IsPresetEligible("shadows"));
+	CHECK(!IsPresetEligible("water"));
+	CHECK(!IsPresetEligible("temporal"));
+	CHECK(!IsPresetEligible("nonexistent"));
+}
