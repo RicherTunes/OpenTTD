@@ -1392,8 +1392,16 @@ static std::tuple<bool, bool> FlowRiver(TileIndex spring, TileIndex begin, uint 
 
 	int height_begin = TileHeight(begin);
 
-	std::unordered_set<TileIndex> marks;
-	marks.insert(begin);
+	/* Use a static vector<bool> instead of unordered_set for O(1) visited checks.
+	 * Each call tracks which entries it set, and clears them on exit. This is safe
+	 * across recursive calls because the child clears only its own entries. */
+	static std::vector<bool> marks;
+	if (marks.size() != Map::Size()) marks.assign(Map::Size(), false);
+
+	/* Track visited tiles for cleanup at the end of this call. */
+	std::vector<TileIndex> visited_list;
+	marks[begin.base()] = true;
+	visited_list.push_back(begin);
 
 	std::vector<TileIndex> queue;
 	queue.push_back(begin);
@@ -1436,12 +1444,16 @@ static std::tuple<bool, bool> FlowRiver(TileIndex spring, TileIndex begin, uint 
 
 		for (DiagDirection d = DIAGDIR_BEGIN; d < DIAGDIR_END; d++) {
 			TileIndex t = end + TileOffsByDiagDir(d);
-			if (IsValidTile(t) && !marks.contains(t) && RiverFlowsDown(end, t)) {
-				marks.insert(t);
+			if (IsValidTile(t) && !marks[t.base()] && RiverFlowsDown(end, t)) {
+				marks[t.base()] = true;
+				visited_list.push_back(t);
 				queue.push_back(t);
 			}
 		}
 	}
+
+	/* Clear visited entries before recursing or returning. */
+	for (TileIndex t : visited_list) marks[t.base()] = false;
 
 	bool main_river = false;
 	if (found) {

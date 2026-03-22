@@ -150,6 +150,40 @@
 
 #include "safeguards.h"
 
+static constexpr int SINE_LUT_SIZE = 256;
+static double _sine_lut[SINE_LUT_SIZE + 1]; ///< Precomputed sin(x * PI/2) for x in [0, 1]
+static bool _sine_lut_initialized = false;
+
+/**
+ * Initialize the sine lookup table for smooth interpolation.
+ * Maps index [0..SINE_LUT_SIZE] to sin(index/SINE_LUT_SIZE * PI/2).
+ */
+static void InitSineLUT()
+{
+	if (_sine_lut_initialized) return;
+	for (int i = 0; i <= SINE_LUT_SIZE; i++) {
+		_sine_lut[i] = sin((double)i / SINE_LUT_SIZE * M_PI_2);
+	}
+	_sine_lut_initialized = true;
+}
+
+/**
+ * Fast sine approximation using precomputed lookup table.
+ * Computes sin(x * PI/2) for x in [-1, 1] using symmetry.
+ * @param x Value in [-1, 1] range.
+ * @return Approximation of sin(x * PI/2).
+ */
+static inline double FastSineHalf(double x)
+{
+	double sign = 1.0;
+	if (x < 0.0) {
+		sign = -1.0;
+		x = -x;
+	}
+	int idx = Clamp((int)(x * SINE_LUT_SIZE), 0, SINE_LUT_SIZE);
+	return sign * _sine_lut[idx];
+}
+
 /** Fixed point array for amplitudes */
 using Amplitude = int;
 static const int AMPLITUDE_DECIMAL_BITS = 10;
@@ -622,8 +656,8 @@ static void HeightMapCurves(uint level)
 		uint x1 = (uint)fx;
 		uint x2 = x1;
 		float xr = 2.0f * (fx - x1) - 1.0f;
-		xr = sin(xr * M_PI_2);
-		xr = sin(xr * M_PI_2);
+		xr = FastSineHalf(xr);
+		xr = FastSineHalf(xr);
 		xr = 0.5f * (xr + 1.0f);
 		float xri = 1.0f - xr;
 
@@ -639,8 +673,8 @@ static void HeightMapCurves(uint level)
 			uint y1 = (uint)fy;
 			uint y2 = y1;
 			float yr = 2.0f * (fy - y1) - 1.0f;
-			yr = sin(yr * M_PI_2);
-			yr = sin(yr * M_PI_2);
+			yr = FastSineHalf(yr);
+			yr = FastSineHalf(yr);
 			yr = 0.5f * (yr + 1.0f);
 			float yri = 1.0f - yr;
 
@@ -1347,6 +1381,8 @@ static void HeightMapMountainRanges()
  */
 void GenerateTerrainPerlin()
 {
+	InitSineLUT();
+
 	auto gen_start = std::chrono::steady_clock::now();
 
 	AllocHeightMap();

@@ -1,0 +1,75 @@
+; Fully automated E2E test - runs via autoexec on game startup
+; Takes pp_screenshots of each effect, then exits
+
+; Wait for game to fully load by taking baseline first
+pp_screenshot e2e_01_baseline
+
+; Enable PP passthrough (should look identical to baseline)
+pp on
+pp_screenshot e2e_02_pp_on
+
+; Night mode
+pp enable night
+pp_screenshot e2e_03_night
+
+; Vignette
+pp disable night
+pp enable vignette
+pp_screenshot e2e_04_vignette
+
+; CRT
+pp disable vignette
+pp enable crt
+pp_screenshot e2e_05_crt
+
+; Tilt-shift
+pp disable crt
+pp enable tiltshift
+pp_screenshot e2e_06_tiltshift
+
+; FXAA
+pp disable tiltshift
+pp enable fxaa
+pp_screenshot e2e_07_fxaa
+
+; Film grain
+pp disable fxaa
+pp enable grain
+pp_screenshot e2e_08_grain
+
+; Color grading warm
+pp disable grain
+pp set brightness 20
+pp set contrast 130
+pp set saturation 140
+pp set color_temperature 50
+pp_screenshot e2e_09_warm
+
+; Color grading cool
+pp set brightness -15
+pp set contrast 80
+pp set saturation 70
+pp set color_temperature -60
+pp_screenshot e2e_10_cool
+
+; Reset + render scale 75%
+pp reset
+pp on
+pp set render_scale 75
+pp set upscale_mode 2
+pp_screenshot e2e_11_fsr1_75
+
+; Combined effects
+pp set render_scale 100
+pp set upscale_mode 0
+pp enable vignette
+pp enable fxaa
+pp set sharpening 70
+pp_screenshot e2e_12_combined
+
+; Restore baseline
+pp off
+pp_screenshot e2e_13_restored
+
+; Done
+quit
