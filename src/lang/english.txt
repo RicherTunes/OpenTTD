@@ -1082,9 +1082,9 @@ STR_GAME_OPTIONS_GPU_RENDERING                                  :GPU Rendering
 STR_GAME_OPTIONS_POST_PROCESSING                                :{PUSH_COLOUR}{ORANGE}Post-processing: {POP_COLOUR}{STRING}
 STR_GAME_OPTIONS_POST_PROCESSING_TOOLTIP                        :{BLACK}Enable GPU post-processing effects. When off, rendering is unchanged (zero overhead)
 STR_GAME_OPTIONS_RENDER_SCALE                                   :Render scale
-STR_GAME_OPTIONS_RENDER_SCALE_TOOLTIP                           :{BLACK}Internal rendering resolution. Lower values improve performance, upscaling restores quality. Requires hardware acceleration
+STR_GAME_OPTIONS_RENDER_SCALE_TOOLTIP                           :{BLACK}Internal rendering resolution (50-200%). Below 100% improves performance via upscaling. Above 100% enables supersampling anti-aliasing (SSAA). Requires hardware acceleration
 STR_GAME_OPTIONS_UPSCALE_MODE                                   :Upscale mode
-STR_GAME_OPTIONS_UPSCALE_MODE_TOOLTIP                           :{BLACK}Upscaling algorithm used when render scale is below 100%
+STR_GAME_OPTIONS_UPSCALE_MODE_TOOLTIP                           :{BLACK}Upscaling algorithm. Used when render scale differs from 100%. Also affects supersampling downsample quality
 STR_GAME_OPTIONS_UPSCALE_NONE                                   :None (nearest)
 STR_GAME_OPTIONS_UPSCALE_BILINEAR                               :Bilinear
 STR_GAME_OPTIONS_UPSCALE_FSR1                                   :FSR 1.0
@@ -1121,6 +1121,8 @@ STR_GAME_OPTIONS_VIGNETTE_INTENSITY                             :Vignette intens
 STR_GAME_OPTIONS_VIGNETTE_INTENSITY_TOOLTIP                     :{BLACK}How dark the screen edges become
 STR_GAME_OPTIONS_VIGNETTE_RADIUS                                :Vignette radius
 STR_GAME_OPTIONS_VIGNETTE_RADIUS_TOOLTIP                        :{BLACK}Size of the clear centre area. Higher = less vignette
+STR_GAME_OPTIONS_VIGNETTE_SOFTNESS                              :Vignette softness
+STR_GAME_OPTIONS_VIGNETTE_SOFTNESS_TOOLTIP                      :{BLACK}How gradually the vignette fades in. Higher = softer transition
 STR_GAME_OPTIONS_TILTSHIFT                                      :Tilt-shift
 STR_GAME_OPTIONS_TILTSHIFT_TOOLTIP                              :{BLACK}Miniature diorama effect with selective focus blur
 STR_GAME_OPTIONS_TILTSHIFT_FOCUS_Y                              :Focus position

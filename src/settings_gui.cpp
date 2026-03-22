@@ -849,6 +849,10 @@ struct GameOptionsWindow : Window {
 				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 50, 150, 5, _video_vignette_radius, nullptr);
 				break;
 
+			case WID_GO_VIDEO_VIGNETTE_SOFTNESS:
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 10, 80, 4, _video_vignette_softness, nullptr);
+				break;
+
 			case WID_GO_VIDEO_TILTSHIFT_FOCUS_Y:
 				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 100, 5, _video_tiltshift_focus_y, nullptr);
 				break;
@@ -1228,6 +1232,7 @@ struct GameOptionsWindow : Window {
 				this->SetWidgetDisabledState(WID_GO_VIDEO_VIGNETTE_BUTTON, !_video_post_processing || !_video_hw_accel);
 				this->SetWidgetDisabledState(WID_GO_VIDEO_VIGNETTE_INTENSITY, !_video_post_processing || !_video_hw_accel);
 				this->SetWidgetDisabledState(WID_GO_VIDEO_VIGNETTE_RADIUS, !_video_post_processing || !_video_hw_accel);
+				this->SetWidgetDisabledState(WID_GO_VIDEO_VIGNETTE_SOFTNESS, !_video_post_processing || !_video_hw_accel);
 				this->SetWidgetDisabledState(WID_GO_VIDEO_TILTSHIFT_BUTTON, !_video_post_processing || !_video_hw_accel);
 				this->SetWidgetDisabledState(WID_GO_VIDEO_TILTSHIFT_FOCUS_Y, !_video_post_processing || !_video_hw_accel);
 				this->SetWidgetDisabledState(WID_GO_VIDEO_TILTSHIFT_FOCUS_WIDTH, !_video_post_processing || !_video_hw_accel);
@@ -1350,6 +1355,7 @@ struct GameOptionsWindow : Window {
 			GPU_SLIDER_CLICK(WID_GO_VIDEO_CRT_ABERRATION, 0, 30, 4, _video_crt_aberration)
 			GPU_SLIDER_CLICK(WID_GO_VIDEO_VIGNETTE_INTENSITY, 0, 100, 5, _video_vignette_intensity)
 			GPU_SLIDER_CLICK(WID_GO_VIDEO_VIGNETTE_RADIUS, 50, 150, 5, _video_vignette_radius)
+			GPU_SLIDER_CLICK(WID_GO_VIDEO_VIGNETTE_SOFTNESS, 10, 80, 4, _video_vignette_softness)
 			GPU_SLIDER_CLICK(WID_GO_VIDEO_TILTSHIFT_FOCUS_Y, 0, 100, 5, _video_tiltshift_focus_y)
 			GPU_SLIDER_CLICK(WID_GO_VIDEO_TILTSHIFT_FOCUS_WIDTH, 5, 80, 4, _video_tiltshift_focus_width)
 			GPU_SLIDER_CLICK(WID_GO_VIDEO_TILTSHIFT_BLUR, 10, 60, 6, _video_tiltshift_blur)
@@ -1944,6 +1950,7 @@ struct GameOptionsWindow : Window {
 		this->SetWidgetDisabledState(WID_GO_VIDEO_VIGNETTE_BUTTON, !gpu_enabled);
 		this->SetWidgetDisabledState(WID_GO_VIDEO_VIGNETTE_INTENSITY, !gpu_enabled);
 		this->SetWidgetDisabledState(WID_GO_VIDEO_VIGNETTE_RADIUS, !gpu_enabled);
+		this->SetWidgetDisabledState(WID_GO_VIDEO_VIGNETTE_SOFTNESS, !gpu_enabled);
 		this->SetWidgetDisabledState(WID_GO_VIDEO_TILTSHIFT_BUTTON, !gpu_enabled);
 		this->SetWidgetDisabledState(WID_GO_VIDEO_TILTSHIFT_FOCUS_Y, !gpu_enabled);
 		this->SetWidgetDisabledState(WID_GO_VIDEO_TILTSHIFT_FOCUS_WIDTH, !gpu_enabled);
@@ -2243,6 +2250,10 @@ static constexpr std::initializer_list<NWidgetPart> _nested_game_options_widgets
 									NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
 										NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_VIGNETTE_RADIUS), SetTextStyle(GAME_OPTIONS_LABEL),
 										NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_VIGNETTE_RADIUS), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_VIGNETTE_RADIUS_TOOLTIP),
+									EndContainer(),
+									NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
+										NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_GAME_OPTIONS_VIGNETTE_SOFTNESS), SetTextStyle(GAME_OPTIONS_LABEL),
+										NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_VIGNETTE_SOFTNESS), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_VIGNETTE_SOFTNESS_TOOLTIP),
 									EndContainer(),
 								EndContainer(),
 							EndContainer(),

@@ -79,6 +79,7 @@ enum GameOptionsWidgets : WidgetID {
 	WID_GO_VIDEO_VIGNETTE_TEXT,          ///< Text for vignette toggle.
 	WID_GO_VIDEO_VIGNETTE_INTENSITY,     ///< Vignette intensity slider.
 	WID_GO_VIDEO_VIGNETTE_RADIUS,        ///< Vignette radius slider.
+	WID_GO_VIDEO_VIGNETTE_SOFTNESS,      ///< Vignette softness slider.
 	WID_GO_VIDEO_TILTSHIFT_BUTTON,       ///< Toggle for tilt-shift effect.
 	WID_GO_VIDEO_TILTSHIFT_TEXT,         ///< Text for tilt-shift toggle.
 	WID_GO_VIDEO_TILTSHIFT_FOCUS_Y,      ///< Tilt-shift focus Y slider.
