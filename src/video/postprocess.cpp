@@ -116,8 +116,8 @@ int PostProcessPassCount(const PostProcessConfig &config)
 		passes += 1; /* Bilinear blit or bicubic Catmull-Rom upscale. */
 	}
 
-	/* CAS standalone (not when FSR1 or Temporal is active). */
-	if (config.sharpening > 0 && config.upscale_mode != UpscaleMode::FSR1 && config.upscale_mode != UpscaleMode::Temporal) {
+	/* CAS standalone (not when FSR1, Temporal, or Plugin is active — those handle sharpening internally). */
+	if (config.sharpening > 0 && config.upscale_mode != UpscaleMode::FSR1 && config.upscale_mode != UpscaleMode::Temporal && config.upscale_mode != UpscaleMode::Plugin) {
 		passes += 1;
 	}
 
