@@ -1377,6 +1377,8 @@ static bool CountConnectedSeaTiles(TileIndex tile, std::unordered_set<TileIndex>
 	return false;
 }
 
+static void TryCreateRiverDelta(TileIndex mouth, TileIndex upstream);
+
 /**
  * Try to flow the river down from a given begin.
  * @param spring The springing point of the river.
@@ -1472,7 +1474,91 @@ static std::tuple<bool, bool> FlowRiver(TileIndex spring, TileIndex begin, uint 
 	}
 
 	if (found) YapfBuildRiver(begin, end, spring, main_river);
+
+	/* Try to create a delta where the river actually meets the sea */
+	if (found && main_river && IsWaterTile(end) && GetWaterClass(end) == WaterClass::Sea) {
+		TryCreateRiverDelta(end, begin);
+	}
+
 	return { found, main_river };
+}
+
+/**
+ * Try to create a river delta where a river meets the sea.
+ * Branches the river into 2-4 channels spreading outward from the
+ * river mouth, creating a natural-looking delta formation.
+ * @param mouth The tile where the river meets the sea.
+ * @param upstream The last land tile before the sea.
+ */
+static void TryCreateRiverDelta(TileIndex mouth, TileIndex upstream)
+{
+	if (!IsValidTile(mouth) || !IsValidTile(upstream)) return;
+	if (!IsWaterTile(mouth)) return;
+
+	/* Determine river direction from upstream to mouth */
+	int dx = TileX(mouth) - TileX(upstream);
+	int dy = TileY(mouth) - TileY(upstream);
+
+	/* Normalize direction */
+	if (dx != 0) dx = dx / std::abs(dx);
+	if (dy != 0) dy = dy / std::abs(dy);
+
+	/* Create 2-4 delta branches */
+	int num_branches = 2 + RandomRange(3);
+	for (int branch = 0; branch < num_branches; branch++) {
+		/* Each branch veers slightly from the main direction */
+		int bdx = dx;
+		int bdy = dy;
+
+		/* Add lateral spread */
+		if (branch > 0) {
+			int spread = (branch % 2 == 0) ? 1 : -1;
+			if (dx == 0) {
+				bdx = spread;
+			} else if (dy == 0) {
+				bdy = spread;
+			} else {
+				if (branch % 2 == 0) {
+					bdx = 0;
+				} else {
+					bdy = 0;
+				}
+			}
+		}
+
+		/* Extend the branch 3-8 tiles into the water */
+		int branch_length = 3 + RandomRange(6);
+		TileIndex current = mouth;
+
+		for (int step = 0; step < branch_length; step++) {
+			/* Move in the branch direction with some random wobble */
+			int step_dx = bdx;
+			int step_dy = bdy;
+			if (RandomRange(4) == 0) {
+				/* Random lateral wobble */
+				if (step_dx == 0) {
+					step_dx = (RandomRange(2) == 0) ? 1 : -1;
+				} else {
+					step_dy = (RandomRange(2) == 0) ? 1 : -1;
+				}
+			}
+
+			TileIndex next = TileAddWrap(current, step_dx, step_dy);
+			if (next == INVALID_TILE) break;
+			if (!IsValidTile(next)) break;
+
+			/* Only extend into sea water */
+			if (!IsWaterTile(next)) break;
+			if (!IsTileFlat(next)) break;
+
+			/* Make this tile a river (delta channel) */
+			if (IsCoastTile(next) || (IsTileType(next, TileType::Water) && GetWaterClass(next) == WaterClass::Sea)) {
+				MakeRiverAndModifyDesertZoneAround(next);
+			}
+
+			current = next;
+		}
+	}
 }
 
 /**

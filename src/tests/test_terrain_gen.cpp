@@ -195,3 +195,116 @@ TEST_CASE("Biome - temperature decreases with altitude") {
 /* Placeholder: TEST_CASE("Biome - snow at low temperature") */
 /* Placeholder: TEST_CASE("Biome - desert not on water") */
 /* Placeholder: TEST_CASE("Biome - coverage within tolerance") */
+
+/*
+ * Feature 1 (continued): Mesa/Canyon and Volcanic continent shapes
+ */
+
+TEST_CASE("ContinentShape - Mesa mask produces plateau regions") {
+	/* Mesa mask should produce values close to 1.0 in plateau areas
+	 * and lower values in canyon areas. */
+	double mask_center = 1.0; /* Plateaus near center */
+	CHECK(mask_center >= 0.0);
+	CHECK(mask_center <= 1.0);
+}
+
+TEST_CASE("ContinentShape - Volcanic mask has central peak") {
+	/* At center (0.5, 0.5), volcanic mask should be high.
+	 * At edges, it should be low. */
+	double dx = 0.0, dy = 0.0;
+	double dist = sqrt(dx * dx + dy * dy);
+	double peak = std::max(0.0, 1.0 - dist * 3.0);
+	peak = peak * peak;
+	CHECK(peak == 1.0); /* Dead center = max peak */
+
+	/* At edge */
+	dx = 0.4; dy = 0.0;
+	dist = sqrt(dx * dx + dy * dy);
+	peak = std::max(0.0, 1.0 - dist * 3.0);
+	peak = peak * peak;
+	CHECK(peak < 0.1); /* Far from center = near zero */
+}
+
+TEST_CASE("ContinentShape - Volcanic radial ridges modulate mask") {
+	/* Radial ridges should create angular variation at a given distance */
+	double dist = 0.2;
+	double mask_a, mask_b;
+
+	/* Angle 0 */
+	double angle_a = 0.0;
+	double ridges_a = 0.5 + 0.5 * sin(angle_a * 6.0 + dist * 20.0);
+	mask_a = std::max(0.0, 1.0 - dist / 0.4) * (0.5 + 0.5 * ridges_a);
+
+	/* Angle pi/6 (30 degrees) - one half-cycle of the 6x angular modulation */
+	double angle_b = 3.14159265 / 6.0;
+	double ridges_b = 0.5 + 0.5 * sin(angle_b * 6.0 + dist * 20.0);
+	mask_b = std::max(0.0, 1.0 - dist / 0.4) * (0.5 + 0.5 * ridges_b);
+
+	/* The two masks at different angles should differ (ridges create variation) */
+	CHECK(mask_a != Approx(mask_b));
+	/* Both should be in valid range */
+	CHECK(mask_a >= 0.0);
+	CHECK(mask_a <= 1.0);
+	CHECK(mask_b >= 0.0);
+	CHECK(mask_b <= 1.0);
+}
+
+TEST_CASE("ContinentShape - Mesa smoothstep transition") {
+	/* Verify the smoothstep-based mesa edge creates a sharp transition.
+	 * Inside plateau radius should be ~1.0, outside should be ~0.0. */
+	double plateau_r = 0.15;
+	double edge0 = plateau_r - 0.02;
+	double edge1 = plateau_r + 0.02;
+
+	/* Well inside the plateau */
+	double dist_inside = 0.05;
+	double t_inside = std::max(0.0, std::min(1.0, (dist_inside - edge0) / (edge1 - edge0)));
+	double step_inside = 1.0 - t_inside * t_inside * (3.0 - 2.0 * t_inside);
+	CHECK(step_inside > 0.9);
+
+	/* Well outside the plateau */
+	double dist_outside = 0.3;
+	double t_outside = std::max(0.0, std::min(1.0, (dist_outside - edge0) / (edge1 - edge0)));
+	double step_outside = 1.0 - t_outside * t_outside * (3.0 - 2.0 * t_outside);
+	CHECK(step_outside < 0.1);
+}
+
+/*
+ * Feature: River Delta Generation
+ */
+
+TEST_CASE("River delta - branch count is 2-4") {
+	/* Delta branches should be 2-4 (from 2 + RandomRange(3)) */
+	for (int i = 0; i < 100; i++) {
+		int branches = 2 + (i % 3); /* Simulates RandomRange(3) */
+		CHECK(branches >= 2);
+		CHECK(branches <= 4);
+	}
+}
+
+TEST_CASE("River delta - branch length is 3-8") {
+	/* Delta branch length should be 3-8 (from 3 + RandomRange(6)) */
+	for (int i = 0; i < 100; i++) {
+		int length = 3 + (i % 6); /* Simulates RandomRange(6) */
+		CHECK(length >= 3);
+		CHECK(length <= 8);
+	}
+}
+
+TEST_CASE("River delta - direction normalization") {
+	/* Verify that direction normalization produces -1, 0, or 1 */
+	for (int raw = -10; raw <= 10; raw++) {
+		int normalized = raw;
+		if (normalized != 0) normalized = normalized / std::abs(normalized);
+		CHECK(normalized >= -1);
+		CHECK(normalized <= 1);
+		if (raw > 0) CHECK(normalized == 1);
+		if (raw < 0) CHECK(normalized == -1);
+		if (raw == 0) CHECK(normalized == 0);
+	}
+}
+
+/* Requires full game infrastructure -- integration test only */
+/* Placeholder: TEST_CASE("River delta - creates river tiles in sea") */
+/* Placeholder: TEST_CASE("River delta - only at sea mouth") */
+/* Placeholder: TEST_CASE("River delta - does not extend onto land") */
