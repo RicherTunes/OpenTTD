@@ -4095,7 +4095,30 @@ static uint GetNormalGrowthRate(Town *t)
 	m >>= growth_multiplier;
 	if (t->larger_town) m /= 2;
 
-	return TownTicksToGameTicks(m / (t->cache.num_houses / 50 + 1));
+	uint rate = TownTicksToGameTicks(m / (t->cache.num_houses / 50 + 1));
+
+	/* When biome model is temperature-based, adjust growth rate.
+	 * Towns at moderate temperatures grow fastest (multiplier 1.0).
+	 * Extreme cold or hot towns grow slower (multiplier down to 0.5).
+	 * Higher rate value = slower growth, so divide by multiplier. */
+	if (_settings_game.game_creation.biome_model == BiomeModel::TemperatureBased) {
+		uint h = TileHeight(t->xy);
+		uint max_h = std::max<uint>(1, _settings_game.construction.map_height_limit);
+		double temperature = Clamp(1.0 - (double)h / max_h, 0.0, 1.0);
+		double deviation = fabs(temperature - 0.5);
+		double biome_multiplier = std::max(0.5, 1.0 - deviation * 1.5);
+		rate = (uint)(rate / biome_multiplier);
+
+		/* Coastal towns get a small growth bonus (lower rate = faster). */
+		uint water_dist = GetClosestWaterDistance(t->xy, true);
+		if (water_dist <= 5) {
+			rate = rate * 100 / 115;
+		} else if (water_dist <= 15) {
+			rate = rate * 100 / 105;
+		}
+	}
+
+	return rate;
 }
 
 /**
