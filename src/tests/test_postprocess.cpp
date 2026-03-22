@@ -3025,3 +3025,27 @@ TEST_CASE("PostProcess - IsPresetEligible helper works correctly")
 	CHECK(!IsPresetEligible("temporal"));
 	CHECK(!IsPresetEligible("nonexistent"));
 }
+
+/* --- sRGB pipeline correctness tests (M2) --- */
+
+TEST_CASE("PostProcess - bloom threshold does not change pass count")
+{
+	/* Ensure sRGB changes to bloom shaders don't affect pass counting. */
+	PostProcessConfig config;
+	config.bloom = true;
+	CHECK(PostProcessPassCount(config) == 4); /* threshold + blur H + blur V + composite */
+}
+
+TEST_CASE("PostProcess - color grading does not change pass count")
+{
+	PostProcessConfig config;
+	config.color_grading = true;
+	CHECK(PostProcessPassCount(config) == 1);
+}
+
+TEST_CASE("PostProcess - dynamic lighting does not change pass count")
+{
+	PostProcessConfig config;
+	config.dynamic_lighting = true;
+	CHECK(PostProcessPassCount(config) == 1);
+}
