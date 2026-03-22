@@ -20,7 +20,11 @@ endif()
 # at the same time.
 if(EDITBIN_EXECUTABLE)
     execute_process(COMMAND ${CMAKE_COMMAND} -E copy ${OPENTTD_EXECUTABLE} regression_${REGRESSION_TEST}.exe)
-    set(OPENTTD_EXECUTABLE "regression_${REGRESSION_TEST}.exe")
+    set(OPENTTD_EXECUTABLE "${CMAKE_CURRENT_BINARY_DIR}/regression_${REGRESSION_TEST}.exe")
+    if(NOT EXISTS "${OPENTTD_EXECUTABLE}")
+        # Fallback: file was copied to CWD, not CMAKE_CURRENT_BINARY_DIR
+        set(OPENTTD_EXECUTABLE "./regression_${REGRESSION_TEST}.exe")
+    endif()
 
     execute_process(COMMAND ${EDITBIN_EXECUTABLE} /nologo /subsystem:console ${OPENTTD_EXECUTABLE})
 endif()
