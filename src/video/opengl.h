@@ -240,12 +240,7 @@ private:
 
 	PostProcessConfig pp_config;     ///< Current post-processing configuration.
 
-	std::chrono::steady_clock::time_point pp_grain_start_time{};   ///< Film grain time base for pseudo-random seed.
-	std::chrono::steady_clock::time_point pp_weather_start_time{}; ///< Weather/rain/snow animation time base.
-	std::chrono::steady_clock::time_point pp_sky_start_time{};     ///< Sky cloud drift time base (independent of weather).
-	std::chrono::steady_clock::time_point pp_sway_start_time{};    ///< Tree sway animation time base (independent of weather).
-	std::chrono::steady_clock::time_point pp_reflect_start_time{}; ///< Water reflection wave time base.
-	std::chrono::steady_clock::time_point pp_haze_start_time{};    ///< Heat haze animation time base.
+	std::chrono::steady_clock::time_point pp_anim_start_time{};  ///< Global animation time base for all animated effects.
 	std::chrono::steady_clock::time_point pp_last_frame_time{};    ///< Last frame timestamp for delta_time computation.
 
 	/* Benchmark GPU timer query state. */

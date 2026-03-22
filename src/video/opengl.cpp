@@ -2276,6 +2276,11 @@ void OpenGLBackend::RenderPostProcess()
 	float texel_w = 1.0f / std::max(1u, work_size.width);
 	float texel_h = 1.0f / std::max(1u, work_size.height);
 
+	/* Compute global animation time base (shared by all animated effects). */
+	auto now = std::chrono::steady_clock::now();
+	if (this->pp_anim_start_time == std::chrono::steady_clock::time_point{}) this->pp_anim_start_time = now;
+	float anim_time = std::fmod(std::chrono::duration<float>(now - this->pp_anim_start_time).count(), 1000.0f);
+
 	/* Upscaling passes.
 	 * FSR1 EASU is an upscale filter — only useful when render < display.
 	 * At render_scale >= 100 it acts as a blur, so skip EASU and use CAS instead. */
@@ -2466,14 +2471,11 @@ void OpenGLBackend::RenderPostProcess()
 
 	/* Procedural sky with clouds (background, runs first). */
 	if (this->pp_config.sky_clouds && this->pp_sky_program != 0) {
-		auto now = std::chrono::steady_clock::now();
-		if (this->pp_sky_start_time == std::chrono::steady_clock::time_point{}) this->pp_sky_start_time = now;
-		float sky_time = std::fmod(std::chrono::duration<float>(now - this->pp_sky_start_time).count(), 1000.0f);
 		_glUseProgram(this->pp_sky_program);
 		_glUniform1f(this->pp_sky_density_loc, this->pp_config.cloud_density / 100.0f);
 		_glUniform1f(this->pp_sky_speed_loc, (float)this->pp_config.cloud_speed);
 		_glUniform1f(this->pp_sky_brightness_loc, this->pp_config.sky_brightness / 100.0f);
-		_glUniform1f(this->pp_sky_time_loc, sky_time);
+		_glUniform1f(this->pp_sky_time_loc, anim_time);
 		RunPass();
 	}
 
@@ -2496,29 +2498,21 @@ void OpenGLBackend::RenderPostProcess()
 
 	/* Animated tree/vegetation sway. */
 	if (this->pp_config.tree_sway && this->pp_tree_sway_program != 0) {
-		auto now = std::chrono::steady_clock::now();
-		if (this->pp_sway_start_time == std::chrono::steady_clock::time_point{}) this->pp_sway_start_time = now;
-		float sway_time = std::fmod(std::chrono::duration<float>(now - this->pp_sway_start_time).count(), 1000.0f);
 		_glUseProgram(this->pp_tree_sway_program);
 		_glUniform2f(this->pp_tree_sway_texel_loc, texel_w, texel_h);
 		_glUniform1f(this->pp_tree_sway_amount_loc, (float)this->pp_config.tree_sway_amount);
 		_glUniform1f(this->pp_tree_sway_speed_loc, (float)this->pp_config.tree_sway_speed);
-		_glUniform1f(this->pp_tree_sway_time_loc, sway_time);
+		_glUniform1f(this->pp_tree_sway_time_loc, anim_time);
 		RunPass();
 	}
 
-	/* Water reflections (screen-space).
-	 * Use wall-clock time for wave animation so reflections animate
-	 * even when dynamic lighting is off (time_of_day would be static). */
+	/* Water reflections (screen-space). */
 	if (this->pp_config.water_reflections && this->pp_water_reflect_program != 0) {
-		auto now_reflect = std::chrono::steady_clock::now();
-		if (this->pp_reflect_start_time == std::chrono::steady_clock::time_point{}) this->pp_reflect_start_time = now_reflect;
-		float reflect_time = std::fmod(std::chrono::duration<float>(now_reflect - this->pp_reflect_start_time).count(), 1000.0f);
 		_glUseProgram(this->pp_water_reflect_program);
 		_glUniform2f(this->pp_water_reflect_texel_loc, texel_w, texel_h);
 		_glUniform1f(this->pp_water_reflect_intensity_loc, this->pp_config.reflection_intensity / 100.0f);
 		_glUniform1f(this->pp_water_reflect_distortion_loc, (float)this->pp_config.reflection_distortion);
-		_glUniform1f(this->pp_water_reflect_time_loc, reflect_time);
+		_glUniform1f(this->pp_water_reflect_time_loc, anim_time);
 		/* Upload viewport UV bounds so water reflections don't affect the UI. */
 		const Window *vp_win = GetMainWindow();
 		if (vp_win != nullptr && vp_win->viewport != nullptr && this->pp_water_reflect_viewport_loc >= 0) {
@@ -2636,14 +2630,11 @@ void OpenGLBackend::RenderPostProcess()
 		RunPass();
 	}
 
-	/* Film grain -- use wall-clock time wrapped to avoid float precision loss. */
+	/* Film grain. */
 	if (this->pp_config.film_grain && this->pp_grain_program != 0) {
-		auto now = std::chrono::steady_clock::now();
-		if (this->pp_grain_start_time == std::chrono::steady_clock::time_point{}) this->pp_grain_start_time = now;
-		float elapsed = std::fmod(std::chrono::duration<float>(now - this->pp_grain_start_time).count(), 1000.0f);
 		_glUseProgram(this->pp_grain_program);
 		_glUniform1f(this->pp_grain_int_loc, this->pp_config.grain_intensity / 100.0f);
-		_glUniform1f(this->pp_grain_time_loc, elapsed);
+		_glUniform1f(this->pp_grain_time_loc, anim_time);
 		RunPass();
 	}
 
@@ -2739,14 +2730,11 @@ void OpenGLBackend::RenderPostProcess()
 
 	/* Heat haze distortion. */
 	if (this->pp_config.heat_haze && this->pp_heat_haze_program != 0) {
-		auto now = std::chrono::steady_clock::now();
-		if (this->pp_haze_start_time == std::chrono::steady_clock::time_point{}) this->pp_haze_start_time = now;
-		float haze_time = std::fmod(std::chrono::duration<float>(now - this->pp_haze_start_time).count(), 1000.0f);
 		_glUseProgram(this->pp_heat_haze_program);
 		_glUniform2f(this->pp_haze_texel_loc, texel_w, texel_h);
 		_glUniform1f(this->pp_haze_intensity_loc, this->pp_config.haze_intensity / 100.0f);
 		_glUniform1f(this->pp_haze_distortion_loc, static_cast<float>(this->pp_config.haze_distortion));
-		_glUniform1f(this->pp_haze_time_loc, haze_time);
+		_glUniform1f(this->pp_haze_time_loc, anim_time);
 		RunPass();
 	}
 
@@ -2775,11 +2763,8 @@ void OpenGLBackend::RenderPostProcess()
 
 	/* Weather overlay (rain/snow particles). Composites on top of everything. */
 	if (this->pp_config.weather_type > 0 && this->pp_weather_program != 0) {
-		auto now = std::chrono::steady_clock::now();
-		if (this->pp_weather_start_time == std::chrono::steady_clock::time_point{}) this->pp_weather_start_time = now;
-		float weather_time = std::fmod(std::chrono::duration<float>(now - this->pp_weather_start_time).count(), 1000.0f);
 		_glUseProgram(this->pp_weather_program);
-		_glUniform1f(this->pp_weather_time_loc, weather_time);
+		_glUniform1f(this->pp_weather_time_loc, anim_time);
 		_glUniform1f(this->pp_weather_int_loc, this->pp_config.weather_intensity / 100.0f);
 		_glUniform1f(this->pp_weather_type_loc, static_cast<float>(this->pp_config.weather_type));
 		RunPass();
