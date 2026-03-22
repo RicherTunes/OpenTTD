@@ -1864,17 +1864,29 @@ bool OpenGLBackend::SetupPostProcessFBOs(int display_w, int display_h)
 	_glGenFramebuffers(2, this->pp_fbo);
 	_glGenTextures(2, this->pp_tex);
 
-	/* When render_scale > 100 (supersampling), Paint() sets the viewport to
-	 * render resolution, so both ping-pong textures must be large enough to
-	 * hold those fragments. All effect passes run at render resolution;
-	 * the final downsample pass writes to the backbuffer at display resolution.
-	 * When render_scale <= 100, both FBOs are at display resolution as before. */
-	Dimension fbo_size = (dims.render.width > dims.display.width) ? dims.render : dims.display;
-
+	/* FBO sizing:
+	 * - When render_scale > 100 (supersampling): FBOs at render resolution
+	 *   (larger than display), downsample pass writes to backbuffer.
+	 * - When render_scale < 100 (upscaling): FBO[0] at render resolution
+	 *   (smaller), FBO[1] at display resolution. The upscale pass (FSR/bilinear)
+	 *   expands from render to display size. Subsequent effect passes run at display.
+	 * - When render_scale == 100: Both FBOs at display resolution. */
 	for (int i = 0; i < 2; i++) {
+		Dimension tex_size;
+		if (dims.render.width > dims.display.width) {
+			/* Supersampling: both at render (larger) size. */
+			tex_size = dims.render;
+		} else if (dims.render.width < dims.display.width && i == 0) {
+			/* Upscaling: FBO[0] at render size (scene target). */
+			tex_size = dims.render;
+		} else {
+			/* Default or FBO[1]: display size. */
+			tex_size = dims.display;
+		}
+
 		_glBindTexture(GL_TEXTURE_2D, this->pp_tex[i]);
 		_glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
-			fbo_size.width, fbo_size.height,
+			tex_size.width, tex_size.height,
 			0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
