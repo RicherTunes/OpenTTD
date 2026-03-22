@@ -184,6 +184,21 @@ static std::optional<std::string> ScaleMarkFunc(int, int, int value)
 	return GetString(STR_GAME_OPTIONS_GUI_SCALE_MARK, value / 100, 0);
 }
 
+/** Mark function for GPU percentage sliders (render scale, sharpening, etc.). Shows value with % at key marks. */
+static std::optional<std::string> GpuPercentMarkFunc(int nmarks, int mark, int value)
+{
+	/* Label first, middle, and last marks. */
+	if (mark != 0 && mark != nmarks / 2 && mark != nmarks) return std::nullopt;
+	return fmt::format("{}%", value);
+}
+
+/** Mark function for GPU value sliders (brightness, threshold, etc.). Shows plain numeric value at key marks. */
+static std::optional<std::string> GpuValueMarkFunc(int nmarks, int mark, int value)
+{
+	if (mark != 0 && mark != nmarks / 2 && mark != nmarks) return std::nullopt;
+	return fmt::format("{}", value);
+}
+
 static std::optional<std::string> VolumeMarkFunc(int, int mark, int value)
 {
 	/* Label only every other mark. */
@@ -798,79 +813,79 @@ struct GameOptionsWindow : Window {
 				break;
 
 			case WID_GO_VIDEO_RENDER_SCALE:
-				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 50, 200, 16, _video_render_scale, nullptr);
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 50, 200, 16, _video_render_scale, GpuPercentMarkFunc);
 				break;
 
 			case WID_GO_VIDEO_SHARPENING:
-				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 100, 5, _video_sharpening, nullptr);
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 100, 5, _video_sharpening, GpuPercentMarkFunc);
 				break;
 
 			case WID_GO_VIDEO_BRIGHTNESS:
-				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, -50, 50, 5, _video_brightness, nullptr);
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, -50, 50, 5, _video_brightness, GpuValueMarkFunc);
 				break;
 
 			case WID_GO_VIDEO_CONTRAST:
-				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 50, 200, 4, _video_contrast, nullptr);
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 50, 200, 4, _video_contrast, GpuPercentMarkFunc);
 				break;
 
 			case WID_GO_VIDEO_SATURATION:
-				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 200, 5, _video_saturation, nullptr);
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 200, 5, _video_saturation, GpuPercentMarkFunc);
 				break;
 
 			case WID_GO_VIDEO_COLOR_TEMPERATURE:
-				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, -100, 100, 5, _video_color_temperature, nullptr);
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, -100, 100, 5, _video_color_temperature, GpuValueMarkFunc);
 				break;
 
 			case WID_GO_VIDEO_NIGHT_INTENSITY:
-				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 20, 100, 5, _video_night_intensity, nullptr);
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 20, 100, 5, _video_night_intensity, GpuPercentMarkFunc);
 				break;
 
 			case WID_GO_VIDEO_NIGHT_BLUE_SHIFT:
-				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 80, 5, _video_night_blue_shift, nullptr);
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 80, 5, _video_night_blue_shift, GpuValueMarkFunc);
 				break;
 
 			case WID_GO_VIDEO_CRT_SCANLINES:
-				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 50, 6, _video_crt_scanlines, nullptr);
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 50, 6, _video_crt_scanlines, GpuValueMarkFunc);
 				break;
 
 			case WID_GO_VIDEO_CRT_CURVATURE:
-				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 50, 6, _video_crt_curvature, nullptr);
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 50, 6, _video_crt_curvature, GpuValueMarkFunc);
 				break;
 
 			case WID_GO_VIDEO_CRT_ABERRATION:
-				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 30, 4, _video_crt_aberration, nullptr);
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 30, 4, _video_crt_aberration, GpuValueMarkFunc);
 				break;
 
 			case WID_GO_VIDEO_VIGNETTE_INTENSITY:
-				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 100, 5, _video_vignette_intensity, nullptr);
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 100, 5, _video_vignette_intensity, GpuPercentMarkFunc);
 				break;
 
 			case WID_GO_VIDEO_VIGNETTE_RADIUS:
-				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 50, 150, 5, _video_vignette_radius, nullptr);
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 50, 150, 5, _video_vignette_radius, GpuValueMarkFunc);
 				break;
 
 			case WID_GO_VIDEO_VIGNETTE_SOFTNESS:
-				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 10, 80, 4, _video_vignette_softness, nullptr);
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 10, 80, 4, _video_vignette_softness, GpuValueMarkFunc);
 				break;
 
 			case WID_GO_VIDEO_TILTSHIFT_FOCUS_Y:
-				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 100, 5, _video_tiltshift_focus_y, nullptr);
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 100, 5, _video_tiltshift_focus_y, GpuPercentMarkFunc);
 				break;
 
 			case WID_GO_VIDEO_TILTSHIFT_FOCUS_WIDTH:
-				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 5, 80, 4, _video_tiltshift_focus_width, nullptr);
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 5, 80, 4, _video_tiltshift_focus_width, GpuPercentMarkFunc);
 				break;
 
 			case WID_GO_VIDEO_TILTSHIFT_BLUR:
-				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 10, 60, 6, _video_tiltshift_blur, nullptr);
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 10, 60, 6, _video_tiltshift_blur, GpuValueMarkFunc);
 				break;
 
 			case WID_GO_VIDEO_GRAIN_INTENSITY:
-				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 1, 20, 5, _video_grain_intensity, nullptr);
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 1, 20, 5, _video_grain_intensity, GpuValueMarkFunc);
 				break;
 
 			case WID_GO_VIDEO_FXAA_QUALITY:
-				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 100, 5, _video_fxaa_quality, nullptr);
+				DrawSliderWidget(r, GAME_OPTIONS_BACKGROUND, GAME_OPTIONS_BUTTON, TC_BLACK, 0, 100, 5, _video_fxaa_quality, GpuPercentMarkFunc);
 				break;
 
 			case WID_GO_VIDEO_FXAA_THRESHOLD:
