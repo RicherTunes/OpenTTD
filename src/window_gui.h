@@ -543,6 +543,7 @@ public:
 
 	void DrawWidgets() const;
 	void DrawViewport() const;
+	void DrawViewportCPUScaled() const;
 	void DrawSortButtonState(WidgetID widget, SortButtonState state) const;
 	static int SortButtonWidth();
 
