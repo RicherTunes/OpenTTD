@@ -36,6 +36,7 @@
 #include "pp_screenshot.h"
 #include "upscale_plugin.h"
 #include "../benchmark.h"
+#include "../console_func.h"
 #include "../core/geometry_func.hpp"
 #include "../core/math_func.hpp"
 #include "../gfx_func.h"
@@ -649,6 +650,7 @@ OpenGLBackend::~OpenGLBackend()
 		if (this->pp_heat_haze_program != 0) _glDeleteProgram(this->pp_heat_haze_program);
 		if (this->pp_water_waves_program != 0) _glDeleteProgram(this->pp_water_waves_program);
 		if (this->pp_seasonal_program != 0) _glDeleteProgram(this->pp_seasonal_program);
+		if (this->pp_debug_class_program != 0) _glDeleteProgram(this->pp_debug_class_program);
 		if (this->pp_temporal_program != 0) _glDeleteProgram(this->pp_temporal_program);
 		if (this->pp_downsample_program != 0) _glDeleteProgram(this->pp_downsample_program);
 	}
@@ -1671,7 +1673,6 @@ void OpenGLBackend::Paint()
 	CapturePPScreenshotIfPending(capture_w, capture_h);
 
 	/* If exit was deferred for screenshot queue drain, check if done. */
-	extern void CheckDeferredExit();
 	CheckDeferredExit();
 }
 
