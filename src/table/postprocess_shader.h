@@ -1037,7 +1037,7 @@ static const char *_frag_shader_pp_ssao[] = {
 	"    float sample_lum = dot(texture(source_tex, tex_coord + offset).rgb, vec3(0.299, 0.587, 0.114));",
 	"    occlusion += max(0.0, center_lum - sample_lum);",
 	"  }",
-	"  occlusion = occlusion / float(ssao_samples);",
+	"  occlusion = occlusion / max(float(ssao_samples), 1.0);",
 	"  occlusion = clamp(occlusion * ssao_intensity * 3.0, 0.0, 1.0);",
 	"  frag_colour = vec4(base.rgb * (1.0 - occlusion * 0.5), base.a);",
 	"}",
