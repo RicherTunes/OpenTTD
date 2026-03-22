@@ -635,6 +635,7 @@ OpenGLBackend::~OpenGLBackend()
 		if (this->pp_bloom_blur_v_program != 0) _glDeleteProgram(this->pp_bloom_blur_v_program);
 		if (this->pp_bloom_composite_program != 0) _glDeleteProgram(this->pp_bloom_composite_program);
 		if (this->pp_weather_program != 0) _glDeleteProgram(this->pp_weather_program);
+		if (this->pp_shadow_program != 0) _glDeleteProgram(this->pp_shadow_program);
 		if (this->pp_temporal_program != 0) _glDeleteProgram(this->pp_temporal_program);
 		if (this->pp_downsample_program != 0) _glDeleteProgram(this->pp_downsample_program);
 	}
@@ -1090,7 +1091,11 @@ static void ClearPixelBuffer(size_t len, T data)
  */
 bool OpenGLBackend::Resize(int w, int h, bool force)
 {
-	if (!force && _screen.width == w && _screen.height == h) return false;
+	/* When PP scaling is active, _screen stores render resolution (not window size).
+	 * Compare against display size to avoid redundant re-allocation every frame. */
+	int check_w = (this->pp_active && this->pp_display_size.width > 0) ? (int)this->pp_display_size.width : _screen.width;
+	int check_h = (this->pp_active && this->pp_display_size.height > 0) ? (int)this->pp_display_size.height : _screen.height;
+	if (!force && check_w == w && check_h == h) return false;
 
 	/* Determine render resolution: if post-processing with render scaling is active,
 	 * the CPU blitter renders at reduced resolution. The display is at full window size.
@@ -1314,6 +1319,13 @@ void OpenGLBackend::Paint()
 			/* Pixel art smoothing. */
 			new_config.pixel_smoothing = _video_pixel_smoothing;
 			new_config.pixel_smooth_amount = _video_pixel_smooth_amount;
+
+			/* Fake directional shadows. */
+			new_config.fake_shadows = _video_fake_shadows;
+			new_config.shadow_intensity = _video_shadow_intensity;
+			new_config.shadow_angle = _video_shadow_angle;
+			new_config.shadow_length = _video_shadow_length;
+			new_config.shadow_softness = _video_shadow_softness;
 		}
 
 		new_config.auto_supersample = _video_auto_supersample;
@@ -1348,9 +1360,9 @@ void OpenGLBackend::Paint()
 			this->pp_render_scale_pending = true;
 		} else if (this->pp_render_scale_pending) {
 			/* Scale stabilized (same value for 2 consecutive frames) — apply now.
-			 * We must skip rendering THIS frame to avoid state corruption from
-			 * Resize() + FBO rebuild mid-Paint(). The next frame will use the new
-			 * dimensions cleanly. */
+			 * Resize() updates _screen and PBO dimensions, SetupPostProcessFBOs
+			 * rebuilds FBO textures. Then normal rendering continues this frame
+			 * at the new dimensions — no frame skip needed. */
 			this->pp_render_scale_pending = false;
 			int disp_w = this->pp_display_size.width > 0 ? this->pp_display_size.width : _screen.width;
 			int disp_h = this->pp_display_size.height > 0 ? this->pp_display_size.height : _screen.height;
@@ -1358,11 +1370,6 @@ void OpenGLBackend::Paint()
 				this->Resize(disp_w, disp_h, true);
 				this->SetupPostProcessFBOs(disp_w, disp_h);
 			}
-			/* Reset viewport to display dimensions after resize to prevent mismatch. */
-			_glViewport(0, 0, _screen.width, _screen.height);
-			_glBindFramebuffer(GL_FRAMEBUFFER, 0);
-			_glClear(GL_COLOR_BUFFER_BIT);
-			return;  /* Skip this frame — next frame will render cleanly with new FBOs */
 		}
 	}
 
@@ -1520,6 +1527,8 @@ bool OpenGLBackend::InitPostProcessShaders()
 	this->pp_bloom_blur_v_program = CompileAndLog("bloom-blur-v", _frag_shader_pp_bloom_blur_v, lengthof(_frag_shader_pp_bloom_blur_v));
 	this->pp_bloom_composite_program = CompileAndLog("bloom-composite", _frag_shader_pp_bloom_composite, lengthof(_frag_shader_pp_bloom_composite));
 	this->pp_weather_program = CompileAndLog("weather", _frag_shader_pp_weather, lengthof(_frag_shader_pp_weather));
+	this->pp_shadow_program = CompileAndLog("shadow", _frag_shader_pp_shadow, lengthof(_frag_shader_pp_shadow));
+	this->pp_water_reflect_program = CompileAndLog("water-reflect", _frag_shader_pp_water_reflect, lengthof(_frag_shader_pp_water_reflect));
 	this->pp_temporal_program = CompileAndLog("temporal-accum", _frag_shader_pp_temporal_accum, lengthof(_frag_shader_pp_temporal_accum));
 	this->pp_downsample_program = CompileAndLog("downsample", _frag_shader_pp_downsample, lengthof(_frag_shader_pp_downsample));
 
@@ -1558,6 +1567,8 @@ bool OpenGLBackend::InitPostProcessShaders()
 		if (this->pp_bloom_composite_orig_loc >= 0) _glUniform1i(this->pp_bloom_composite_orig_loc, 1);
 	}
 	BindSourceTex(this->pp_weather_program);
+	BindSourceTex(this->pp_shadow_program);
+	BindSourceTex(this->pp_water_reflect_program);
 	BindSourceTex(this->pp_temporal_program);
 	BindSourceTex(this->pp_downsample_program);
 	/* Temporal shader uses additional texture units for history and MV. */
@@ -1648,6 +1659,13 @@ bool OpenGLBackend::InitPostProcessShaders()
 	this->pp_weather_time_loc = CacheLoc(this->pp_weather_program, "time");
 	this->pp_weather_int_loc = CacheLoc(this->pp_weather_program, "weather_intensity");
 	this->pp_weather_type_loc = CacheLoc(this->pp_weather_program, "weather_type");
+
+	/* Shadow uniforms. */
+	this->pp_shadow_intensity_loc = CacheLoc(this->pp_shadow_program, "shadow_intensity");
+	this->pp_shadow_dir_loc = CacheLoc(this->pp_shadow_program, "shadow_dir");
+	this->pp_shadow_length_loc = CacheLoc(this->pp_shadow_program, "shadow_length");
+	this->pp_shadow_samples_loc = CacheLoc(this->pp_shadow_program, "shadow_samples");
+	this->pp_shadow_texel_loc = CacheLoc(this->pp_shadow_program, "texel_size");
 
 	/* Downsample uniforms. */
 	this->pp_downsample_texel_loc = CacheLoc(this->pp_downsample_program, "texel_size");
@@ -1820,6 +1838,7 @@ void OpenGLBackend::RenderPostProcess()
 	}
 	if (WillRun(this->pp_config.crt_filter, this->pp_crt_program)) total++;
 	if (this->pp_config.weather_type > 0 && this->pp_weather_program != 0) total++;
+	if (WillRun(this->pp_config.fake_shadows, this->pp_shadow_program)) total++;
 	if (this->pp_config.render_scale > 100 && this->pp_downsample_program != 0) total++;
 
 	/* RunPass: program must already be bound via _glUseProgram before calling. */
@@ -2181,6 +2200,18 @@ void OpenGLBackend::RenderPostProcess()
 		_glUniform1f(this->pp_weather_time_loc, weather_time);
 		_glUniform1f(this->pp_weather_int_loc, this->pp_config.weather_intensity / 100.0f);
 		_glUniform1f(this->pp_weather_type_loc, static_cast<float>(this->pp_config.weather_type));
+		RunPass();
+	}
+
+	/* Fake directional shadows. */
+	if (this->pp_config.fake_shadows && this->pp_shadow_program != 0) {
+		_glUseProgram(this->pp_shadow_program);
+		_glUniform2f(this->pp_shadow_texel_loc, texel_w, texel_h);
+		_glUniform1f(this->pp_shadow_intensity_loc, this->pp_config.shadow_intensity / 100.0f);
+		float angle_rad = this->pp_config.shadow_angle * 3.14159265f / 180.0f;
+		_glUniform2f(this->pp_shadow_dir_loc, cos(angle_rad), sin(angle_rad));
+		_glUniform1f(this->pp_shadow_length_loc, (float)this->pp_config.shadow_length);
+		_glUniform1i(this->pp_shadow_samples_loc, Clamp((int)this->pp_config.shadow_softness, 1, 10));
 		RunPass();
 	}
 

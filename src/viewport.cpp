@@ -3798,7 +3798,6 @@ static const ViewportSSCSS _vp_sprite_sorters[] = {
 #ifdef WITH_SSE
 	{ &ViewportSortParentSpritesSSE41Checker, &ViewportSortParentSpritesSSE41 },
 #endif
-	{ []() { return true; }, &ViewportSortParentSpritesBinned },
 	{ []() { return true; /* Always available */ }, &ViewportSortParentSprites }
 };
 
