@@ -527,6 +527,89 @@ static const char *_frag_shader_pp_bicubic[] = {
 	"}",
 };
 
+/* ---- Pixel art smoothing (EPX-inspired) ---- */
+
+/**
+ * Fragment shader implementing EPX-inspired pixel art smoothing.
+ *
+ * Detects edges between pixels using cardinal and diagonal neighbor sampling,
+ * then smooths diagonal staircase patterns while preserving flat areas.
+ * Sub-pixel position within the source texel drives edge-aware blending
+ * weights, creating smooth curves at edges instead of hard staircase steps.
+ *
+ * Uniforms:
+ *   texel_size    - reciprocal of source texture dimensions (1/w, 1/h)
+ *   smooth_amount - smoothing intensity (0.0 = crisp, 1.0 = max smooth)
+ */
+static const char *_frag_shader_pp_pixel_smooth[] = {
+	"#version 150\n",
+	"uniform sampler2D source_tex;",
+	"uniform vec2 texel_size;",
+	"uniform float smooth_amount;",
+	"in vec2 tex_coord;",
+	"out vec4 frag_colour;",
+	"",
+	"/* EPX-inspired pixel art smoothing. Detects edges between pixels",
+	" * and smooths diagonal staircase patterns while preserving flat areas. */",
+	"void main() {",
+	"  vec4 c = texture(source_tex, tex_coord);",
+	"  vec4 n = texture(source_tex, tex_coord + vec2( 0.0, -texel_size.y));",
+	"  vec4 s = texture(source_tex, tex_coord + vec2( 0.0,  texel_size.y));",
+	"  vec4 e = texture(source_tex, tex_coord + vec2( texel_size.x,  0.0));",
+	"  vec4 w = texture(source_tex, tex_coord + vec2(-texel_size.x,  0.0));",
+	"",
+	"  /* Also sample diagonal neighbors for better edge detection. */",
+	"  vec4 ne = texture(source_tex, tex_coord + vec2( texel_size.x, -texel_size.y));",
+	"  vec4 nw = texture(source_tex, tex_coord + vec2(-texel_size.x, -texel_size.y));",
+	"  vec4 se = texture(source_tex, tex_coord + vec2( texel_size.x,  texel_size.y));",
+	"  vec4 sw = texture(source_tex, tex_coord + vec2(-texel_size.x,  texel_size.y));",
+	"",
+	"  /* Compute color differences for edge detection. */",
+	"  float diff_ns = length(n.rgb - s.rgb);",
+	"  float diff_ew = length(e.rgb - w.rgb);",
+	"  float diff_diag1 = length(ne.rgb - sw.rgb);",
+	"  float diff_diag2 = length(nw.rgb - se.rgb);",
+	"",
+	"  /* Detect edges: high difference in one direction means an edge runs perpendicular. */",
+	"  float edge_strength = max(max(diff_ns, diff_ew), max(diff_diag1, diff_diag2));",
+	"",
+	"  /* In flat areas (no edges), keep the original pixel. */",
+	"  if (edge_strength < 0.05) {",
+	"    frag_colour = c;",
+	"    return;",
+	"  }",
+	"",
+	"  /* Sub-pixel position within the source texel. */",
+	"  vec2 pixel_pos = tex_coord / texel_size;",
+	"  vec2 frac = fract(pixel_pos);",
+	"",
+	"  /* Compute smooth interpolation weights based on sub-pixel position. */",
+	"  /* This creates smooth curves at edges instead of hard staircase steps. */",
+	"  float wn = smoothstep(0.0, 0.5, 0.5 - frac.y);",
+	"  float ws = smoothstep(0.0, 0.5, frac.y - 0.5);",
+	"  float we = smoothstep(0.0, 0.5, frac.x - 0.5);",
+	"  float ww = smoothstep(0.0, 0.5, 0.5 - frac.x);",
+	"",
+	"  /* Blend neighbors using edge-aware weights. */",
+	"  /* Only blend toward neighbors that form a smooth continuation (similar colors). */",
+	"  float sim_n = 1.0 - clamp(length(c.rgb - n.rgb) * 4.0, 0.0, 1.0);",
+	"  float sim_s = 1.0 - clamp(length(c.rgb - s.rgb) * 4.0, 0.0, 1.0);",
+	"  float sim_e = 1.0 - clamp(length(c.rgb - e.rgb) * 4.0, 0.0, 1.0);",
+	"  float sim_w = 1.0 - clamp(length(c.rgb - w.rgb) * 4.0, 0.0, 1.0);",
+	"",
+	"  vec4 smooth = c;",
+	"  float total = 1.0;",
+	"  smooth += n * wn * sim_n; total += wn * sim_n;",
+	"  smooth += s * ws * sim_s; total += ws * sim_s;",
+	"  smooth += e * we * sim_e; total += we * sim_e;",
+	"  smooth += w * ww * sim_w; total += ww * sim_w;",
+	"  smooth /= total;",
+	"",
+	"  /* Mix between original (crisp) and smoothed based on user control. */",
+	"  frag_colour = mix(c, smooth, smooth_amount);",
+	"}",
+};
+
 /* ---- CRT scanline effect ---- */
 
 /** Fragment shader for CRT scanline and curvature effect. */

@@ -1265,7 +1265,12 @@ struct GameOptionsWindow : Window {
 				this->SetWidgetDisabledState(WID_GO_VIDEO_BLOOM_INTENSITY, !_video_post_processing || !_video_hw_accel);
 				this->SetWidgetDisabledState(WID_GO_VIDEO_WEATHER_DROPDOWN, !_video_post_processing || !_video_hw_accel);
 				this->SetWidgetDisabledState(WID_GO_VIDEO_WEATHER_INTENSITY, !_video_post_processing || !_video_hw_accel);
-				this->SetDirty();
+				/* Collapse/expand the entire effects section. */
+				{
+					bool gpu_on = _video_post_processing && _video_hw_accel;
+					this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_EFFECTS_SEL)->SetDisplayedPlane(gpu_on ? 0 : SZSP_NONE);
+				}
+				this->ReInit();
 				break;
 
 			case WID_GO_VIDEO_RENDER_SCALE:
@@ -1938,6 +1943,9 @@ struct GameOptionsWindow : Window {
 		this->SetWidgetLoweredState(WID_GO_VIDEO_DYNAMIC_LIGHTING_BUTTON, _video_dynamic_lighting);
 		this->SetWidgetLoweredState(WID_GO_VIDEO_BLOOM_BUTTON, _video_bloom);
 
+		/* Collapse entire effects section when PP is off to keep tab compact. */
+		this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_EFFECTS_SEL)->SetDisplayedPlane(gpu_enabled ? 0 : SZSP_NONE);
+
 		/* Collapse sub-parameter sections when parent effect is off. */
 		this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_FXAA_PARAMS_SEL)->SetDisplayedPlane(_video_fxaa ? 0 : SZSP_NONE);
 		this->GetWidget<NWidgetStacked>(WID_GO_VIDEO_NIGHT_PARAMS_SEL)->SetDisplayedPlane(_video_night_mode ? 0 : SZSP_NONE);
@@ -2179,6 +2187,9 @@ static constexpr std::initializer_list<NWidgetPart> _nested_game_options_widgets
 								NWidget(WWT_TEXT, INVALID_COLOUR), SetFill(1, 0), SetResize(1, 0), SetStringTip(STR_GAME_OPTIONS_TEXTURE_FILTER), SetTextStyle(GAME_OPTIONS_LABEL),
 								NWidget(WWT_DROPDOWN, GAME_OPTIONS_BUTTON, WID_GO_VIDEO_TEXTURE_FILTER_DROPDOWN), SetFill(1, 0), SetToolTip(STR_GAME_OPTIONS_TEXTURE_FILTER_TOOLTIP),
 							EndContainer(),
+							/* All visual effects — collapsed when PP is off to keep tab compact. */
+							NWidget(NWID_SELECTION, INVALID_COLOUR, WID_GO_VIDEO_EFFECTS_SEL),
+							NWidget(NWID_VERTICAL), SetPIP(0, WidgetDimensions::unscaled.vsep_normal, 0),
 							/* Anti-aliasing + collapsible sub-parameters */
 							NWidget(NWID_HORIZONTAL), SetPIP(0, WidgetDimensions::unscaled.hsep_wide, 0),
 								NWidget(WWT_BOOLBTN, GAME_OPTIONS_BACKGROUND, WID_GO_VIDEO_FXAA_BUTTON), SetAlternateColourTip(GAME_OPTIONS_BUTTON, STR_GAME_OPTIONS_FXAA_TOOLTIP),
@@ -2337,6 +2348,8 @@ static constexpr std::initializer_list<NWidgetPart> _nested_game_options_widgets
 									NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GO_VIDEO_WEATHER_INTENSITY), SetMinimalTextLines(1, 12 + WidgetDimensions::unscaled.vsep_normal, FS_SMALL), SetFill(1, 0), SetResize(1, 0), SetToolTip(STR_GAME_OPTIONS_WEATHER_INTENSITY_TOOLTIP),
 								EndContainer(),
 							EndContainer(),
+							EndContainer(), /* End NWID_VERTICAL inside EFFECTS_SEL */
+							EndContainer(), /* End WID_GO_VIDEO_EFFECTS_SEL */
 						EndContainer(),
 					EndContainer(),
 

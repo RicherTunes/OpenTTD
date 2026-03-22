@@ -627,6 +627,7 @@ OpenGLBackend::~OpenGLBackend()
 		if (this->pp_night_program != 0) _glDeleteProgram(this->pp_night_program);
 		if (this->pp_grain_program != 0) _glDeleteProgram(this->pp_grain_program);
 		if (this->pp_bicubic_program != 0) _glDeleteProgram(this->pp_bicubic_program);
+		if (this->pp_pixel_smooth_program != 0) _glDeleteProgram(this->pp_pixel_smooth_program);
 		if (this->pp_crt_program != 0) _glDeleteProgram(this->pp_crt_program);
 		if (this->pp_lighting_program != 0) _glDeleteProgram(this->pp_lighting_program);
 		if (this->pp_bloom_threshold_program != 0) _glDeleteProgram(this->pp_bloom_threshold_program);
@@ -1305,6 +1306,10 @@ void OpenGLBackend::Paint()
 			/* Weather. */
 			new_config.weather_type = _video_weather_type;
 			new_config.weather_intensity = _video_weather_intensity;
+
+			/* Pixel art smoothing. */
+			new_config.pixel_smoothing = _video_pixel_smoothing;
+			new_config.pixel_smooth_amount = _video_pixel_smooth_amount;
 		}
 
 		new_config.auto_supersample = _video_auto_supersample;
@@ -1493,6 +1498,7 @@ bool OpenGLBackend::InitPostProcessShaders()
 	this->pp_night_program = CompileAndLog("night-mode", _frag_shader_pp_night, lengthof(_frag_shader_pp_night));
 	this->pp_grain_program = CompileAndLog("film-grain", _frag_shader_pp_grain, lengthof(_frag_shader_pp_grain));
 	this->pp_bicubic_program = CompileAndLog("bicubic", _frag_shader_pp_bicubic, lengthof(_frag_shader_pp_bicubic));
+	this->pp_pixel_smooth_program = CompileAndLog("pixel-smooth", _frag_shader_pp_pixel_smooth, lengthof(_frag_shader_pp_pixel_smooth));
 	this->pp_crt_program = CompileAndLog("CRT", _frag_shader_pp_crt, lengthof(_frag_shader_pp_crt));
 	this->pp_lighting_program = CompileAndLog("lighting", _frag_shader_pp_lighting, lengthof(_frag_shader_pp_lighting));
 	this->pp_bloom_threshold_program = CompileAndLog("bloom-threshold", _frag_shader_pp_bloom_threshold, lengthof(_frag_shader_pp_bloom_threshold));
@@ -1524,6 +1530,7 @@ bool OpenGLBackend::InitPostProcessShaders()
 	BindSourceTex(this->pp_night_program);
 	BindSourceTex(this->pp_grain_program);
 	BindSourceTex(this->pp_bicubic_program);
+	BindSourceTex(this->pp_pixel_smooth_program);
 	BindSourceTex(this->pp_crt_program);
 	BindSourceTex(this->pp_lighting_program);
 	BindSourceTex(this->pp_bloom_threshold_program);
@@ -1602,6 +1609,10 @@ bool OpenGLBackend::InitPostProcessShaders()
 
 	/* Bicubic uniforms. */
 	this->pp_bicubic_texel_loc = CacheLoc(this->pp_bicubic_program, "texel_size");
+
+	/* Pixel art smoothing uniforms. */
+	this->pp_pixel_smooth_texel_loc = CacheLoc(this->pp_pixel_smooth_program, "texel_size");
+	this->pp_pixel_smooth_amount_loc = CacheLoc(this->pp_pixel_smooth_program, "smooth_amount");
 
 	/* CRT uniforms. */
 	this->pp_crt_texel_loc = CacheLoc(this->pp_crt_program, "texel_size");
@@ -1778,6 +1789,7 @@ void OpenGLBackend::RenderPostProcess()
 	if (this->pp_config.upscale_mode == UpscaleMode::Temporal && this->pp_temporal_program != 0 && this->mv_compute_supported) total++;
 	if (this->pp_config.upscale_mode == UpscaleMode::Plugin && GetLoadedUpscalePlugin() != nullptr) total++;
 	if (this->pp_config.sharpening > 0 && this->pp_config.upscale_mode != UpscaleMode::FSR1 && this->pp_config.upscale_mode != UpscaleMode::Temporal && this->pp_config.upscale_mode != UpscaleMode::Plugin && this->pp_cas_program != 0) total++;
+	if (WillRun(this->pp_config.pixel_smoothing, this->pp_pixel_smooth_program)) total++;
 	if (WillRun(this->pp_config.fxaa, this->pp_fxaa_program)) total++;
 	if (WillRun(this->pp_config.tiltshift, this->pp_tiltshift_h_program)) total++;
 	if (WillRun(this->pp_config.tiltshift, this->pp_tiltshift_v_program)) total++;
@@ -1991,6 +2003,14 @@ void OpenGLBackend::RenderPostProcess()
 		_glUseProgram(this->pp_cas_program);
 		_glUniform2f(this->pp_cas_texel_loc, texel_w, texel_h);
 		_glUniform1f(this->pp_cas_sharp_loc, MapSharpeningToCas(this->pp_config.sharpening));
+		RunPass();
+	}
+
+	/* Pixel art smoothing (zoom-in enhancement). */
+	if (this->pp_config.pixel_smoothing && this->pp_pixel_smooth_program != 0) {
+		_glUseProgram(this->pp_pixel_smooth_program);
+		_glUniform2f(this->pp_pixel_smooth_texel_loc, texel_w, texel_h);
+		_glUniform1f(this->pp_pixel_smooth_amount_loc, this->pp_config.pixel_smooth_amount / 100.0f);
 		RunPass();
 	}
 

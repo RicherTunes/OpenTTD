@@ -114,6 +114,9 @@ private:
 	GLuint pp_night_program = 0;     ///< Night mode shader program.
 	GLuint pp_grain_program = 0;     ///< Film grain shader program.
 	GLuint pp_bicubic_program = 0;   ///< Bicubic texture filter shader program.
+	GLuint pp_pixel_smooth_program = 0; ///< Pixel art smoothing shader program.
+	GLint pp_pixel_smooth_texel_loc = -1; ///< Pixel smooth texel_size uniform location.
+	GLint pp_pixel_smooth_amount_loc = -1; ///< Pixel smooth smooth_amount uniform location.
 	GLuint pp_crt_program = 0;       ///< CRT scanline filter shader program.
 	GLuint pp_lighting_program = 0;  ///< Dynamic time-of-day lighting shader program.
 	GLuint pp_bloom_threshold_program = 0; ///< Bloom threshold extraction shader program.

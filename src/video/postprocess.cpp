@@ -86,6 +86,7 @@ bool PostProcessNeedsFBO(const PostProcessConfig &config)
 	if (config.night_mode) return true;
 	if (config.film_grain) return true;
 	if (config.crt_filter) return true;
+	if (config.pixel_smoothing) return true;
 	if (config.dynamic_lighting) return true;
 	if (config.bloom) return true;
 	if (config.weather_type > 0) return true;
@@ -121,6 +122,7 @@ int PostProcessPassCount(const PostProcessConfig &config)
 	}
 
 	/* Effect passes (order matches RenderPostProcess execution). */
+	if (config.pixel_smoothing) passes += 1;
 	if (config.fxaa) passes += 1;
 	if (config.tiltshift) passes += 2; /* Horizontal + vertical blur */
 	if (config.color_grading) passes += 1;
