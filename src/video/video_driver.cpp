@@ -91,6 +91,12 @@ bool _video_depth_of_field = false; ///< Whether depth-of-field blur is enabled.
 uint8_t _video_dof_focus_point = 50; ///< DoF focus distance (0-100).
 uint8_t _video_dof_aperture = 30; ///< DoF aperture / blur strength (0-100).
 uint8_t _video_dof_range = 40; ///< DoF focus range width (0-100).
+bool _video_toon_rendering = false; ///< Whether toon/cartoon rendering is enabled.
+uint8_t _video_toon_edge_threshold = 10; ///< Toon edge detection sensitivity (1-50).
+uint8_t _video_toon_color_levels = 5; ///< Toon color quantization levels (2-16).
+bool _video_heat_haze = false; ///< Whether heat haze distortion is enabled.
+uint8_t _video_haze_intensity = 30; ///< Heat haze effect strength (0-100).
+uint8_t _video_haze_distortion = 5; ///< Heat haze distortion amplitude (1-20).
 bool _video_cpu_viewport_scaling = false; ///< Whether CPU viewport scaling is enabled (render viewport at reduced resolution).
 bool _video_debug_class = false; ///< Whether classification debug visualization is enabled.
 

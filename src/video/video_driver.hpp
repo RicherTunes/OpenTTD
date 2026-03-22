@@ -94,6 +94,12 @@ extern bool _video_depth_of_field;
 extern uint8_t _video_dof_focus_point;
 extern uint8_t _video_dof_aperture;
 extern uint8_t _video_dof_range;
+extern bool _video_toon_rendering;
+extern uint8_t _video_toon_edge_threshold;
+extern uint8_t _video_toon_color_levels;
+extern bool _video_heat_haze;
+extern uint8_t _video_haze_intensity;
+extern uint8_t _video_haze_distortion;
 extern bool _video_cpu_viewport_scaling;
 
 /** The base of all video drivers. */

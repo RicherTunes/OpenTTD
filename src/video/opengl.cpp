@@ -1440,6 +1440,16 @@ void OpenGLBackend::Paint()
 			new_config.dof_focus_point = _video_dof_focus_point;
 			new_config.dof_aperture = _video_dof_aperture;
 			new_config.dof_range = _video_dof_range;
+
+			/* Toon/cartoon rendering. */
+			new_config.toon_rendering = _video_toon_rendering;
+			new_config.toon_edge_threshold = _video_toon_edge_threshold;
+			new_config.toon_color_levels = _video_toon_color_levels;
+
+			/* Heat haze distortion. */
+			new_config.heat_haze = _video_heat_haze;
+			new_config.haze_intensity = _video_haze_intensity;
+			new_config.haze_distortion = _video_haze_distortion;
 		}
 
 		new_config.cpu_viewport_scaling = _video_cpu_viewport_scaling;
@@ -2702,6 +2712,28 @@ void OpenGLBackend::RenderPostProcess()
 		_glUniform1f(this->pp_dof_focus_loc, this->pp_config.dof_focus_point / 100.0f);
 		_glUniform1f(this->pp_dof_aperture_loc, this->pp_config.dof_aperture / 100.0f);
 		_glUniform1f(this->pp_dof_range_loc, this->pp_config.dof_range / 100.0f);
+		RunPass();
+	}
+
+	/* Toon/cartoon rendering (Sobel edges + posterization). */
+	if (this->pp_config.toon_rendering && this->pp_toon_program != 0) {
+		_glUseProgram(this->pp_toon_program);
+		_glUniform2f(this->pp_toon_texel_loc, texel_w, texel_h);
+		_glUniform1f(this->pp_toon_edge_loc, static_cast<float>(this->pp_config.toon_edge_threshold));
+		_glUniform1f(this->pp_toon_levels_loc, static_cast<float>(this->pp_config.toon_color_levels));
+		RunPass();
+	}
+
+	/* Heat haze distortion. */
+	if (this->pp_config.heat_haze && this->pp_heat_haze_program != 0) {
+		auto now = std::chrono::steady_clock::now();
+		if (this->pp_haze_start_time == std::chrono::steady_clock::time_point{}) this->pp_haze_start_time = now;
+		float haze_time = std::fmod(std::chrono::duration<float>(now - this->pp_haze_start_time).count(), 1000.0f);
+		_glUseProgram(this->pp_heat_haze_program);
+		_glUniform2f(this->pp_haze_texel_loc, texel_w, texel_h);
+		_glUniform1f(this->pp_haze_intensity_loc, this->pp_config.haze_intensity / 100.0f);
+		_glUniform1f(this->pp_haze_distortion_loc, static_cast<float>(this->pp_config.haze_distortion));
+		_glUniform1f(this->pp_haze_time_loc, haze_time);
 		RunPass();
 	}
 
