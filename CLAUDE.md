@@ -231,6 +231,14 @@ Reduces CPU blitter work by rendering the main viewport at reduced resolution, t
 
 **Key files:** `src/video/viewport_cpu_scale.h`, `src/viewport.cpp` (DrawViewportCPUScaled), `src/video/opengl.cpp` (compositing in Paint)
 
+### Viewport-Only Effect Masking (Phase 5)
+
+Night mode, tilt-shift, and water reflections pass a `viewport_uv` uniform (vec4: left, top, right, bottom in UV space) to the shader. The shader applies the effect only within the viewport area, leaving toolbar, status bar, and windows untouched. Computed in `RenderPostProcess()` from the main window's viewport screen rect.
+
+### Preset Cycling
+
+`CyclePPPreset()` / `GetCurrentPPPresetName()` in `postprocess.h` allow external code (e.g., hotkeys, GUI buttons) to cycle through all 14 presets sequentially. State tracked via `_pp_cycle_index` in `console_cmds.cpp`.
+
 ### Design Decisions
 - All features default to OFF (zero overhead when disabled)
 - Motion vectors generated via draw-command recording at ViewportDrawParentSprites level (no blitter modifications)
@@ -243,6 +251,7 @@ Reduces CPU blitter work by rendering the main viewport at reduced resolution, t
 - PP shaders use gl_VertexID fullscreen triangle (3 vertices, GL_TRIANGLES) -- no VBO needed
 - vid_program/remap_program use VBO quad (4 vertices, GL_TRIANGLE_STRIP)
 - Temporal history reset when CPU scaling toggles or render_scale changes
+- Viewport-only masking uses UV bounds uniform to restrict effects to viewport area
 
 ### Settings Flow
 Global variables (`_video_*` in `video_driver.cpp`, 66+ vars) -> synced per-frame in `Paint()` -> `PostProcessConfig` struct (40+ fields) -> shader uniforms in `RenderPostProcess()`. Settings persisted in openttd.cfg via `misc_settings.ini`. GUI controls in `settings_gui.cpp` modify globals directly; all GPU sub-controls disabled when PP master toggle is off.
@@ -295,10 +304,10 @@ Global variables (`_video_*` in `video_driver.cpp`, 66+ vars) -> synced per-fram
 
 ## Map Generation Improvements
 
-8 terrain generation features with TDD tests, all defaulting to OFF for backward compatibility.
+12 terrain generation features with TDD tests, all defaulting to OFF for backward compatibility.
 
 ### Features
-- **Continent Shapes** -- Multiplicative heightmap masks: Island, Archipelago, Fjords, Scattered, Peninsula
+- **Continent Shapes** -- Multiplicative heightmap masks: Island, Archipelago, Fjords, Scattered, Peninsula, Mesa/Canyon, Volcanic
 - **Improved Perlin Interpolation** -- Quintic smoothstep replacing linear interpolation for smoother terrain
 - **Mountain Ranges** -- Random walk ridge lines with Gaussian falloff, spatial hash acceleration
 - **Lake Generation** -- BFS depression detection above sea level, fills enclosed basins as river tiles
@@ -306,22 +315,29 @@ Global variables (`_video_*` in `video_driver.cpp`, 66+ vars) -> synced per-fram
 - **Biome System** -- Temperature-based snow/desert zones using altitude + spatial noise
 - **Voronoi Town Placement** -- Grid-based Lloyd relaxation for even town distribution
 - **River Deltas** -- Delta generation at river mouths where rivers meet the sea
+- **Biome-Aware Tree Placement** -- Temperature-based tree type biasing: cold (high altitude) tiles get conifers, warm (low) tiles get deciduous/tropical
+- **Harbor-Aware Industry Placement** -- Port-type industries (oil refineries, oil rigs) prefer tiles with high harbor scores via best-of-N candidate selection
+- **Real-Time Map Preview** -- 256x128 terrain preview in generation window, updates when settings change, uses self-contained Perlin engine independent of global HeightMap
+- **Precomputed Tile Cache** -- Pre-built valid tile lists for tree/town generation, eliminates rejection sampling
 
 ### Key Files
 - `src/tgp.cpp` -- Continent shapes, mountain ranges, improved Perlin, pipeline profiling
 - `src/tgp_func.h` -- Exposed TGP functions (quintic smoothstep) for testing
 - `src/landscape.cpp` -- Lake creation, harbor scoring, biome zones, river deltas
 - `src/lake_gen.cpp/.h` -- Lake detection via BFS flood fill
-- `src/harbor_gen.cpp/.h` -- Coastline concavity scoring with lifecycle management
+- `src/harbor_gen.cpp/.h` -- Coastline concavity scoring with lifecycle management, HasValidHarborScores()
 - `src/town_cmd.cpp` -- Voronoi town placement with Lloyd relaxation
+- `src/tree_cmd.cpp` -- Biome-aware tree type biasing
+- `src/industry_cmd.cpp` -- Harbor-aware port industry placement + CDF binary search
 - `src/genworld_cache.cpp/.h` -- Precomputed valid tile lists for tree/town generation
+- `src/genworld_preview.cpp/.h` -- Real-time terrain preview with self-contained Perlin engine
 - `src/terrain_advanced_gui.cpp/.h` -- Terrain Options sub-window (8 dropdowns)
 - `src/tests/test_terrain_gen.cpp` -- 50 terrain generation tests
-- `src/tests/test_town_placement.cpp` -- Town placement tests
+- `src/tests/test_mapgen_biome.cpp` -- 15 biome-aware placement tests
 
 ### Settings (SLV_TERRAIN_GENERATION_V2 = 365)
 All stored in `GameCreationSettings` struct, persisted via `world_settings.ini`:
-- `continent_shape` (ContinentShape enum: None/Island/Archipelago/Fjords/Scattered/Peninsula)
+- `continent_shape` (ContinentShape enum: None/Island/Archipelago/Fjords/Scattered/Peninsula/Mesa/Volcanic)
 - `terrain_algorithm` (TerrainAlgorithm enum: Classic/ImprovedPerlin)
 - `biome_model` (BiomeModel enum: Classic/TemperatureBased)
 - `town_distribution` (TownDistribution enum: Random/Even)
@@ -333,7 +349,7 @@ All stored in `GameCreationSettings` struct, persisted via `world_settings.ini`:
 tgp.cpp: HeightMapGenerate -> MountainRanges -> HeightMapNormalize
   (Normalize: AdjustWaterLevel -> ContinentShape -> CoastLines -> SmoothSlopes -> SmoothCoasts -> SmoothSlopes -> SineTransform -> Curves)
 landscape.cpp: FixSlopes -> Water -> Lakes -> HarborScores -> Biomes -> Rivers -> RiverDeltas
-genworld.cpp: BuildTileCache -> Towns -> Industries -> FreeHarbors -> Trees -> FreeTileCache
+genworld.cpp: BuildTileCache -> Towns(Voronoi) -> Industries(harbor-aware) -> FreeHarbors -> Trees(biome-aware) -> FreeTileCache
 ```
 
 ## Performance Optimizations
@@ -379,9 +395,23 @@ TGP: Total generation: 103ms
 | test_postprocess.cpp | 271 | PP config, dimensions, pass count, NeedsFBO, shader math, CPU scaling |
 | test_terrain_gen.cpp | 50 | Continent shapes, mountain ranges, Perlin, biomes, harbors, deltas |
 | test_motion_vector.cpp | 38 | Draw commands, tile binning, depth computation, scroll delta |
+| test_mapgen_biome.cpp | 15 | Biome-aware tree seed biasing, harbor-aware industry selection |
 | test_temporal_upscale.cpp | 14 | Halton jitter, frame cycling, jitter gating, params |
 | test_upscale_plugin.cpp | 14 | Plugin API, quality modes, capabilities, dispatch params |
 | test_optimization_benchmarks.cpp | 9 | Performance regression guards (1000+ assertions) |
+
+## Project Documentation Index
+
+| Document | Purpose |
+|---|---|
+| `CLAUDE.md` | This file -- primary implementation reference |
+| `docs/rendering_pipeline_analysis.md` | Pre-implementation analysis of vanilla rendering architecture |
+| `docs/gpu_migration_plan_v2.md` | Phased GPU pipeline plan with quality gates (all phases complete) |
+| `docs/post_processing_integration_architecture.md` | Technical architecture for FBO pipeline (implemented) |
+| `docs/performance_analysis_240hz.md` | Performance analysis for high refresh rate targets |
+| `docs/dlss_fsr_feasibility_assessment.md` | DLSS/FSR integration feasibility (led to current approach) |
+| `docs/dlss_fsr_technology_overview.md` | DLSS 5 / FSR 4 technology landscape |
+| `docs/adversarial_review_findings.md` | 4 hostile reviews of v1.0 plan (all findings addressed) |
 
 ## Documentation
 
