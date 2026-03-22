@@ -15,6 +15,7 @@
 #include "../video/pp_screenshot.h"
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 #include "../safeguards.h"
 
@@ -265,6 +266,29 @@ TEST_CASE("PPScreenshot - queue state reports pending next file and totals")
 	CHECK(next_basename == "badname");
 
 	ClearPendingPPScreenshots();
+}
+
+TEST_CASE("PPScreenshot - clear resets queue state and next output")
+{
+	ClearPendingPPScreenshots();
+
+	RequestPPScreenshot("first");
+	RequestPPScreenshot("second");
+
+	size_t pending = 0;
+	size_t completed = 0;
+	size_t dropped = 0;
+	std::string next_basename;
+	GetPPScreenshotQueueState(pending, completed, dropped, next_basename);
+	CHECK(pending == 2);
+	CHECK(next_basename == "first");
+
+	ClearPendingPPScreenshots();
+	GetPPScreenshotQueueState(pending, completed, dropped, next_basename);
+	CHECK(pending == 0);
+	CHECK(completed == 0);
+	CHECK(dropped == 0);
+	CHECK(next_basename.empty());
 }
 
 TEST_CASE("PPScreenshot - oversized capture rejects before allocation and respects retry budget")

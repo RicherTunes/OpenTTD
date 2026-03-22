@@ -82,7 +82,8 @@ static bool TryGetCaptureBufferSize(int width, int height, size_t &buffer_size)
 	if (width <= 0 || height <= 0) return false;
 
 	uint64_t pixel_count = static_cast<uint64_t>(width) * static_cast<uint64_t>(height);
-	if (pixel_count > std::numeric_limits<size_t>::max() / 4) return false;
+	size_t max_buffer_size = (std::min)(std::numeric_limits<size_t>::max(), std::vector<uint8_t>().max_size());
+	if (pixel_count > max_buffer_size / 4) return false;
 
 	buffer_size = static_cast<size_t>(pixel_count) * 4;
 	return true;

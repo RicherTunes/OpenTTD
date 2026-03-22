@@ -3848,10 +3848,11 @@ static bool ConPPScreenshot(std::span<std::string_view> argv)
 {
 	if (argv.empty()) {
 		IConsolePrint(CC_HELP, "Capture a screenshot of the post-processed output.");
-		IConsolePrint(CC_HELP, "Usage: 'pp_screenshot [filename]' or 'pp_screenshot status'");
+		IConsolePrint(CC_HELP, "Usage: 'pp_screenshot [filename]' or 'pp_screenshot status|clear'");
 		IConsolePrint(CC_HELP, "  filename: output name without extension (.bmp added automatically).");
 		IConsolePrint(CC_HELP, "  If omitted, defaults to 'pp_screenshot'.");
 		IConsolePrint(CC_HELP, "  status: show pending queue depth and cumulative save/drop totals.");
+		IConsolePrint(CC_HELP, "  clear: discard any queued PP screenshots and reset queue totals.");
 		return true;
 	}
 
@@ -3865,6 +3866,17 @@ static bool ConPPScreenshot(std::span<std::string_view> argv)
 		if (!next_basename.empty()) {
 			IConsolePrint(CC_INFO, "Next queued output: '{}.bmp'.", next_basename);
 		}
+		return true;
+	}
+
+	if (argv.size() >= 2 && argv[1] == "clear") {
+		size_t pending = 0;
+		size_t completed = 0;
+		size_t dropped = 0;
+		std::string next_basename;
+		GetPPScreenshotQueueState(pending, completed, dropped, next_basename);
+		ClearPendingPPScreenshots();
+		IConsolePrint(CC_INFO, "PP screenshot queue cleared: {} pending request(s) discarded; totals reset.", pending);
 		return true;
 	}
 
