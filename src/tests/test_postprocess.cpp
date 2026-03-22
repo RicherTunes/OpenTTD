@@ -12,6 +12,8 @@
 #include "../3rdparty/catch2/catch.hpp"
 
 #include "../video/postprocess.h"
+#include "../video/pp_screenshot.h"
+#include <algorithm>
 #include <cmath>
 
 #include "../safeguards.h"
@@ -96,6 +98,145 @@ TEST_CASE("PostProcess - CalculateDimensions small window")
 	auto dims = CalculatePostProcessDimensions(640, 480, 50);
 	CHECK(dims.render.width == 320);
 	CHECK(dims.render.height == 240);
+}
+
+/* --- PP screenshot queue tests --- */
+
+TEST_CASE("PPScreenshot - active frame count increments only while PP is active")
+{
+	CHECK(GetNextPPActiveFrameCount(false, 0) == 0);
+	CHECK(GetNextPPActiveFrameCount(true, 0) == 1);
+	CHECK(GetNextPPActiveFrameCount(true, 1) == 2);
+	CHECK(GetNextPPActiveFrameCount(false, 2) == 0);
+}
+
+TEST_CASE("PPScreenshot - capture is immediate when PP is inactive")
+{
+	CHECK_FALSE(ShouldCapturePPScreenshotThisFrame(false, false, 0));
+	CHECK(ShouldCapturePPScreenshotThisFrame(true, false, 0));
+}
+
+TEST_CASE("PPScreenshot - capture waits for warmup when PP is active")
+{
+	CHECK_FALSE(ShouldCapturePPScreenshotThisFrame(true, true, 0));
+	CHECK_FALSE(ShouldCapturePPScreenshotThisFrame(true, true, 1));
+	CHECK(ShouldCapturePPScreenshotThisFrame(true, true, 2));
+}
+
+TEST_CASE("PPScreenshot - stateful warmup helper resets and captures in sequence")
+{
+	ClearPendingPPScreenshots();
+	ResetPPScreenshotWarmupState();
+
+	CHECK_FALSE(AdvanceAndShouldCapturePPScreenshotThisFrame(true, true));
+	CHECK(AdvanceAndShouldCapturePPScreenshotThisFrame(true, true));
+
+	ResetPPScreenshotWarmupState();
+	CHECK_FALSE(AdvanceAndShouldCapturePPScreenshotThisFrame(true, true));
+	CHECK(AdvanceAndShouldCapturePPScreenshotThisFrame(true, true));
+
+	ClearPendingPPScreenshots();
+}
+
+TEST_CASE("PPScreenshot - filename sanitization strips unsafe path characters")
+{
+	CHECK(SanitizePPScreenshotBasename("test:name/with\\bad*chars?<>|") == "testnamewithbadchars");
+	CHECK(SanitizePPScreenshotBasename("") == "pp_screenshot");
+}
+
+TEST_CASE("PPScreenshot - failed capture retries before dropping request")
+{
+	ClearPendingPPScreenshots();
+	SetPPPixelReader(nullptr);
+	RequestPPScreenshot("retry_me");
+
+	CHECK(GetPendingPPScreenshotCount() == 1);
+	for (uint8_t i = 1; i < PP_SCREENSHOT_MAX_CAPTURE_ATTEMPTS; i++) {
+		CHECK_FALSE(CapturePPScreenshotIfPending(64, 64));
+		CHECK(GetPendingPPScreenshotCount() == 1);
+	}
+
+	CHECK_FALSE(CapturePPScreenshotIfPending(64, 64));
+	CHECK(GetPendingPPScreenshotCount() == 0);
+
+	ClearPendingPPScreenshots();
+}
+
+TEST_CASE("PPScreenshot - invalid dimensions also respect retry budget")
+{
+	ClearPendingPPScreenshots();
+	RequestPPScreenshot("bad_dims");
+
+	for (uint8_t i = 1; i < PP_SCREENSHOT_MAX_CAPTURE_ATTEMPTS; i++) {
+		CHECK_FALSE(CapturePPScreenshotIfPending(0, 0));
+		CHECK(GetPendingPPScreenshotCount() == 1);
+	}
+
+	CHECK_FALSE(CapturePPScreenshotIfPending(0, 0));
+	CHECK(GetPendingPPScreenshotCount() == 0);
+
+	ClearPendingPPScreenshots();
+}
+
+TEST_CASE("PPScreenshot - dropped request exposes one-shot failure notification")
+{
+	ClearPendingPPScreenshots();
+	SetPPPixelReader(nullptr);
+	RequestPPScreenshot("notify:me");
+
+	for (uint8_t i = 0; i < PP_SCREENSHOT_MAX_CAPTURE_ATTEMPTS; i++) {
+		CHECK_FALSE(CapturePPScreenshotIfPending(64, 64));
+	}
+
+	size_t dropped_count = 0;
+	std::string summary;
+	CHECK(ConsumePPScreenshotFailureNotification(dropped_count, summary));
+	CHECK(dropped_count == 1);
+	CHECK(summary.find("notifyme") != std::string::npos);
+	CHECK(summary.find("no pixel reader registered") != std::string::npos);
+
+	dropped_count = 0;
+	summary.clear();
+	CHECK_FALSE(ConsumePPScreenshotFailureNotification(dropped_count, summary));
+
+	ClearPendingPPScreenshots();
+}
+
+TEST_CASE("PPScreenshot - outcome totals track saved and dropped requests")
+{
+	ClearPendingPPScreenshots();
+
+	size_t completed = 0;
+	size_t dropped = 0;
+	GetPPScreenshotOutcomeTotals(completed, dropped);
+	CHECK(completed == 0);
+	CHECK(dropped == 0);
+
+	SetPPPixelReader([](int, int, int w, int h, void *data) {
+		std::fill_n(static_cast<uint8_t *>(data), static_cast<size_t>(w) * h * 4, 0);
+	});
+
+	RequestPPScreenshot("good_one");
+	CHECK(CapturePPScreenshotIfPending(2, 2));
+
+	GetPPScreenshotOutcomeTotals(completed, dropped);
+	CHECK(completed == 1);
+	CHECK(dropped == 0);
+
+	SetPPPixelReader(nullptr);
+	RequestPPScreenshot("bad_one");
+	for (uint8_t i = 0; i < PP_SCREENSHOT_MAX_CAPTURE_ATTEMPTS; i++) {
+		CHECK_FALSE(CapturePPScreenshotIfPending(2, 2));
+	}
+
+	GetPPScreenshotOutcomeTotals(completed, dropped);
+	CHECK(completed == 1);
+	CHECK(dropped == 1);
+
+	ClearPendingPPScreenshots();
+	GetPPScreenshotOutcomeTotals(completed, dropped);
+	CHECK(completed == 0);
+	CHECK(dropped == 0);
 }
 
 /* --- NeedsFBO tests --- */
