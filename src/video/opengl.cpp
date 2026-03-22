@@ -632,6 +632,7 @@ OpenGLBackend::~OpenGLBackend()
 		if (this->pp_bloom_threshold_program != 0) _glDeleteProgram(this->pp_bloom_threshold_program);
 		if (this->pp_bloom_blur_h_program != 0) _glDeleteProgram(this->pp_bloom_blur_h_program);
 		if (this->pp_bloom_blur_v_program != 0) _glDeleteProgram(this->pp_bloom_blur_v_program);
+		if (this->pp_bloom_composite_program != 0) _glDeleteProgram(this->pp_bloom_composite_program);
 		if (this->pp_weather_program != 0) _glDeleteProgram(this->pp_weather_program);
 		if (this->pp_temporal_program != 0) _glDeleteProgram(this->pp_temporal_program);
 		if (this->pp_downsample_program != 0) _glDeleteProgram(this->pp_downsample_program);
@@ -2025,11 +2026,22 @@ void OpenGLBackend::RenderPostProcess()
 		RunPass();
 	}
 
-	/* Bloom (3 passes: threshold -> blur H -> blur V).
-	 * Note: this is a simplified bloom that operates in-place on the ping-pong chain.
-	 * A production bloom would use a separate half-res FBO for the blur, but this
-	 * approach avoids extra texture allocations and works well for pixel-art. */
+	/* Bloom (4 passes: threshold -> blur H -> blur V -> composite).
+	 * The composite pass additively blends the blurred glow with the pre-bloom scene.
+	 * We save the pre-bloom source FBO so the composite can read the original. */
 	if (this->pp_config.bloom && this->pp_bloom_threshold_program != 0) {
+		/* Save the pre-bloom scene before the threshold pass destroys it.
+		 * The 3 intermediate passes (threshold + blur_h + blur_v) overwrite both
+		 * ping-pong FBOs, so the composite can't read the original from pp_tex.
+		 * Copy into the history texture (reused when temporal upscale is inactive). */
+		bool bloom_save_valid = false;
+		if (this->pp_bloom_composite_program != 0 && this->pp_history_tex != 0) {
+			_glBindTexture(GL_TEXTURE_2D, this->pp_history_tex);
+			_glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0,
+				this->pp_display_size.width, this->pp_display_size.height);
+			bloom_save_valid = true;
+		}
+
 		/* Pass 1: Extract bright pixels above threshold. */
 		_glUseProgram(this->pp_bloom_threshold_program);
 		_glUniform1f(this->pp_bloom_thresh_loc, this->pp_config.bloom_threshold / 100.0f);
@@ -2047,6 +2059,17 @@ void OpenGLBackend::RenderPostProcess()
 		if (this->pp_bloom_blur_v_program != 0) {
 			_glUseProgram(this->pp_bloom_blur_v_program);
 			_glUniform2f(this->pp_bloom_blur_v_texel_loc, texel_w, texel_h);
+			RunPass();
+		}
+
+		/* Pass 4: Composite — blend blurred bloom with original scene.
+		 * source_tex (unit 0) = blurred bloom result (current src FBO).
+		 * bloom_original (unit 1) = saved pre-bloom scene in history texture. */
+		if (this->pp_bloom_composite_program != 0 && bloom_save_valid) {
+			_glUseProgram(this->pp_bloom_composite_program);
+			_glActiveTexture(GL_TEXTURE1);
+			_glBindTexture(GL_TEXTURE_2D, this->pp_history_tex);
+			_glActiveTexture(GL_TEXTURE0);
 			RunPass();
 		}
 	}
