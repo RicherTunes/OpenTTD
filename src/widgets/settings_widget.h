@@ -102,6 +102,7 @@ enum GameOptionsWidgets : WidgetID {
 	WID_GO_VIDEO_WEATHER_INTENSITY,      ///< Weather intensity slider.
 	WID_GO_REFRESH_RATE_DROPDOWN,  ///< Dropdown for all available refresh rates.
 	WID_GO_VIDEO_DRIVER_INFO,      ///< Label showing details about the current video driver.
+	WID_GO_GRAPHICS_SCROLL,        ///< Scrollbar for the Graphics/Sound tab content.
 	WID_GO_SURVEY_SEL,             ///< Selection to hide survey if no JSON library is compiled in.
 	WID_GO_SURVEY_PARTICIPATE_BUTTON, ///< Toggle for participating in the automated survey.
 	WID_GO_SURVEY_PARTICIPATE_TEXT, ///< Text for automated survey toggle.
