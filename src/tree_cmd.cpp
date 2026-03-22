@@ -49,6 +49,11 @@ static const uint16_t DEFAULT_TREE_STEPS = 1000;             ///< Default number
 static const uint16_t DEFAULT_RAINFOREST_TREE_STEPS = 15000; ///< Default number of attempts for placing extra trees at rainforest in tropic.
 static const uint16_t EDITOR_TREE_DIV = 5;                   ///< Game editor tree generation divisor factor.
 
+bool IsValidShoreSlopeForTrees(Slope slope)
+{
+	return slope != SLOPE_FLAT && slope != SLOPE_EW && slope != SLOPE_NS && !IsHalftileSlope(slope);
+}
+
 /**
  * Tests if a tile can be converted to TileType::Trees
  * This is true for clear ground without farms or rocks.
@@ -61,7 +66,7 @@ static bool CanPlantTreesOnTile(TileIndex tile, bool allow_desert)
 {
 	switch (GetTileType(tile)) {
 		case TileType::Water:
-			return !IsBridgeAbove(tile) && IsCoast(tile) && !IsSlopeWithOneCornerRaised(GetTileSlope(tile));
+			return !IsBridgeAbove(tile) && IsCoast(tile) && IsValidShoreSlopeForTrees(GetTileSlope(tile));
 
 		case TileType::Clear:
 			return !IsBridgeAbove(tile) && !IsClearGround(tile, ClearGround::Fields) && !IsClearGround(tile, ClearGround::Rocks) &&
@@ -597,7 +602,7 @@ CommandCost CmdPlantTree(DoCommandFlags flags, TileIndex tile, TileIndex start_t
 				break;
 
 			case TileType::Water:
-				if (!IsCoast(current_tile) || IsSlopeWithOneCornerRaised(GetTileSlope(current_tile))) {
+				if (!IsCoast(current_tile) || !IsValidShoreSlopeForTrees(GetTileSlope(current_tile))) {
 					msg = STR_ERROR_CAN_T_BUILD_ON_WATER;
 					continue;
 				}
@@ -692,7 +697,16 @@ struct TreeListEnt : PalSpriteID {
 static void DrawTile_Trees(TileInfo *ti)
 {
 	switch (GetTreeGround(ti->tile)) {
-		case TreeGround::Shore: DrawShoreTile(ti->tileh); break;
+		case TreeGround::Shore:
+			/* Harden against invalid generated or loaded coast-tree tiles.
+			 * Tree placement now blocks unsupported shore slopes, but old maps
+			 * and other worldgen paths can still surface them. */
+			if (IsValidShoreSlopeForTrees(ti->tileh)) {
+				DrawShoreTile(ti->tileh);
+			} else {
+				DrawGroundSprite(SPR_FLAT_WATER_TILE, PAL_NONE);
+			}
+			break;
 		case TreeGround::Grass: DrawClearLandTile(ti, GetTreeDensity(ti->tile)); break;
 		case TreeGround::Rough: DrawHillyLandTile(ti); break;
 		default: DrawGroundSprite(_clear_land_sprites_snow_desert[GetTreeDensity(ti->tile)] + SlopeToSpriteOffset(ti->tileh), PAL_NONE); break;

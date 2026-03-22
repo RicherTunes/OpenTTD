@@ -11,6 +11,13 @@
 #define TREE_CMD_H
 
 #include "command_type.h"
+#include "slope_type.h"
+
+/**
+ * Can a shore-backed tree tile safely use shore ground rendering for this slope?
+ * Must stay in sync with DrawShoreTile's supported slope set.
+ */
+bool IsValidShoreSlopeForTrees(Slope slope);
 
 void PlaceTree(TileIndex tile, uint32_t r, bool keep_density = false);
 

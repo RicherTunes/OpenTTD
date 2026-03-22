@@ -13,6 +13,7 @@
 
 #include "../genworld_preview.h"
 #include "../tgp_func.h"
+#include "../tree_cmd.h"
 #include "../core/math_func.hpp"
 
 #include <cmath>
@@ -89,7 +90,8 @@ static uint8_t HarborScore(int land_rays, int water_rays, int total_water_depth)
 	if (land_rays <= 0 || water_rays <= 0) return 0;
 	int avg_depth = total_water_depth / water_rays;
 	int raw_score = land_rays * avg_depth;
-	return static_cast<uint8_t>(Clamp(raw_score * 4, 0, 255));
+	int normalized = (raw_score * 255) / (8 * 16);
+	return static_cast<uint8_t>(Clamp(normalized, 0, 255));
 }
 
 /*
@@ -541,6 +543,21 @@ TEST_CASE("Lake gen - height range filter") {
 	CHECK(basin_size == 0); /* Height 9 > max_height 8 */
 }
 
+TEST_CASE("Lake gen - sea level basin rejected by min height filter") {
+	/* Sea-level basins should be excluded by the early min-height gate,
+	 * not by a later special-case check. */
+	const int w = 5, h = 5;
+	std::vector<int> heights(w * h, 2);
+	for (int y = 1; y <= 3; y++) {
+		for (int x = 1; x <= 3; x++) {
+			heights[y * w + x] = 0;
+		}
+	}
+
+	uint basin_size = SimpleBFS(heights, w, h, 2, 2, 1, 100, 2, 8);
+	CHECK(basin_size == 0);
+}
+
 TEST_CASE("Lake gen - BFS visits each tile once") {
 	/* Verify BFS does not revisit tiles on a pathological grid.
 	 * A ring-shaped basin should still converge correctly. */
@@ -564,20 +581,32 @@ TEST_CASE("Lake gen - BFS visits each tile once") {
 	CHECK(basin_size == 7);
 }
 
+TEST_CASE("Trees - shore slope safety matches draw contract") {
+	CHECK_FALSE(IsValidShoreSlopeForTrees(SLOPE_FLAT));
+	CHECK_FALSE(IsValidShoreSlopeForTrees(SLOPE_EW));
+	CHECK_FALSE(IsValidShoreSlopeForTrees(SLOPE_NS));
+	CHECK_FALSE(IsValidShoreSlopeForTrees(SLOPE_HALFTILE_W));
+	CHECK_FALSE(IsValidShoreSlopeForTrees(SLOPE_HALFTILE_N));
+
+	CHECK(IsValidShoreSlopeForTrees(SLOPE_N));
+	CHECK(IsValidShoreSlopeForTrees(SLOPE_SE));
+	CHECK(IsValidShoreSlopeForTrees(SLOPE_STEEP_W));
+}
+
 /*
  * Feature 7: Natural Harbors
  */
 
 TEST_CASE("Harbor score - normalization bounds") {
-	/* Max: 8 land_rays * 16 avg_depth = 128, * 4 = 512, clamped to 255 */
+	/* Max: 8 land_rays * 16 avg_depth = 128, normalized to 255. */
 	int raw_score = 8 * 16;
-	int clamped = Clamp(raw_score * 4, 0, 255);
+	int clamped = (raw_score * 255) / (8 * 16);
 	CHECK(clamped == 255);
 
-	/* Min nonzero: 1 * 1 = 1, * 4 = 4 */
+	/* Min nonzero: 1 * 1 = 1, normalized to 1. */
 	raw_score = 1;
-	clamped = Clamp(raw_score * 4, 0, 255);
-	CHECK(clamped == 4);
+	clamped = (raw_score * 255) / (8 * 16);
+	CHECK(clamped == 1);
 }
 
 TEST_CASE("Harbor - inland tile scores 0") {
@@ -593,18 +622,18 @@ TEST_CASE("Harbor - inland tile scores 0") {
 
 TEST_CASE("Harbor - straight coast low score") {
 	/* A straight coastline: 1 ray hits land (behind), 1 water ray with short depth.
-	 * Score = 1 * 2 * 4 = 8 -- low. */
+	 * Score = floor((1 * 2) * 255 / 128) = 3 -- low. */
 	uint8_t score = HarborScore(1, 1, 2);
-	CHECK(score == 8);
+	CHECK(score == 3);
 	CHECK(score < 50); /* Clearly low */
 }
 
 TEST_CASE("Harbor - bay scores high") {
 	/* A sheltered bay: 5 of 8 rays hit land, 3 water rays with avg depth 10.
-	 * raw_score = 5 * (30/3) = 5 * 10 = 50, * 4 = 200 -- high. */
+	 * raw_score = 5 * 10 = 50, normalized to floor(50 * 255 / 128) = 99. */
 	uint8_t score = HarborScore(5, 3, 30);
-	CHECK(score == 200);
-	CHECK(score > 150);
+	CHECK(score == 99);
+	CHECK(score > 90);
 }
 
 TEST_CASE("Harbor - score range 0 to 255") {
@@ -631,10 +660,10 @@ TEST_CASE("Harbor - ray casting symmetry") {
 	/* Swapping land and water distribution changes the score */
 	uint8_t score_c = HarborScore(6, 2, 16); /* More land shelter */
 	uint8_t score_d = HarborScore(2, 6, 48); /* Less shelter, deeper water */
-	/* score_c: 6 * (16/2) = 48, *4 = 192 */
-	/* score_d: 2 * (48/6) = 2*8 = 16, *4 = 64 */
-	CHECK(score_c == 192);
-	CHECK(score_d == 64);
+	/* score_c: 6 * 8 = 48 -> floor(48 * 255 / 128) = 95 */
+	/* score_d: 2 * 8 = 16 -> floor(16 * 255 / 128) = 31 */
+	CHECK(score_c == 95);
+	CHECK(score_d == 31);
 	CHECK(score_c > score_d); /* More shelter = higher score */
 }
 
@@ -1220,4 +1249,33 @@ TEST_CASE("Heightmap preview - GenerateHeightmapPreview rejects undersized buffe
 	std::vector<uint8_t> truncated(3, 0);
 
 	CHECK_FALSE(GenerateHeightmapPreview(preview, truncated, 2, 2, 2, 2));
+}
+
+TEST_CASE("Heightmap preview - counter-clockwise rotation mirrors source horizontally") {
+	std::vector<uint8_t> src = {
+		0,   255,
+		64,  255,
+		128, 255,
+	};
+	MapPreviewData preview;
+
+	CHECK(GenerateHeightmapPreview(preview, src, 2, 3, 2, 3, HM_COUNTER_CLOCKWISE));
+	CHECK(preview.pixels.size() == 6);
+	CHECK(preview.pixels[0] != 0xCA);
+	CHECK(preview.pixels[1] == 0xCA);
+}
+
+TEST_CASE("Heightmap preview - clockwise rotation transposes source orientation") {
+	std::vector<uint8_t> src = {
+		0,   255,
+		64,  255,
+		128, 255,
+	};
+	MapPreviewData preview;
+
+	CHECK(GenerateHeightmapPreview(preview, src, 2, 3, 3, 2, HM_CLOCKWISE));
+	CHECK(preview.pixels.size() == 6);
+	CHECK(preview.pixels[0] == 0xCA);
+	CHECK(preview.pixels[1] != 0xCA);
+	CHECK(preview.pixels[2] != 0xCA);
 }

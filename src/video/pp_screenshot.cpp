@@ -312,6 +312,11 @@ bool HasPendingPPScreenshots()
 	return !_pending_pp_screenshots.empty();
 }
 
+size_t GetPendingPPScreenshotCount()
+{
+	return _pending_pp_screenshots.size();
+}
+
 /**
  * Write a BMP file from raw RGBA pixel data.
  * @param filename Output path.

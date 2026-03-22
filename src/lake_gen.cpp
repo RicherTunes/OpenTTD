@@ -110,14 +110,10 @@ void CreateLakes()
 		if (!is_enclosed) continue;
 		if (component.size() < min_lake_size) continue;
 
-		/* Fill the enclosed basin as a lake using river tiles.
-		 * Guard: only at height > 0 to prevent flat coast tiles at sea level
-		 * (which violate the shore sprite assumption tileh != SLOPE_FLAT). */
-		if (component_height == 0) continue;
-
 		/* Skip basins that border flat water tiles at a lower height.
 		 * Creating a river adjacent to flat sea triggers coast flooding
-		 * which produces SLOPE_FLAT shore tiles — crashing DrawShoreTile. */
+		 * which produces SLOPE_FLAT shore tiles -- crashing DrawShoreTile.
+		 * Sea-level candidates are already excluded by min_lake_height above. */
 		bool borders_flat_water = false;
 		for (TileIndex tile : component) {
 			for (DiagDirection dir = DIAGDIR_BEGIN; dir < DIAGDIR_END; dir++) {

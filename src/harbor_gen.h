@@ -12,6 +12,7 @@
 
 #include "tile_type.h"
 
+uint8_t NormalizeHarborScore(int land_rays, int water_rays, int total_water_depth, int max_ray_length = 16);
 void ComputeHarborScores();
 uint8_t GetHarborScore(TileIndex tile);
 bool HasValidHarborScores();

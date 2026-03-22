@@ -1944,7 +1944,7 @@ static bool ConExit(std::span<std::string_view> argv)
 	 * will keep running until the queue drains, then exit. */
 	if (HasPendingPPScreenshots()) {
 		_exit_after_screenshots = true;
-		IConsolePrint(CC_INFO, "Exit deferred: {} PP screenshot(s) still queued.", 0 /* placeholder */);
+		IConsolePrint(CC_INFO, "Exit deferred: {} PP screenshot(s) still queued.", GetPendingPPScreenshotCount());
 		return true;
 	}
 

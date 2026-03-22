@@ -10,6 +10,8 @@
 #ifndef GENWORLD_PREVIEW_H
 #define GENWORLD_PREVIEW_H
 
+#include "heightmap.h"
+
 #include <vector>
 #include <cstdint>
 
@@ -27,7 +29,7 @@ bool GenerateMapPreview(MapPreviewData &out, uint32_t seed, uint8_t map_x, uint8
 	uint16_t preview_w, uint16_t preview_h);
 
 bool GenerateHeightmapPreview(MapPreviewData &out, const std::vector<uint8_t> &greyscale,
-	uint src_w, uint src_h, uint16_t preview_w, uint16_t preview_h);
+	uint src_w, uint src_h, uint16_t preview_w, uint16_t preview_h, HeightmapRotation rotation = HM_COUNTER_CLOCKWISE);
 
 uint8_t HarborScoreToColour(uint8_t score);
 

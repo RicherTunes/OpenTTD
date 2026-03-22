@@ -60,6 +60,9 @@ void CapturePPScreenshotIfPending(int width, int height);
  */
 bool HasPendingPPScreenshots();
 
+/** Return the number of queued PP screenshots waiting to be captured. */
+size_t GetPendingPPScreenshotCount();
+
 /**
  * If screenshots are queued, restore the next screenshot's settings.
  * Call this at the START of Paint() before config sync.

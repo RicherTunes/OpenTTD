@@ -245,7 +245,7 @@ bool GenerateMapPreview(MapPreviewData &out, uint32_t seed, uint8_t map_x, uint8
  * @return True if preview was generated successfully.
  */
 bool GenerateHeightmapPreview(MapPreviewData &out, const std::vector<uint8_t> &greyscale,
-	uint src_w, uint src_h, uint16_t preview_w, uint16_t preview_h)
+	uint src_w, uint src_h, uint16_t preview_w, uint16_t preview_h, HeightmapRotation rotation)
 {
 	if (preview_w == 0 || preview_h == 0) return false;
 	if (src_w == 0 || src_h == 0) return false;
@@ -269,9 +269,24 @@ bool GenerateHeightmapPreview(MapPreviewData &out, const std::vector<uint8_t> &g
 	/* Downscale and convert to palette colours using nearest-neighbour sampling */
 	for (int dy = 0; dy < preview_h; dy++) {
 		for (int dx = 0; dx < preview_w; dx++) {
-			/* Map preview pixel to source coordinate */
-			uint sx = (uint)((uint64_t)dx * src_w / preview_w);
-			uint sy = (uint)((uint64_t)dy * src_h / preview_h);
+			/* Match the heightmap import orientation so the preview reflects
+			 * the world layout the user will actually generate. */
+			uint sx = 0;
+			uint sy = 0;
+			switch (rotation) {
+				case HM_COUNTER_CLOCKWISE:
+					sx = (uint)((uint64_t)(preview_w - 1 - dx) * src_w / preview_w);
+					sy = (uint)((uint64_t)dy * src_h / preview_h);
+					break;
+
+				case HM_CLOCKWISE:
+					sx = (uint)((uint64_t)dy * src_w / preview_h);
+					sy = (uint)((uint64_t)dx * src_h / preview_w);
+					break;
+
+				default:
+					NOT_REACHED();
+			}
 			if (sx >= src_w) sx = src_w - 1;
 			if (sy >= src_h) sy = src_h - 1;
 
@@ -285,7 +300,7 @@ bool GenerateHeightmapPreview(MapPreviewData &out, const std::vector<uint8_t> &g
 		}
 	}
 
-	Debug(map, 2, "HeightmapPreview: Generated {}x{} preview from {}x{} source", preview_w, preview_h, src_w, src_h);
+	Debug(map, 2, "HeightmapPreview: Generated {}x{} preview from {}x{} source (rotation={})", preview_w, preview_h, src_w, src_h, rotation);
 
 	return true;
 }

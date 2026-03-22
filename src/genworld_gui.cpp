@@ -421,6 +421,8 @@ struct GenerateLandscapeWindow : public Window {
 	MapPreviewData preview{};                  ///< Cached map preview data.
 	bool preview_dirty = true;                 ///< Preview needs regeneration.
 	std::vector<uint8_t> heightmap_cache{};    ///< Cached heightmap greyscale data for preview.
+	std::string heightmap_cache_name{};        ///< Heightmap filename backing the cached greyscale data.
+	DetailedFileType heightmap_cache_type = DFT_INVALID; ///< File type backing the cached greyscale data.
 	uint heightmap_cache_w = 0;                ///< Width of cached heightmap data.
 	uint heightmap_cache_h = 0;                ///< Height of cached heightmap data.
 
@@ -446,6 +448,61 @@ struct GenerateLandscapeWindow : public Window {
 		}
 
 		this->OnInvalidateData();
+	}
+
+	bool EnsureHeightmapCacheLoaded()
+	{
+		if (this->mode != GLWM_HEIGHTMAP || _file_to_saveload.name.empty()) return false;
+		if (!this->heightmap_cache.empty() &&
+				this->heightmap_cache_name == _file_to_saveload.name &&
+				this->heightmap_cache_type == _file_to_saveload.ftype.detailed) {
+			return true;
+		}
+
+		this->heightmap_cache_w = 0;
+		this->heightmap_cache_h = 0;
+		this->heightmap_cache.clear();
+		this->heightmap_cache_name.clear();
+		this->heightmap_cache_type = DFT_INVALID;
+
+		if (!ReadHeightmapData(_file_to_saveload.ftype.detailed,
+			_file_to_saveload.name,
+			&this->heightmap_cache_w,
+			&this->heightmap_cache_h,
+			this->heightmap_cache)) {
+			return false;
+		}
+
+		this->heightmap_cache_name = _file_to_saveload.name;
+		this->heightmap_cache_type = _file_to_saveload.ftype.detailed;
+		return true;
+	}
+
+	void RefreshPreview()
+	{
+		if (!this->preview_dirty && !this->preview.pixels.empty()) return;
+
+		this->preview = {};
+
+		if (this->mode == GLWM_HEIGHTMAP && !_file_to_saveload.name.empty()) {
+			if (this->EnsureHeightmapCacheLoaded()) {
+				GenerateHeightmapPreview(this->preview,
+					this->heightmap_cache,
+					this->heightmap_cache_w,
+					this->heightmap_cache_h,
+					256, 128,
+					static_cast<HeightmapRotation>(_settings_newgame.game_creation.heightmap_rotation));
+			}
+		} else {
+			uint32_t seed = _settings_newgame.game_creation.generation_seed;
+			if (seed == 0) seed = InteractiveRandom();
+			GenerateMapPreview(this->preview, seed,
+				_settings_newgame.game_creation.map_x,
+				_settings_newgame.game_creation.map_y,
+				256, 128);
+		}
+
+		this->preview_dirty = false;
 	}
 
 
@@ -679,39 +736,6 @@ struct GenerateLandscapeWindow : public Window {
 	{
 		if (widget != WID_GL_PREVIEW_CANVAS) return;
 
-		/* Lazy-generate preview on first paint or when settings change */
-		if (this->preview_dirty || this->preview.pixels.empty()) {
-			/* const_cast is safe here: preview is a cache, not visible state */
-			auto *mutable_this = const_cast<GenerateLandscapeWindow *>(this);
-
-			if (this->mode == GLWM_HEIGHTMAP && !_file_to_saveload.name.empty()) {
-				/* Load heightmap greyscale data (cached to avoid re-reading file) */
-				if (mutable_this->heightmap_cache.empty()) {
-					ReadHeightmapData(_file_to_saveload.ftype.detailed,
-						_file_to_saveload.name,
-						&mutable_this->heightmap_cache_w,
-						&mutable_this->heightmap_cache_h,
-						mutable_this->heightmap_cache);
-				}
-				if (!mutable_this->heightmap_cache.empty()) {
-					GenerateHeightmapPreview(mutable_this->preview,
-						mutable_this->heightmap_cache,
-						mutable_this->heightmap_cache_w,
-						mutable_this->heightmap_cache_h,
-						256, 128);
-				}
-			} else {
-				/* TGP preview (generate from noise) */
-				uint32_t seed = _settings_newgame.game_creation.generation_seed;
-				if (seed == 0) seed = InteractiveRandom();
-				GenerateMapPreview(mutable_this->preview, seed,
-					_settings_newgame.game_creation.map_x,
-					_settings_newgame.game_creation.map_y,
-					256, 128);
-			}
-			mutable_this->preview_dirty = false;
-		}
-
 		if (this->preview.pixels.empty()) return;
 		if (this->preview.width == 0 || this->preview.height == 0) return;
 		if (this->preview.pixels.size() < (size_t)this->preview.width * this->preview.height) return;
@@ -735,6 +759,12 @@ struct GenerateLandscapeWindow : public Window {
 					offset_x + px - 1, offset_y + py, PixelColour(colour));
 			}
 		}
+	}
+
+	void OnPaint() override
+	{
+		this->RefreshPreview();
+		this->DrawWidgets();
 	}
 
 	void OnClick([[maybe_unused]] Point pt, WidgetID widget, [[maybe_unused]] int click_count) override
