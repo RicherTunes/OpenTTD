@@ -47,6 +47,10 @@
         lifecycle_max_everything lifecycle_minimum lifecycle_toyland_large
         lifecycle_no_freeform lifecycle_alpine_arctic lifecycle_tropic_rivers
         lifecycle_shape_island_arctic lifecycle_marathon
+        lifecycle_seed_13 lifecycle_seed_37 lifecycle_seed_42 lifecycle_seed_100
+        lifecycle_seed_256 lifecycle_seed_999 lifecycle_seed_12345 lifecycle_seed_65535
+        lifecycle_tropic_seed_7 lifecycle_tropic_seed_42
+        lifecycle_tropic_seed_314 lifecycle_tropic_seed_777
     )
     foreach(CFG ${LIFECYCLE_CFGS})
         add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${CFG}.cfg
@@ -177,6 +181,23 @@
 
     # Marathon endurance: 10000 ticks (~5 min game time)
     add_lifecycle_test_ticks(marathon_10000 10000 -g -G 1 -c regression/lifecycle_marathon.cfg)
+
+    # Seed sweep: temperate with rivers + sea (exercises river/delta/shore interaction
+    # across many seeds to catch seed-dependent crashes like the flat shore assert).
+    add_lifecycle_test(seed_13    -g -G 13    -c regression/lifecycle_seed_13.cfg)
+    add_lifecycle_test(seed_37    -g -G 37    -c regression/lifecycle_seed_37.cfg)
+    add_lifecycle_test(seed_42    -g -G 42    -c regression/lifecycle_seed_42.cfg)
+    add_lifecycle_test(seed_100   -g -G 100   -c regression/lifecycle_seed_100.cfg)
+    add_lifecycle_test(seed_256   -g -G 256   -c regression/lifecycle_seed_256.cfg)
+    add_lifecycle_test(seed_999   -g -G 999   -c regression/lifecycle_seed_999.cfg)
+    add_lifecycle_test(seed_12345 -g -G 12345 -c regression/lifecycle_seed_12345.cfg)
+    add_lifecycle_test(seed_65535 -g -G 65535 -c regression/lifecycle_seed_65535.cfg)
+
+    # Seed sweep: tropic with rivers + biome (exercises delta + desert interaction).
+    add_lifecycle_test(tropic_seed_7   -g -G 7   -c regression/lifecycle_tropic_seed_7.cfg)
+    add_lifecycle_test(tropic_seed_42  -g -G 42  -c regression/lifecycle_tropic_seed_42.cfg)
+    add_lifecycle_test(tropic_seed_314 -g -G 314 -c regression/lifecycle_tropic_seed_314.cfg)
+    add_lifecycle_test(tropic_seed_777 -g -G 777 -c regression/lifecycle_tropic_seed_777.cfg)
 
     # Load the existing regression test savegame (verifies save/load path)
     add_lifecycle_test(load_save -g ai/regression/test.sav -c regression/lifecycle.cfg)
