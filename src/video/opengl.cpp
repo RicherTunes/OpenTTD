@@ -2376,6 +2376,7 @@ void OpenGLBackend::RenderPostProcess()
 		ComputeCasConstant(cas_con, MapSharpeningToCas(this->pp_config.sharpening),
 			(float)work_size.width, (float)work_size.height);
 		_glUseProgram(this->pp_cas_program);
+		SetViewportUV(this->pp_cas_viewport_loc);
 		_glUniform1f(this->pp_cas_sharp_loc, cas_con[0]);
 		_glUniform2f(this->pp_cas_texel_loc, cas_con[1], cas_con[2]);
 		RunPass();
@@ -2668,30 +2669,16 @@ void OpenGLBackend::RenderPostProcess()
 	/* Night mode. */
 	if (this->pp_config.night_mode && this->pp_night_program != 0) {
 		_glUseProgram(this->pp_night_program);
+		SetViewportUV(this->pp_night_viewport_loc);
 		_glUniform1f(this->pp_night_int_loc, this->pp_config.night_intensity / 100.0f);
 		_glUniform1f(this->pp_night_blue_loc, this->pp_config.night_blue_shift / 100.0f);
-		/* Compute viewport UV bounds so the effect doesn't tint the UI. */
-		const Window *vp_win = GetMainWindow();
-		if (vp_win != nullptr && vp_win->viewport != nullptr && this->pp_night_viewport_loc >= 0) {
-			float sw = (float)_screen.width;
-			float sh = (float)_screen.height;
-			/* Convert screen-space viewport rect to UV [0,1] coordinates.
-			 * Note: OpenGL UV Y=0 is bottom, screen Y=0 is top. */
-			float uv_left = (float)vp_win->left / sw;
-			float uv_top = 1.0f - (float)(vp_win->top + vp_win->height) / sh;
-			float uv_right = (float)(vp_win->left + vp_win->width) / sw;
-			float uv_bottom = 1.0f - (float)vp_win->top / sh;
-			_glUniform4f(this->pp_night_viewport_loc, uv_left, uv_top, uv_right, uv_bottom);
-		} else if (this->pp_night_viewport_loc >= 0) {
-			/* No viewport info — apply to full screen (no masking). */
-			_glUniform4f(this->pp_night_viewport_loc, 0.0f, 0.0f, 0.0f, 0.0f);
-		}
 		RunPass();
 	}
 
 	/* Vignette. */
 	if (this->pp_config.vignette && this->pp_vignette_program != 0) {
 		_glUseProgram(this->pp_vignette_program);
+		SetViewportUV(this->pp_vig_viewport_loc);
 		_glUniform1f(this->pp_vig_intensity_loc, this->pp_config.vignette_intensity / 100.0f);
 		_glUniform1f(this->pp_vig_radius_loc, this->pp_config.vignette_radius / 100.0f);
 		_glUniform1f(this->pp_vig_softness_loc, this->pp_config.vignette_softness / 100.0f);
@@ -2704,6 +2691,7 @@ void OpenGLBackend::RenderPostProcess()
 	/* Film grain. */
 	if (this->pp_config.film_grain && this->pp_grain_program != 0) {
 		_glUseProgram(this->pp_grain_program);
+		SetViewportUV(this->pp_grain_viewport_loc);
 		_glUniform1f(this->pp_grain_int_loc, this->pp_config.grain_intensity / 100.0f);
 		_glUniform1f(this->pp_grain_time_loc, anim_time);
 		RunPass();
@@ -2712,6 +2700,7 @@ void OpenGLBackend::RenderPostProcess()
 	/* Dynamic lighting (time-of-day). Runs after film grain, before bloom. */
 	if (this->pp_config.dynamic_lighting && this->pp_lighting_program != 0) {
 		_glUseProgram(this->pp_lighting_program);
+		SetViewportUV(this->pp_lighting_viewport_loc);
 		_glUniform1f(this->pp_lighting_tod_loc, this->pp_config.time_of_day);
 		RunPass();
 	}
@@ -2750,6 +2739,7 @@ void OpenGLBackend::RenderPostProcess()
 
 		/* Pass 1: Extract bright pixels above threshold. */
 		_glUseProgram(this->pp_bloom_threshold_program);
+		SetViewportUV(this->pp_bloom_thresh_viewport_loc);
 		_glUniform1f(this->pp_bloom_thresh_loc, this->pp_config.bloom_threshold / 100.0f);
 		_glUniform1f(this->pp_bloom_int_loc, this->pp_config.bloom_intensity / 100.0f);
 		RunPass();
@@ -2757,6 +2747,7 @@ void OpenGLBackend::RenderPostProcess()
 		/* Pass 2: Horizontal blur. */
 		if (this->pp_bloom_blur_h_program != 0) {
 			_glUseProgram(this->pp_bloom_blur_h_program);
+			SetViewportUV(this->pp_bloom_blur_h_viewport_loc);
 			_glUniform2f(this->pp_bloom_blur_h_texel_loc, texel_w, texel_h);
 			RunPass();
 		}
@@ -2764,6 +2755,7 @@ void OpenGLBackend::RenderPostProcess()
 		/* Pass 3: Vertical blur. */
 		if (this->pp_bloom_blur_v_program != 0) {
 			_glUseProgram(this->pp_bloom_blur_v_program);
+			SetViewportUV(this->pp_bloom_blur_v_viewport_loc);
 			_glUniform2f(this->pp_bloom_blur_v_texel_loc, texel_w, texel_h);
 			RunPass();
 		}
@@ -2773,6 +2765,7 @@ void OpenGLBackend::RenderPostProcess()
 		 * bloom_original (unit 1) = saved pre-bloom scene in history texture. */
 		if (this->pp_bloom_composite_program != 0 && bloom_save_valid) {
 			_glUseProgram(this->pp_bloom_composite_program);
+			SetViewportUV(this->pp_bloom_composite_viewport_loc);
 			_glActiveTexture(GL_TEXTURE1);
 			_glBindTexture(GL_TEXTURE_2D, this->pp_history_tex);
 			_glActiveTexture(GL_TEXTURE0);
@@ -2783,6 +2776,7 @@ void OpenGLBackend::RenderPostProcess()
 	/* Depth-of-field blur. */
 	if (this->pp_config.depth_of_field && this->pp_dof_program != 0) {
 		_glUseProgram(this->pp_dof_program);
+		SetViewportUV(this->pp_dof_viewport_loc);
 		_glUniform2f(this->pp_dof_texel_loc, texel_w, texel_h);
 		_glUniform1f(this->pp_dof_focus_loc, this->pp_config.dof_focus_point / 100.0f);
 		_glUniform1f(this->pp_dof_aperture_loc, this->pp_config.dof_aperture / 100.0f);
@@ -2793,6 +2787,7 @@ void OpenGLBackend::RenderPostProcess()
 	/* Toon/cartoon rendering (Sobel edges + posterization). */
 	if (this->pp_config.toon_rendering && this->pp_toon_program != 0) {
 		_glUseProgram(this->pp_toon_program);
+		SetViewportUV(this->pp_toon_viewport_loc);
 		_glUniform2f(this->pp_toon_texel_loc, texel_w, texel_h);
 		_glUniform1f(this->pp_toon_edge_loc, static_cast<float>(this->pp_config.toon_edge_threshold));
 		_glUniform1f(this->pp_toon_levels_loc, static_cast<float>(this->pp_config.toon_color_levels));
@@ -2802,6 +2797,7 @@ void OpenGLBackend::RenderPostProcess()
 	/* Heat haze distortion. */
 	if (this->pp_config.heat_haze && this->pp_heat_haze_program != 0) {
 		_glUseProgram(this->pp_heat_haze_program);
+		SetViewportUV(this->pp_haze_viewport_loc);
 		_glUniform2f(this->pp_haze_texel_loc, texel_w, texel_h);
 		_glUniform1f(this->pp_haze_intensity_loc, this->pp_config.haze_intensity / 100.0f);
 		_glUniform1f(this->pp_haze_distortion_loc, static_cast<float>(this->pp_config.haze_distortion));
@@ -2812,6 +2808,7 @@ void OpenGLBackend::RenderPostProcess()
 	/* Fake directional shadows. */
 	if (this->pp_config.fake_shadows && this->pp_shadow_program != 0) {
 		_glUseProgram(this->pp_shadow_program);
+		SetViewportUV(this->pp_shadow_viewport_loc);
 		_glUniform2f(this->pp_shadow_texel_loc, texel_w, texel_h);
 		_glUniform1f(this->pp_shadow_intensity_loc, this->pp_config.shadow_intensity / 100.0f);
 		float angle_rad = this->pp_config.shadow_angle * 3.14159265f / 180.0f;
@@ -2824,6 +2821,7 @@ void OpenGLBackend::RenderPostProcess()
 	/* CRT scanline filter. */
 	if (this->pp_config.crt_filter && this->pp_crt_program != 0) {
 		_glUseProgram(this->pp_crt_program);
+		SetViewportUV(this->pp_crt_viewport_loc);
 		_glUniform2f(this->pp_crt_texel_loc, texel_w, texel_h);
 		_glUniform2f(this->pp_crt_res_loc, (float)work_size.width, (float)work_size.height);
 		_glUniform1f(this->pp_crt_scanline_loc, this->pp_config.crt_scanlines / 100.0f);
@@ -2835,6 +2833,7 @@ void OpenGLBackend::RenderPostProcess()
 	/* Weather overlay (rain/snow particles). Composites on top of everything. */
 	if (this->pp_config.weather_type > 0 && this->pp_weather_program != 0) {
 		_glUseProgram(this->pp_weather_program);
+		SetViewportUV(this->pp_weather_viewport_loc);
 		_glUniform1f(this->pp_weather_time_loc, anim_time);
 		_glUniform1f(this->pp_weather_int_loc, this->pp_config.weather_intensity / 100.0f);
 		_glUniform1f(this->pp_weather_type_loc, static_cast<float>(this->pp_config.weather_type));

@@ -1079,7 +1079,7 @@ STR_GAME_OPTIONS_VIDEO_VSYNC_TOOLTIP                            :Turn on to v-sy
 STR_GAME_OPTIONS_VIDEO_DRIVER_INFO                              :Current driver: {RAW_STRING}
 
 STR_GAME_OPTIONS_GPU_RENDERING                                  :GPU Rendering
-STR_GAME_OPTIONS_POST_PROCESSING                                :{PUSH_COLOUR}{ORANGE}Post-processing: {POP_COLOUR}{STRING}
+STR_GAME_OPTIONS_POST_PROCESSING                                :Post-processing
 STR_GAME_OPTIONS_POST_PROCESSING_TOOLTIP                        :{BLACK}Enable GPU post-processing effects. When off, rendering is unchanged (zero overhead)
 STR_GAME_OPTIONS_RENDER_SCALE                                   :Render scale
 STR_GAME_OPTIONS_RENDER_SCALE_TOOLTIP                           :{BLACK}Internal rendering resolution (50-200%). Below 100% improves performance via upscaling. Above 100% enables supersampling anti-aliasing (SSAA). Requires hardware acceleration

@@ -156,6 +156,7 @@ static void _GenerateWorld()
 			if (_game_mode != GM_EDITOR) {
 				if (!GenerateTowns(_settings_game.economy.town_layout)) {
 					FreeGenerationTileCache();
+					FreeHarborScores();
 					HandleGeneratingWorldAbortion();
 					return;
 				}
