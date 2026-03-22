@@ -43,6 +43,8 @@
         lifecycle_high_sea lifecycle_mountainous
         lifecycle_all_features lifecycle_arctic_all_features lifecycle_tropic_all_features
         lifecycle_endurance
+        lifecycle_with_ai lifecycle_water_world lifecycle_voronoi_towns
+        lifecycle_max_everything lifecycle_minimum lifecycle_toyland_large
     )
     foreach(CFG ${LIFECYCLE_CFGS})
         add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${CFG}.cfg
@@ -140,6 +142,24 @@
     # Multiple seeds with all features (catches seed-dependent generation bugs)
     add_lifecycle_test(all_feat_seed_99   -g -G 99  -c regression/lifecycle_all_features.cfg)
     add_lifecycle_test(all_feat_seed_777  -g -G 777 -c regression/lifecycle_all_features.cfg)
+
+    # Water-heavy map (exercises water generation, coasts, rivers)
+    add_lifecycle_test(water_world        -g -G 1 -c regression/lifecycle_water_world.cfg)
+
+    # Voronoi town placement (exercises Lloyd relaxation)
+    add_lifecycle_test(voronoi_towns      -g -G 1 -c regression/lifecycle_voronoi_towns.cfg)
+
+    # Maximum everything (all generation features maxed out)
+    add_lifecycle_test(max_everything     -g -G 1 -c regression/lifecycle_max_everything.cfg)
+
+    # Minimum everything (no towns, no industries, flat, tiny)
+    add_lifecycle_test(minimum            -g -G 1 -c regression/lifecycle_minimum.cfg)
+
+    # Toyland large (unique code paths for candy terrain)
+    add_lifecycle_test(toyland_large      -g -G 1 -c regression/lifecycle_toyland_large.cfg)
+
+    # With AI player configured (exercises AI startup)
+    add_lifecycle_test(with_ai            -g -G 1 -c regression/lifecycle_with_ai.cfg)
 
     # Load the existing regression test savegame (verifies save/load path)
     add_lifecycle_test(load_save -g ai/regression/test.sav -c regression/lifecycle.cfg)
