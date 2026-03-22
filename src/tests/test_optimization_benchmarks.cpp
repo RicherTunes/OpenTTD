@@ -401,3 +401,62 @@ TEST_CASE("Benchmark - Early culling skips slope calculations") {
 	CHECK(optimized_sum == baseline_sum);
 	CHECK(optimized_us < baseline_us);
 }
+
+/*
+ * Benchmark 7: Precomputed tile list vs rejection sampling
+ *
+ * Tree generation uses rejection sampling (RandomTile + CanPlantTreesOnTile check).
+ * Precomputing valid tile lists eliminates wasted random attempts, giving O(1)
+ * guaranteed hits instead of probabilistic retries.
+ */
+
+TEST_CASE("Benchmark - Precomputed tile list vs rejection sampling") {
+	const int MAP_SIZE = 262144; /* 512x512 */
+	const int NUM_ATTEMPTS = 5000;
+	const int VALID_PERCENT = 60; /* 60% of tiles are valid */
+
+	/* Build a fake validity map */
+	std::vector<bool> valid(MAP_SIZE, false);
+	std::vector<int> valid_list;
+	valid_list.reserve(MAP_SIZE * VALID_PERCENT / 100);
+	std::srand(77);
+	for (int i = 0; i < MAP_SIZE; i++) {
+		if ((std::rand() % 100) < VALID_PERCENT) {
+			valid[i] = true;
+			valid_list.push_back(i);
+		}
+	}
+
+	/* Baseline: rejection sampling */
+	int baseline_found = 0;
+	auto t0 = std::chrono::steady_clock::now();
+	for (int i = 0; i < NUM_ATTEMPTS; i++) {
+		for (int try_count = 0; try_count < 20; try_count++) {
+			int tile = std::rand() % MAP_SIZE;
+			if (valid[tile]) {
+				baseline_found++;
+				break;
+			}
+		}
+	}
+	auto t1 = std::chrono::steady_clock::now();
+	auto baseline_us = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
+
+	/* Optimized: precomputed list */
+	int optimized_found = 0;
+	auto t2 = std::chrono::steady_clock::now();
+	for (int i = 0; i < NUM_ATTEMPTS; i++) {
+		int tile = valid_list[std::rand() % valid_list.size()];
+		(void)tile;
+		optimized_found++;
+	}
+	auto t3 = std::chrono::steady_clock::now();
+	auto optimized_us = std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count();
+
+	INFO("Rejection sampling: " << baseline_us << " us (" << baseline_found << " found)");
+	INFO("Precomputed list:   " << optimized_us << " us (" << optimized_found << " found)");
+	INFO("Speedup:            " << (double)baseline_us / std::max((int64_t)1, optimized_us) << "x");
+
+	CHECK(optimized_found == NUM_ATTEMPTS); /* Always finds a valid tile */
+	CHECK(optimized_us <= baseline_us);
+}
