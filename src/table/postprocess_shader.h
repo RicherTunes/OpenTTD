@@ -935,3 +935,78 @@ static const char *_frag_shader_pp_temporal_accum[] = {
 	"  frag_colour = vec4(mix(current.rgb, history.rgb, blend), current.a);",
 	"}",
 };
+
+/* ---- Fake directional shadows ---- */
+
+/** Fragment shader for screen-space fake directional shadows.
+ * Samples pixels at directional offset to detect edges, then darkens
+ * to create the illusion of cast shadows from buildings and terrain. */
+static const char *_frag_shader_pp_shadow[] = {
+	"#version 150\n",
+	"uniform sampler2D source_tex;",
+	"uniform vec2 texel_size;",
+	"uniform float shadow_intensity;",
+	"uniform vec2 shadow_dir;",   /* normalized direction vector */
+	"uniform float shadow_length;", /* in texels */
+	"uniform int shadow_samples;",  /* softness (blur steps) */
+	"in vec2 tex_coord;",
+	"out vec4 frag_colour;",
+	"void main() {",
+	"  vec4 base = texture(source_tex, tex_coord);",
+	"  float lum = dot(base.rgb, vec3(0.299, 0.587, 0.114));",
+	"  float shadow = 0.0;",
+	"  float total_weight = 0.0;",
+	"  for (int i = 1; i <= shadow_samples; i++) {",
+	"    float t = float(i) / float(shadow_samples);",
+	"    vec2 offset = shadow_dir * shadow_length * t * texel_size;",
+	"    vec4 sample_col = texture(source_tex, tex_coord + offset);",
+	"    float sample_lum = dot(sample_col.rgb, vec3(0.299, 0.587, 0.114));",
+	"    float edge = max(0.0, sample_lum - lum);",
+	"    float weight = 1.0 - t;",
+	"    shadow += edge * weight;",
+	"    total_weight += weight;",
+	"  }",
+	"  shadow = shadow / max(total_weight, 0.001);",
+	"  shadow = clamp(shadow * shadow_intensity * 4.0, 0.0, 1.0);",
+	"  frag_colour = vec4(base.rgb * (1.0 - shadow * 0.6), base.a);",
+	"}",
+};
+
+/* ---- Water reflections ---- */
+
+/** Fragment shader for screen-space water reflections.
+ * Detects water pixels by their blue-dominant hue and applies a
+ * vertically flipped UV sample with sinusoidal wave distortion. */
+static const char *_frag_shader_pp_water_reflect[] = {
+	"#version 150\n",
+	"uniform sampler2D source_tex;",
+	"uniform vec2 texel_size;",
+	"uniform float reflection_intensity;",
+	"uniform float distortion_amount;",
+	"uniform float time;",
+	"in vec2 tex_coord;",
+	"out vec4 frag_colour;",
+	"void main() {",
+	"  vec4 base = texture(source_tex, tex_coord);",
+	"  float r = base.r, g = base.g, b = base.b;",
+	"  float lum = r * 0.299 + g * 0.587 + b * 0.114;",
+	/* Detect water: blue-dominant, moderate brightness, low saturation spread */
+	"  float blue_excess = b - max(r, g);",
+	"  float is_water = smoothstep(0.02, 0.15, blue_excess) * smoothstep(0.05, 0.25, lum);",
+	"  if (is_water < 0.01) {",
+	"    frag_colour = base;",
+	"    return;",
+	"  }",
+	/* Compute reflected UV (flip vertically from pixel position) */
+	"  float wave = sin(tex_coord.x * 80.0 + time * 2.0) * distortion_amount * texel_size.y;",
+	"  float wave2 = sin(tex_coord.x * 40.0 - time * 1.3) * distortion_amount * 0.5 * texel_size.y;",
+	"  vec2 reflect_uv = vec2(tex_coord.x + wave2 * texel_size.x, 1.0 - tex_coord.y + wave);",
+	"  reflect_uv = clamp(reflect_uv, vec2(0.0), vec2(1.0));",
+	"  vec4 reflected = texture(source_tex, reflect_uv);",
+	/* Tint reflection slightly blue for water color */
+	"  reflected.rgb = mix(reflected.rgb, vec3(0.3, 0.4, 0.6), 0.2);",
+	/* Blend reflection with base water color */
+	"  float blend = is_water * reflection_intensity;",
+	"  frag_colour = vec4(mix(base.rgb, reflected.rgb, blend), base.a);",
+	"}",
+};

@@ -125,6 +125,8 @@ private:
 	GLuint pp_bloom_composite_program = 0; ///< Bloom composite (additive blend) shader program.
 	GLint pp_bloom_composite_orig_loc = -1; ///< Bloom composite bloom_original sampler uniform.
 	GLuint pp_weather_program = 0;   ///< Weather particle overlay shader program.
+	GLuint pp_shadow_program = 0;        ///< Fake shadow shader program.
+	GLuint pp_water_reflect_program = 0;        ///< Water reflection shader program.
 	GLuint pp_downsample_program = 0;    ///< Downsample shader for supersampling.
 	GLint pp_downsample_texel_loc = -1;  ///< Downsample texel_size uniform.
 
@@ -169,6 +171,15 @@ private:
 	GLint pp_weather_time_loc = -1;  ///< Weather time uniform location.
 	GLint pp_weather_int_loc = -1;   ///< Weather intensity uniform location.
 	GLint pp_weather_type_loc = -1;  ///< Weather type uniform location.
+	GLint pp_shadow_intensity_loc = -1;  ///< Shadow intensity uniform location.
+	GLint pp_shadow_dir_loc = -1;        ///< Shadow direction uniform location.
+	GLint pp_shadow_length_loc = -1;     ///< Shadow length uniform location.
+	GLint pp_shadow_samples_loc = -1;    ///< Shadow samples uniform location.
+	GLint pp_shadow_texel_loc = -1;      ///< Shadow texel_size uniform location.
+	GLint pp_water_reflect_intensity_loc = -1;   ///< Reflection intensity uniform.
+	GLint pp_water_reflect_distortion_loc = -1;  ///< Wave distortion uniform.
+	GLint pp_water_reflect_time_loc = -1;        ///< Animation time uniform.
+	GLint pp_water_reflect_texel_loc = -1;       ///< Texel size uniform.
 
 	PostProcessConfig pp_config;     ///< Current post-processing configuration.
 

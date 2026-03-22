@@ -68,6 +68,11 @@ extern uint8_t _video_weather_intensity;
 extern bool _video_pixel_smoothing;
 extern uint8_t _video_pixel_smooth_amount;
 extern bool _video_auto_supersample;
+extern bool _video_fake_shadows;
+extern uint8_t _video_shadow_intensity;
+extern uint8_t _video_shadow_angle;
+extern uint8_t _video_shadow_length;
+extern uint8_t _video_shadow_softness;
 
 /** The base of all video drivers. */
 class VideoDriver : public Driver {

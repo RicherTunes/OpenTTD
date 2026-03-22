@@ -90,6 +90,8 @@ bool PostProcessNeedsFBO(const PostProcessConfig &config)
 	if (config.dynamic_lighting) return true;
 	if (config.bloom) return true;
 	if (config.weather_type > 0) return true;
+	if (config.fake_shadows) return true;
+	if (config.water_reflections) return true;
 	if (config.render_scale > 100) return true; /* Supersampling needs downsample pass. */
 	return false;
 }
@@ -133,6 +135,8 @@ int PostProcessPassCount(const PostProcessConfig &config)
 	if (config.bloom) passes += 4; /* Threshold + blur H + blur V + composite. */
 	if (config.crt_filter) passes += 1;
 	if (config.weather_type > 0) passes += 1;
+	if (config.fake_shadows) passes += 1;
+	if (config.water_reflections) passes += 1;
 
 	/* Supersampling downsample pass (render > display). */
 	if (config.render_scale > 100) passes += 1;

@@ -81,6 +81,18 @@ struct PostProcessConfig {
 	uint8_t weather_type = 0;          ///< Weather overlay: 0=none, 1=rain, 2=snow.
 	uint8_t weather_intensity = 30;    ///< Weather effect strength (0-100).
 
+	/* Fake directional shadows. */
+	bool fake_shadows = false;         ///< Enable fake directional shadows from buildings/terrain.
+	uint8_t shadow_intensity = 40;     ///< Shadow darkness (0-100, mapped to 0.0..1.0).
+	uint8_t shadow_angle = 45;         ///< Shadow angle in degrees (0-359). 0=right, 90=down.
+	uint8_t shadow_length = 8;         ///< Shadow length in pixels (1-30).
+	uint8_t shadow_softness = 3;       ///< Shadow edge softness (1-10, number of blur samples).
+
+	/* Water reflections. */
+	bool water_reflections = false;    ///< Enable screen-space water reflections.
+	uint8_t reflection_intensity = 30; ///< Reflection strength (0-100, mapped to 0.0..1.0).
+	uint8_t reflection_distortion = 5; ///< Wave distortion amplitude (0-20).
+
 	bool auto_supersample = false;     ///< Automatically enable supersampling at zoom-in levels.
 
 	bool operator==(const PostProcessConfig &) const = default;

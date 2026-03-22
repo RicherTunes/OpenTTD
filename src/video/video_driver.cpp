@@ -65,6 +65,11 @@ uint8_t _video_weather_intensity = 30; ///< Weather effect strength (0-100).
 bool _video_pixel_smoothing = false; ///< Whether pixel art smoothing is enabled.
 uint8_t _video_pixel_smooth_amount = 70; ///< Pixel art smoothing intensity (0-100).
 bool _video_auto_supersample = false; ///< Enable automatic supersampling at close zoom.
+bool _video_fake_shadows = false; ///< Whether fake directional shadows are enabled.
+uint8_t _video_shadow_intensity = 40; ///< Shadow darkness (0-100).
+uint8_t _video_shadow_angle = 45; ///< Shadow angle in degrees (0-359).
+uint8_t _video_shadow_length = 8; ///< Shadow length in pixels (1-30).
+uint8_t _video_shadow_softness = 3; ///< Shadow edge softness (1-10).
 
 void VideoDriver::GameLoop()
 {
