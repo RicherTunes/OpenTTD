@@ -708,6 +708,33 @@ static const char *_frag_shader_pp_downsample[] = {
 	"}",
 };
 
+/* ---- Classification buffer debug visualization ---- */
+
+/** Fragment shader that renders the classification buffer as false colours.
+ * Reads from class_tex (GL_R8) and maps each class to a distinct colour. */
+static const char *_frag_shader_pp_debug_class[] = {
+	"#version 150\n",
+	"uniform sampler2D source_tex;",
+	"uniform sampler2D class_tex;",
+	"in vec2 tex_coord;",
+	"out vec4 frag_colour;",
+	"void main() {",
+	"  float cls = texture(class_tex, tex_coord).r * 255.0;",
+	"  vec3 colour;",
+	"  if (cls < 0.5) colour = vec3(0.1, 0.1, 0.1);",           /* UNKNOWN: dark gray */
+	"  else if (cls < 1.5) colour = vec3(0.55, 0.35, 0.17);",    /* TERRAIN: brown */
+	"  else if (cls < 2.5) colour = vec3(0.1, 0.3, 0.9);",       /* WATER: blue */
+	"  else if (cls < 3.5) colour = vec3(0.1, 0.7, 0.2);",       /* VEGETATION: green */
+	"  else if (cls < 4.5) colour = vec3(0.6, 0.6, 0.6);",       /* STRUCTURE: gray */
+	"  else if (cls < 5.5) colour = vec3(0.9, 0.15, 0.15);",     /* VEHICLE: red */
+	"  else if (cls < 6.5) colour = vec3(0.9, 0.8, 0.1);",       /* EFFECT: yellow */
+	"  else colour = vec3(0.3, 0.0, 0.5);",                       /* UI: purple */
+	"  /* Blend 70% debug colour with 30% original for context. */",
+	"  vec4 orig = texture(source_tex, tex_coord);",
+	"  frag_colour = vec4(mix(orig.rgb, colour, 0.7), 1.0);",
+	"}",
+};
+
 /* ---- Motion vector rasterization compute shader (GL 4.3+) ---- */
 
 /** Compute shader: rasterize per-pixel MV + depth from draw command list.
@@ -1242,5 +1269,70 @@ static const char *_frag_shader_pp_dof[] = {
 	"    weight += 1.0;",
 	"  }",
 	"  frag_colour = vec4(clamp(sum / weight, 0.0, 1.0), center.a);",
+	"}",
+};
+
+/* ---- Toon/Cartoon rendering ---- */
+
+/** Fragment shader for toon/cartoon rendering effect.
+ * Combines Sobel edge detection (dark outlines) with color posterization
+ * (reduced palette) for a hand-drawn cartoon look. */
+static const char *_frag_shader_pp_toon[] = {
+	"#version 150\n",
+	"uniform sampler2D source_tex;",
+	"uniform vec2 texel_size;",
+	"uniform float edge_threshold;",
+	"uniform float color_levels;",
+	"in vec2 tex_coord;",
+	"out vec4 frag_colour;",
+	"void main() {",
+	"  vec4 base = texture(source_tex, tex_coord);",
+	/* Sobel edge detection on luminance */
+	"  float tl = dot(texture(source_tex, tex_coord + vec2(-texel_size.x, -texel_size.y)).rgb, vec3(0.299,0.587,0.114));",
+	"  float t  = dot(texture(source_tex, tex_coord + vec2(0, -texel_size.y)).rgb, vec3(0.299,0.587,0.114));",
+	"  float tr = dot(texture(source_tex, tex_coord + vec2( texel_size.x, -texel_size.y)).rgb, vec3(0.299,0.587,0.114));",
+	"  float l  = dot(texture(source_tex, tex_coord + vec2(-texel_size.x, 0)).rgb, vec3(0.299,0.587,0.114));",
+	"  float r  = dot(texture(source_tex, tex_coord + vec2( texel_size.x, 0)).rgb, vec3(0.299,0.587,0.114));",
+	"  float bl = dot(texture(source_tex, tex_coord + vec2(-texel_size.x,  texel_size.y)).rgb, vec3(0.299,0.587,0.114));",
+	"  float b  = dot(texture(source_tex, tex_coord + vec2(0,  texel_size.y)).rgb, vec3(0.299,0.587,0.114));",
+	"  float br = dot(texture(source_tex, tex_coord + vec2( texel_size.x,  texel_size.y)).rgb, vec3(0.299,0.587,0.114));",
+	"  float gx = -tl - 2.0*l - bl + tr + 2.0*r + br;",
+	"  float gy = -tl - 2.0*t - tr + bl + 2.0*b + br;",
+	"  float edge = sqrt(gx*gx + gy*gy);",
+	"  float edge_mask = smoothstep(edge_threshold * 0.005, edge_threshold * 0.02, edge);",
+	/* Color posterization */
+	"  vec3 posterized = floor(base.rgb * color_levels + 0.5) / color_levels;",
+	/* Combine: posterized colors with dark edges */
+	"  vec3 result = mix(posterized, vec3(0.05), edge_mask);",
+	"  frag_colour = vec4(clamp(result, 0.0, 1.0), base.a);",
+	"}",
+};
+
+/* ---- Heat haze distortion ---- */
+
+/** Fragment shader for heat haze distortion effect.
+ * Detects warm/bright areas via luminance and applies sine-wave
+ * displacement to simulate convective shimmer above hot surfaces. */
+static const char *_frag_shader_pp_heat_haze[] = {
+	"#version 150\n",
+	"uniform sampler2D source_tex;",
+	"uniform vec2 texel_size;",
+	"uniform float haze_intensity;",
+	"uniform float haze_distortion;",
+	"uniform float time;",
+	"in vec2 tex_coord;",
+	"out vec4 frag_colour;",
+	"void main() {",
+	"  vec4 base = texture(source_tex, tex_coord);",
+	"  float lum = dot(base.rgb, vec3(0.299, 0.587, 0.114));",
+	/* Detect warm/bright pixels (industries, desert, bright areas) */
+	"  float warmth = smoothstep(0.5, 0.8, lum) * smoothstep(0.7, 0.3, tex_coord.y);",
+	"  if (warmth < 0.01) { frag_colour = base; return; }",
+	/* Heat shimmer using sine waves at different frequencies */
+	"  float wave1 = sin(tex_coord.y * 120.0 + time * 3.0) * haze_distortion;",
+	"  float wave2 = sin(tex_coord.y * 80.0 - time * 2.1) * haze_distortion * 0.7;",
+	"  vec2 offset = vec2(wave1 + wave2, wave1 * 0.3) * texel_size * warmth * haze_intensity * 0.01;",
+	"  vec4 hazed = texture(source_tex, tex_coord + offset);",
+	"  frag_colour = vec4(mix(base.rgb, hazed.rgb, warmth * 0.6), base.a);",
 	"}",
 };

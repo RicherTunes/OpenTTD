@@ -140,8 +140,12 @@ private:
 	GLuint pp_tree_sway_program = 0;     ///< Animated tree sway shader program.
 	GLuint pp_sky_program = 0;           ///< Procedural sky with clouds shader program.
 	GLuint pp_dof_program = 0;           ///< Depth-of-field blur shader program.
+	GLuint pp_toon_program = 0;          ///< Toon/cartoon rendering shader program.
+	GLuint pp_heat_haze_program = 0;     ///< Heat haze distortion shader program.
 	GLuint pp_downsample_program = 0;    ///< Downsample shader for supersampling.
 	GLint pp_downsample_texel_loc = -1;  ///< Downsample texel_size uniform.
+	GLuint pp_debug_class_program = 0;   ///< Shader for classification debug visualization.
+	GLint pp_debug_class_class_loc = -1; ///< Debug class class_tex sampler uniform.
 
 	/* CPU viewport scaling scratch buffer resources. */
 	GLuint vp_texture = 0;          ///< Texture for the reduced-resolution viewport.
@@ -225,6 +229,13 @@ private:
 	GLint pp_dof_aperture_loc = -1;      ///< DoF aperture uniform location.
 	GLint pp_dof_range_loc = -1;         ///< DoF focus range uniform location.
 	GLint pp_dof_texel_loc = -1;         ///< DoF texel_size uniform location.
+	GLint pp_toon_texel_loc = -1;        ///< Toon texel_size uniform location.
+	GLint pp_toon_edge_loc = -1;         ///< Toon edge_threshold uniform location.
+	GLint pp_toon_levels_loc = -1;       ///< Toon color_levels uniform location.
+	GLint pp_haze_texel_loc = -1;        ///< Heat haze texel_size uniform location.
+	GLint pp_haze_intensity_loc = -1;    ///< Heat haze intensity uniform location.
+	GLint pp_haze_distortion_loc = -1;   ///< Heat haze distortion uniform location.
+	GLint pp_haze_time_loc = -1;         ///< Heat haze time uniform location.
 
 	PostProcessConfig pp_config;     ///< Current post-processing configuration.
 
@@ -233,6 +244,7 @@ private:
 	std::chrono::steady_clock::time_point pp_sky_start_time{};     ///< Sky cloud drift time base (independent of weather).
 	std::chrono::steady_clock::time_point pp_sway_start_time{};    ///< Tree sway animation time base (independent of weather).
 	std::chrono::steady_clock::time_point pp_reflect_start_time{}; ///< Water reflection wave time base.
+	std::chrono::steady_clock::time_point pp_haze_start_time{};    ///< Heat haze animation time base.
 	std::chrono::steady_clock::time_point pp_last_frame_time{};    ///< Last frame timestamp for delta_time computation.
 
 	/* Benchmark GPU timer query state. */

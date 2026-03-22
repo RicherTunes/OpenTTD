@@ -1979,6 +1979,9 @@ void ViewportDoDraw(const Viewport &vp, int left, int top, int right, int bottom
 	_vd.parent_sprites_to_sort.clear();
 	_vd.child_screen_sprites_to_draw.clear();
 	_vd.slope_cache.clear();
+
+	/* Restore the default for any subsequent UI draw calls outside the viewport. */
+	if (_sprite_class.active) _sprite_class.current_class = SPRITE_CLASS_UI;
 }
 
 static inline void ViewportDraw(const Viewport &vp, int left, int top, int right, int bottom)

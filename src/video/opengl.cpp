@@ -645,6 +645,8 @@ OpenGLBackend::~OpenGLBackend()
 		if (this->pp_tree_sway_program != 0) _glDeleteProgram(this->pp_tree_sway_program);
 		if (this->pp_sky_program != 0) _glDeleteProgram(this->pp_sky_program);
 		if (this->pp_dof_program != 0) _glDeleteProgram(this->pp_dof_program);
+		if (this->pp_toon_program != 0) _glDeleteProgram(this->pp_toon_program);
+		if (this->pp_heat_haze_program != 0) _glDeleteProgram(this->pp_heat_haze_program);
 		if (this->pp_temporal_program != 0) _glDeleteProgram(this->pp_temporal_program);
 		if (this->pp_downsample_program != 0) _glDeleteProgram(this->pp_downsample_program);
 	}
@@ -1442,6 +1444,9 @@ void OpenGLBackend::Paint()
 
 		new_config.cpu_viewport_scaling = _video_cpu_viewport_scaling;
 
+		extern bool _video_debug_class;
+		new_config.debug_class = _video_debug_class;
+
 		new_config.auto_supersample = _video_auto_supersample;
 		/* Auto-supersample at close zoom levels for smoother pixel art. */
 		if (_video_auto_supersample && _video_post_processing) {
@@ -1732,8 +1737,11 @@ bool OpenGLBackend::InitPostProcessShaders()
 	this->pp_tree_sway_program = CompileAndLog("tree-sway", _frag_shader_pp_tree_sway, lengthof(_frag_shader_pp_tree_sway));
 	this->pp_sky_program = CompileAndLog("sky", _frag_shader_pp_sky, lengthof(_frag_shader_pp_sky));
 	this->pp_dof_program = CompileAndLog("depth-of-field", _frag_shader_pp_dof, lengthof(_frag_shader_pp_dof));
+	this->pp_toon_program = CompileAndLog("toon", _frag_shader_pp_toon, lengthof(_frag_shader_pp_toon));
+	this->pp_heat_haze_program = CompileAndLog("heat-haze", _frag_shader_pp_heat_haze, lengthof(_frag_shader_pp_heat_haze));
 	this->pp_temporal_program = CompileAndLog("temporal-accum", _frag_shader_pp_temporal_accum, lengthof(_frag_shader_pp_temporal_accum));
 	this->pp_downsample_program = CompileAndLog("downsample", _frag_shader_pp_downsample, lengthof(_frag_shader_pp_downsample));
+	this->pp_debug_class_program = CompileAndLog("debug-class", _frag_shader_pp_debug_class, lengthof(_frag_shader_pp_debug_class));
 
 	_glDeleteShader(pp_vert);
 
@@ -1777,8 +1785,17 @@ bool OpenGLBackend::InitPostProcessShaders()
 	BindSourceTex(this->pp_tree_sway_program);
 	BindSourceTex(this->pp_sky_program);
 	BindSourceTex(this->pp_dof_program);
+	BindSourceTex(this->pp_toon_program);
+	BindSourceTex(this->pp_heat_haze_program);
 	BindSourceTex(this->pp_temporal_program);
 	BindSourceTex(this->pp_downsample_program);
+	BindSourceTex(this->pp_debug_class_program);
+	/* Debug class shader uses class_tex on texture unit 1. */
+	if (this->pp_debug_class_program != 0) {
+		_glUseProgram(this->pp_debug_class_program);
+		this->pp_debug_class_class_loc = _glGetUniformLocation(this->pp_debug_class_program, "class_tex");
+		if (this->pp_debug_class_class_loc >= 0) _glUniform1i(this->pp_debug_class_class_loc, 1);
+	}
 	/* Temporal shader uses additional texture units for history and MV. */
 	if (this->pp_temporal_program != 0) {
 		_glUseProgram(this->pp_temporal_program);
@@ -1913,6 +1930,17 @@ bool OpenGLBackend::InitPostProcessShaders()
 	this->pp_dof_aperture_loc = CacheLoc(this->pp_dof_program, "aperture");
 	this->pp_dof_range_loc = CacheLoc(this->pp_dof_program, "focus_range");
 	this->pp_dof_texel_loc = CacheLoc(this->pp_dof_program, "texel_size");
+
+	/* Toon rendering uniforms. */
+	this->pp_toon_texel_loc = CacheLoc(this->pp_toon_program, "texel_size");
+	this->pp_toon_edge_loc = CacheLoc(this->pp_toon_program, "edge_threshold");
+	this->pp_toon_levels_loc = CacheLoc(this->pp_toon_program, "color_levels");
+
+	/* Heat haze uniforms. */
+	this->pp_haze_texel_loc = CacheLoc(this->pp_heat_haze_program, "texel_size");
+	this->pp_haze_intensity_loc = CacheLoc(this->pp_heat_haze_program, "haze_intensity");
+	this->pp_haze_distortion_loc = CacheLoc(this->pp_heat_haze_program, "haze_distortion");
+	this->pp_haze_time_loc = CacheLoc(this->pp_heat_haze_program, "time");
 
 	/* Downsample uniforms. */
 	this->pp_downsample_texel_loc = CacheLoc(this->pp_downsample_program, "texel_size");
@@ -2182,9 +2210,12 @@ void OpenGLBackend::RenderPostProcess()
 		if (this->pp_bloom_composite_program != 0) total++; /* composite blend */
 	}
 	if (WillRun(this->pp_config.depth_of_field, this->pp_dof_program)) total++;
+	if (WillRun(this->pp_config.toon_rendering, this->pp_toon_program)) total++;
+	if (WillRun(this->pp_config.heat_haze, this->pp_heat_haze_program)) total++;
 	if (WillRun(this->pp_config.fake_shadows, this->pp_shadow_program)) total++;
 	if (WillRun(this->pp_config.crt_filter, this->pp_crt_program)) total++;
 	if (this->pp_config.weather_type > 0 && this->pp_weather_program != 0) total++;
+	if (this->pp_config.debug_class && this->pp_debug_class_program != 0 && this->class_texture != 0) total++;
 	if (this->pp_config.render_scale > 100 && this->pp_downsample_program != 0) total++;
 
 	/* When supersampling (render_scale > 100) both ping-pong FBOs are at render
@@ -2709,6 +2740,16 @@ void OpenGLBackend::RenderPostProcess()
 		RunPass();
 	}
 
+	/* Classification debug visualization (overrides scene with false colours). */
+	if (this->pp_config.debug_class && this->pp_debug_class_program != 0 && this->class_texture != 0) {
+		_glUseProgram(this->pp_debug_class_program);
+		/* Bind class_tex to texture unit 1. */
+		_glActiveTexture(GL_TEXTURE1);
+		_glBindTexture(GL_TEXTURE_2D, this->class_texture);
+		_glActiveTexture(GL_TEXTURE0);
+		RunPass();
+	}
+
 	/* Supersampling downsample. */
 	if (this->pp_config.render_scale > 100 && this->pp_downsample_program != 0) {
 		_glUseProgram(this->pp_downsample_program);
@@ -2948,16 +2989,18 @@ void *OpenGLBackend::GetVideoBuffer()
 	}
 
 	/* Activate sprite classification buffer for the upcoming CPU draw phase.
-	 * Only active when post-processing is enabled and blitter is 32bpp. */
+	 * Only active when a debug view or metadata-backed effect actually needs it. */
 	Blitter *cls_blitter = BlitterFactory::GetCurrentBlitter();
-	if (this->pp_active && this->class_pbo != 0 &&
+	if (this->pp_active && PostProcessNeedsSpriteClassification(this->pp_config) && this->class_pbo != 0 &&
 	    cls_blitter != nullptr && cls_blitter->GetScreenDepth() != 8) {
 		uint8_t *cls_buf = this->GetClassBuffer();
 		if (cls_buf != nullptr) {
 			std::fill_n(cls_buf, static_cast<size_t>(_screen.pitch) * _screen.height, static_cast<uint8_t>(SPRITE_CLASS_UNKNOWN));
 			_sprite_class.class_buf = cls_buf;
 			_sprite_class.buf_pitch = _screen.pitch;
-			_sprite_class.current_class = SPRITE_CLASS_UNKNOWN;
+			/* Default non-viewport draws to UI so menus/toolbars don't inherit the
+			 * last in-viewport class written by the world renderer. */
+			_sprite_class.current_class = SPRITE_CLASS_UI;
 			_sprite_class.active = true;
 		}
 	}
@@ -3120,12 +3163,22 @@ void OpenGLBackend::ReleaseClassBuffer(const Rect &update_rect)
 	}
 #endif
 
-	/* Update changed rect of the classification buffer texture. */
-	if (update_rect.left != update_rect.right) {
+	/* Update changed rect of the classification buffer texture.
+	 * Clamp to screen bounds, just like the main video path, to avoid OOB uploads
+	 * when dirty tracking hands us a partially off-screen rectangle. */
+	Rect clamped_rect = update_rect;
+	clamped_rect.left = std::max(0, clamped_rect.left);
+	clamped_rect.top = std::max(0, clamped_rect.top);
+	clamped_rect.right = std::min(_screen.width, clamped_rect.right);
+	clamped_rect.bottom = std::min(_screen.height, clamped_rect.bottom);
+	if (!IsEmptyRect(clamped_rect)) {
 		_glActiveTexture(GL_TEXTURE0);
 		_glBindTexture(GL_TEXTURE_2D, this->class_texture);
 		_glPixelStorei(GL_UNPACK_ROW_LENGTH, _screen.pitch);
-		_glTexSubImage2D(GL_TEXTURE_2D, 0, update_rect.left, update_rect.top, update_rect.right - update_rect.left, update_rect.bottom - update_rect.top, GL_RED, GL_UNSIGNED_BYTE, (GLvoid *)(size_t)(update_rect.top * _screen.pitch + update_rect.left));
+		_glTexSubImage2D(GL_TEXTURE_2D, 0, clamped_rect.left, clamped_rect.top,
+			clamped_rect.right - clamped_rect.left, clamped_rect.bottom - clamped_rect.top,
+			GL_RED, GL_UNSIGNED_BYTE,
+			(GLvoid *)(size_t)(clamped_rect.top * _screen.pitch + clamped_rect.left));
 
 #ifndef NO_GL_BUFFER_SYNC
 		if (this->persistent_mapping_supported) this->sync_class_mapping = _glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);

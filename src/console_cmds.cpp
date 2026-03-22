@@ -78,6 +78,8 @@
 
 #include "safeguards.h"
 
+extern bool _video_debug_class;
+
 /* scriptfile handling */
 static uint _script_current_depth; ///< Depth of scripts running (used to abort execution when #ConReturn is encountered).
 
@@ -3188,6 +3190,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		IConsolePrint(CC_HELP, "Usage: 'pp preset <name>' - Apply a predefined configuration.");
 		IConsolePrint(CC_HELP, "  Presets: retro, cinematic, night, miniature, sharp, clean, ...");
 		IConsolePrint(CC_HELP, "Usage: 'pp cycle' - Cycle to next preset (also Ctrl+Shift+P hotkey).");
+		IConsolePrint(CC_HELP, "Usage: 'pp debug_class on|off' - Show classification buffer as false colours.");
 		return true;
 	}
 
@@ -3306,6 +3309,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		budget_config.tree_sway = _video_tree_sway;
 		budget_config.sky_clouds = _video_sky_clouds;
 		budget_config.depth_of_field = _video_depth_of_field;
+		budget_config.debug_class = _video_debug_class;
 
 		int passes = PostProcessPassCount(budget_config);
 		QualityTier tier = EstimateQualityTier(budget_config);
@@ -3644,7 +3648,25 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		return true;
 	}
 
-	IConsolePrint(CC_ERROR, "Unknown sub-command '{}'. Use: status, info, budget, on, off, enable, disable, set, reset, preset, cycle.", argv[1]);
+	if (argv[1] == "debug_class") {
+		if (argv.size() < 3) {
+			IConsolePrint(CC_HELP, "Usage: pp debug_class on|off");
+			IConsolePrint(CC_HELP, "  Renders classification buffer as false colours for verification.");
+			return true;
+		}
+		extern bool _video_debug_class;
+		_video_debug_class = (argv[2] == "on" || argv[2] == "1");
+		IConsolePrint(CC_INFO, "Classification debug: {}", _video_debug_class ? "on" : "off");
+		if (_video_debug_class) {
+			IConsolePrint(CC_INFO, "Classification debug overlay enabled. Requires 32bpp blitter and PP on.");
+			if (!_video_post_processing) {
+				IConsolePrint(CC_WARNING, "Post-processing is off. Enable with 'pp on' first.");
+			}
+		}
+		return true;
+	}
+
+	IConsolePrint(CC_ERROR, "Unknown sub-command '{}'. Use: status, info, budget, on, off, enable, disable, set, reset, preset, cycle, debug_class.", argv[1]);
 	return false;
 }
 
