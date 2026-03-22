@@ -11,6 +11,7 @@
 
 #include "../3rdparty/catch2/catch.hpp"
 
+#include "../genworld_preview.h"
 #include "../tgp_func.h"
 #include "../core/math_func.hpp"
 
@@ -1159,13 +1160,6 @@ TEST_CASE("Heightmap preview - colour gradient is monotonic for ascending height
 
 TEST_CASE("Harbor overlay - score to colour gradient") {
 	/* Harbor scores map to a blue gradient: 0=transparent, 255=bright blue */
-	auto HarborScoreToColour = [](uint8_t score) -> uint8_t {
-		if (score == 0) return 0;       /* No overlay */
-		if (score < 64) return 0x98;    /* Light blue */
-		if (score < 128) return 0x99;   /* Medium blue */
-		if (score < 192) return 0x9A;   /* Blue */
-		return 0x9B;                    /* Bright blue */
-	};
 	CHECK(HarborScoreToColour(0) == 0);
 	CHECK(HarborScoreToColour(50) == 0x98);
 	CHECK(HarborScoreToColour(100) == 0x99);
@@ -1175,13 +1169,6 @@ TEST_CASE("Harbor overlay - score to colour gradient") {
 
 TEST_CASE("Harbor overlay - gradient is monotonically non-decreasing") {
 	/* Increasing scores should yield equal or higher colour indices */
-	auto HarborScoreToColour = [](uint8_t score) -> uint8_t {
-		if (score == 0) return 0;
-		if (score < 64) return 0x98;
-		if (score < 128) return 0x99;
-		if (score < 192) return 0x9A;
-		return 0x9B;
-	};
 	uint8_t prev = 0;
 	for (int s = 0; s <= 255; s++) {
 		uint8_t c = HarborScoreToColour(static_cast<uint8_t>(s));
@@ -1192,13 +1179,6 @@ TEST_CASE("Harbor overlay - gradient is monotonically non-decreasing") {
 
 TEST_CASE("Harbor overlay - zero score means no overlay") {
 	/* A zero harbor score should result in transparent (0) overlay */
-	auto HarborScoreToColour = [](uint8_t score) -> uint8_t {
-		if (score == 0) return 0;
-		if (score < 64) return 0x98;
-		if (score < 128) return 0x99;
-		if (score < 192) return 0x9A;
-		return 0x9B;
-	};
 	CHECK(HarborScoreToColour(0) == 0);
 	/* Any non-zero score should produce a visible colour */
 	CHECK(HarborScoreToColour(1) != 0);
@@ -1206,39 +1186,38 @@ TEST_CASE("Harbor overlay - zero score means no overlay") {
 }
 
 TEST_CASE("Heightmap preview - GenerateHeightmapPreview downscales correctly") {
-	/* Simulate the downscale-and-colourize pipeline:
-	 * source greyscale buffer -> downscale -> HeightToPreviewColour */
+	/* Exercise the exported preview helper directly instead of mirroring it. */
 	const int src_w = 128, src_h = 128;
 	const int dst_w = 64, dst_h = 32;
 	std::vector<uint8_t> src(src_w * src_h, 128); /* Uniform mid-grey */
 
-	/* Downscale */
-	std::vector<uint8_t> dst(dst_w * dst_h);
-	for (int dy = 0; dy < dst_h; dy++) {
-		for (int dx = 0; dx < dst_w; dx++) {
-			int sx = dx * src_w / dst_w;
-			int sy = dy * src_h / dst_h;
-			dst[dy * dst_w + dx] = src[sy * src_w + sx];
-		}
+	MapPreviewData preview;
+	CHECK(GenerateHeightmapPreview(preview, src, src_w, src_h, dst_w, dst_h));
+	CHECK(preview.width == dst_w);
+	CHECK(preview.height == dst_h);
+	CHECK(preview.pixels.size() == static_cast<size_t>(dst_w * dst_h));
+	CHECK(!preview.pixels.empty());
+	CHECK(preview.pixels[0] != 0xCA);
+	for (auto pixel : preview.pixels) {
+		CHECK(pixel == preview.pixels[0]);
 	}
+}
 
-	/* All downscaled values should be 128 (uniform input) */
-	for (auto v : dst) {
-		CHECK(v == 128);
-	}
+TEST_CASE("Heightmap preview - GenerateHeightmapPreview keeps water distinct") {
+	std::vector<uint8_t> src = {0, 255, 0, 255};
+	MapPreviewData preview;
 
-	/* Convert to palette colour: height 128/255 ~= 0.502, which falls
-	 * in the 0.45-0.55 bracket -> 0x5B (yellow-green) */
-	double t = 128.0 / 255.0;
-	uint8_t expected;
-	if (t < 0.15) expected = 0x58;
-	else if (t < 0.30) expected = 0x59;
-	else if (t < 0.45) expected = 0x5A;
-	else if (t < 0.55) expected = 0x5B;
-	else if (t < 0.65) expected = 0x22;
-	else if (t < 0.75) expected = 0x23;
-	else if (t < 0.85) expected = 0x0A;
-	else if (t < 0.95) expected = 0x0B;
-	else expected = 0x0F;
-	CHECK(expected == 0x5B);
+	CHECK(GenerateHeightmapPreview(preview, src, 2, 2, 2, 2));
+	CHECK(preview.pixels.size() == 4);
+	CHECK(preview.pixels[0] == 0xCA);
+	CHECK(preview.pixels[1] != 0xCA);
+	CHECK(preview.pixels[2] == 0xCA);
+	CHECK(preview.pixels[3] != 0xCA);
+}
+
+TEST_CASE("Heightmap preview - GenerateHeightmapPreview rejects undersized buffers") {
+	MapPreviewData preview;
+	std::vector<uint8_t> truncated(3, 0);
+
+	CHECK_FALSE(GenerateHeightmapPreview(preview, truncated, 2, 2, 2, 2));
 }

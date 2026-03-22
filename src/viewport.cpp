@@ -1209,13 +1209,22 @@ static int GetViewportY(Point tile)
 
 /**
  * Invalidate the cached slope for a specific tile.
- * Called from MarkTileDirtyByTile() when a tile's terrain or appearance changes,
- * so the persistent slope cache picks up the new height on next render.
- * @param tile The tile whose cached slope should be evicted.
+ * Called from MarkTileDirtyByTile() when a tile's terrain or appearance changes.
+ * A tile's stored north-corner height contributes to the slopes of up to four
+ * tiles: itself, its western neighbour, its northern neighbour, and its
+ * north-western neighbour. All of those cached slope entries must be evicted so
+ * the persistent cache picks up the new corner height on next render.
+ * @param tile The tile whose corner height changed.
  */
 static void InvalidateSlopeCacheForTile(TileIndex tile)
 {
+	const uint x = TileX(tile);
+	const uint y = TileY(tile);
+
 	_vd.slope_cache.erase(tile.base());
+	if (x > 0) _vd.slope_cache.erase(TileXY(x - 1, y).base());
+	if (y > 0) _vd.slope_cache.erase(TileXY(x, y - 1).base());
+	if (x > 0 && y > 0) _vd.slope_cache.erase(TileXY(x - 1, y - 1).base());
 }
 
 /**

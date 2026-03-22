@@ -3378,3 +3378,75 @@ TEST_CASE("PostProcess - all effects combined pass count is reasonable")
 	CHECK(passes >= 20);
 	CHECK(passes <= 40);
 }
+
+/* --- Water Waves tests --- */
+
+TEST_CASE("PostProcess - water_waves defaults to false")
+{
+	PostProcessConfig config;
+	CHECK(!config.water_waves);
+}
+
+TEST_CASE("PostProcess - water_waves triggers NeedsFBO")
+{
+	PostProcessConfig config;
+	config.water_waves = true;
+	CHECK(PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("PostProcess - water_waves adds 1 pass")
+{
+	PostProcessConfig base;
+	int base_passes = PostProcessPassCount(base);
+	PostProcessConfig config;
+	config.water_waves = true;
+	CHECK(PostProcessPassCount(config) == base_passes + 1);
+}
+
+TEST_CASE("PostProcess - water_waves parameter defaults")
+{
+	PostProcessConfig config;
+	CHECK(config.wave_amplitude >= 1);
+	CHECK(config.wave_amplitude <= 15);
+	CHECK(config.wave_speed >= 10);
+	CHECK(config.wave_speed <= 100);
+}
+
+/* --- Seasonal Vegetation tests --- */
+
+TEST_CASE("PostProcess - seasonal_vegetation defaults to false")
+{
+	PostProcessConfig config;
+	CHECK(!config.seasonal_vegetation);
+}
+
+TEST_CASE("PostProcess - seasonal_vegetation triggers NeedsFBO")
+{
+	PostProcessConfig config;
+	config.seasonal_vegetation = true;
+	CHECK(PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("PostProcess - seasonal_vegetation adds 1 pass")
+{
+	PostProcessConfig base;
+	int base_passes = PostProcessPassCount(base);
+	PostProcessConfig config;
+	config.seasonal_vegetation = true;
+	CHECK(PostProcessPassCount(config) == base_passes + 1);
+}
+
+TEST_CASE("PostProcess - seasonal parameter defaults")
+{
+	PostProcessConfig config;
+	CHECK(config.season_intensity <= 100);
+}
+
+TEST_CASE("PostProcess - water_waves and seasonal combined")
+{
+	PostProcessConfig config;
+	config.water_waves = true;
+	config.seasonal_vegetation = true;
+	CHECK(PostProcessPassCount(config) == 2);
+	CHECK(PostProcessNeedsFBO(config));
+}

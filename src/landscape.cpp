@@ -1547,9 +1547,12 @@ static void TryCreateRiverDelta(TileIndex mouth, TileIndex upstream)
 			if (next == INVALID_TILE) break;
 			if (!IsValidTile(next)) break;
 
-			/* Only extend into sea water */
+			/* Only extend into flat sea water at height > 0.
+			 * Rivers at height 0 create flat coast tiles on neighbours,
+			 * which violates the shore sprite assumption (tileh != SLOPE_FLAT). */
 			if (!IsWaterTile(next)) break;
 			if (!IsTileFlat(next)) break;
+			if (TileHeight(next) == 0) break;
 
 			/* Make this tile a river (delta channel) */
 			if (IsCoastTile(next) || (IsTileType(next, TileType::Water) && GetWaterClass(next) == WaterClass::Sea)) {

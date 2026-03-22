@@ -1340,6 +1340,6 @@ static const char *_frag_shader_pp_heat_haze[] = {
 	"  float wave2 = sin(tex_coord.y * 80.0 - time * 2.1) * haze_distortion * 0.7;",
 	"  vec2 offset = vec2(wave1 + wave2, wave1 * 0.3) * texel_size * warmth * haze_intensity * 0.01;",
 	"  vec4 hazed = texture(source_tex, tex_coord + offset);",
-	"  frag_colour = vec4(mix(base.rgb, hazed.rgb, warmth * 0.6), base.a);",
+	"  frag_colour = vec4(clamp(mix(base.rgb, hazed.rgb, warmth * 0.6), 0.0, 1.0), base.a);",
 	"}",
 };

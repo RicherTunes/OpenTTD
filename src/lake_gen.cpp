@@ -110,7 +110,10 @@ void CreateLakes()
 		if (!is_enclosed) continue;
 		if (component.size() < min_lake_size) continue;
 
-		/* Fill the enclosed basin as a lake using river tiles */
+		/* Fill the enclosed basin as a lake using river tiles.
+		 * Guard: only at height > 0 to prevent flat coast tiles at sea level
+		 * (which violate the shore sprite assumption tileh != SLOPE_FLAT). */
+		if (component_height == 0) continue;
 		for (TileIndex tile : component) {
 			if (IsTileType(tile, TileType::Clear) || IsTileType(tile, TileType::Trees)) {
 				MakeRiver(tile, Random());
