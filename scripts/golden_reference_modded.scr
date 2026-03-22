@@ -1,0 +1,71 @@
+; ===============================================================
+; Modded Version Screenshot Capture
+; ===============================================================
+; Captures same viewport positions as golden_reference.scr but also
+; captures PP-on variants for A/B comparison.
+; ===============================================================
+
+; Pause the game to ensure deterministic viewport
+pause
+
+; === Part A: PP-OFF (should match vanilla golden reference) ===
+pp off
+
+zoomto 0
+screenshot viewport no_con modded_01_ppoff_zoom_in4x
+
+zoomto 1
+screenshot viewport no_con modded_02_ppoff_zoom_in2x
+
+zoomto 2
+screenshot viewport no_con modded_03_ppoff_zoom_normal
+
+zoomto 3
+screenshot viewport no_con modded_04_ppoff_zoom_out2x
+
+zoomto 4
+screenshot viewport no_con modded_05_ppoff_zoom_out4x
+
+zoomto 2
+screenshot minimap modded_06_ppoff_minimap
+
+; === Part B: PP-ON with ship-path effects ===
+pp on
+pp enable fxaa
+pp set sharpening 50
+pp enable vignette
+
+zoomto 0
+pp_screenshot modded_07_ppon_zoom_in4x
+
+zoomto 1
+pp_screenshot modded_08_ppon_zoom_in2x
+
+zoomto 2
+pp_screenshot modded_09_ppon_zoom_normal
+
+zoomto 3
+pp_screenshot modded_10_ppon_zoom_out2x
+
+zoomto 4
+pp_screenshot modded_11_ppon_zoom_out4x
+
+; === Part C: Classification debug view ===
+zoomto 2
+pp debug_class on
+pp_screenshot modded_12_debug_class
+
+; === Part D: Water effect with class_tex ===
+pp debug_class off
+pp enable water
+pp_screenshot modded_13_water_on
+
+; Water + night (blue-tint regression test)
+pp enable night
+pp_screenshot modded_14_water_night
+
+; === Restore and exit ===
+pp off
+zoomto 2
+
+exit

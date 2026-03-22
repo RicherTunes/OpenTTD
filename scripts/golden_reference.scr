@@ -1,0 +1,45 @@
+; ===============================================================
+; Golden Reference Screenshot Capture
+; ===============================================================
+; Runs on game load (as game_start.scr). Captures screenshots of
+; the vanilla/baseline renderer at multiple zoom levels.
+;
+; Used by both vanilla and modded OpenTTD builds to capture
+; matching screenshots for A/B comparison.
+; ===============================================================
+
+; Pause the game to ensure deterministic viewport
+pause
+
+; === Baseline screenshots at default viewport ===
+screenshot viewport no_con golden_01_viewport_default
+
+; === Zoom levels ===
+; Note: zoomto command sets viewport zoom level
+zoomto 0
+screenshot viewport no_con golden_02_zoom_in4x
+
+zoomto 1
+screenshot viewport no_con golden_03_zoom_in2x
+
+zoomto 2
+screenshot viewport no_con golden_04_zoom_normal
+
+zoomto 3
+screenshot viewport no_con golden_05_zoom_out2x
+
+zoomto 4
+screenshot viewport no_con golden_06_zoom_out4x
+
+; Back to normal
+zoomto 2
+
+; === Minimap for overall map verification ===
+screenshot minimap golden_07_minimap
+
+; === Giant screenshot (full detail) ===
+; Commented out by default - very large file
+; screenshot giant golden_08_giant
+
+; Done - exit the game
+exit
