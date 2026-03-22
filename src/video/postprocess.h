@@ -37,6 +37,8 @@ struct PostProcessConfig {
 	bool night_mode = false;           ///< Enable night mode.
 	bool film_grain = false;           ///< Enable film grain.
 	bool crt_filter = false;           ///< Enable CRT scanline filter.
+	bool pixel_smoothing = false;      ///< Enable pixel art smoothing at zoom-in levels.
+	uint8_t pixel_smooth_amount = 70;  ///< Smoothing intensity (0-100, mapped to 0.0..1.0).
 
 	/* Color grading parameters. */
 	int8_t cg_brightness = 0;          ///< Brightness offset (-50 to 50, mapped to -0.5..0.5).
@@ -78,6 +80,8 @@ struct PostProcessConfig {
 	/* Weather effects. */
 	uint8_t weather_type = 0;          ///< Weather overlay: 0=none, 1=rain, 2=snow.
 	uint8_t weather_intensity = 30;    ///< Weather effect strength (0-100).
+
+	bool auto_supersample = false;     ///< Automatically enable supersampling at zoom-in levels.
 
 	bool operator==(const PostProcessConfig &) const = default;
 };

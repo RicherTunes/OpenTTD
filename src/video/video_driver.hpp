@@ -65,6 +65,9 @@ extern uint8_t _video_bloom_threshold;
 extern uint8_t _video_bloom_intensity;
 extern uint8_t _video_weather_type;
 extern uint8_t _video_weather_intensity;
+extern bool _video_pixel_smoothing;
+extern uint8_t _video_pixel_smooth_amount;
+extern bool _video_auto_supersample;
 
 /** The base of all video drivers. */
 class VideoDriver : public Driver {

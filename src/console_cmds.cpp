@@ -2902,6 +2902,7 @@ static void ResetPPDefaults()
 	_video_bloom_intensity = 30;
 	_video_weather_type = 0;
 	_video_weather_intensity = 30;
+	_video_auto_supersample = false;
 }
 
 /** GPU post-processing control. @copydoc IConsoleCmdProc */
@@ -2913,7 +2914,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		IConsolePrint(CC_HELP, "Usage: 'pp info' - Show GPU pipeline capabilities.");
 		IConsolePrint(CC_HELP, "Usage: 'pp on/off' - Toggle master post-processing switch.");
 		IConsolePrint(CC_HELP, "Usage: 'pp enable/disable <effect>' - Toggle an effect.");
-		IConsolePrint(CC_HELP, "  Effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather");
+		IConsolePrint(CC_HELP, "  Effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather, supersample");
 		IConsolePrint(CC_HELP, "Usage: 'pp set <param> <value>' - Set a parameter.");
 		IConsolePrint(CC_HELP, "  Core: render_scale (50-200), sharpening (0-100), upscale (0-4), texture_filter (0-2)");
 		IConsolePrint(CC_HELP, "  Color: brightness (-50..50), contrast (50-200), saturation (0-200), temperature (-100..100)");
@@ -2948,6 +2949,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		IConsolePrint(CC_INFO, "  Dynamic lighting: {}", _video_dynamic_lighting ? "ON" : "OFF");
 		IConsolePrint(CC_INFO, "  Bloom: {} (threshold={}, intensity={})", _video_bloom ? "ON" : "OFF", _video_bloom_threshold, _video_bloom_intensity);
 		IConsolePrint(CC_INFO, "  Weather: {} (type={}, intensity={})", _video_weather_type > 0 ? "ON" : "OFF", _video_weather_type, _video_weather_intensity);
+		IConsolePrint(CC_INFO, "  Auto-supersample: {}", _video_auto_supersample ? "ON" : "OFF");
 		IConsolePrint(CC_INFO, "  Brightness: {}", _video_brightness);
 		IConsolePrint(CC_INFO, "  Contrast: {}", _video_contrast);
 		IConsolePrint(CC_INFO, "  Saturation: {}", _video_saturation);
@@ -3010,7 +3012,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 
 	if (argv[1] == "enable" || argv[1] == "disable") {
 		if (argv.size() < 3) {
-			IConsolePrint(CC_ERROR, "Usage: 'pp {} <effect>' - Effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather", argv[1]);
+			IConsolePrint(CC_ERROR, "Usage: 'pp {} <effect>' - Effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather, supersample", argv[1]);
 			return false;
 		}
 		bool enable = (argv[1] == "enable");
@@ -3034,8 +3036,10 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			_video_bloom = enable;
 		} else if (effect == "weather") {
 			_video_weather_type = enable ? 1 : 0;
+		} else if (effect == "supersample") {
+			_video_auto_supersample = enable;
 		} else {
-			IConsolePrint(CC_ERROR, "Unknown effect '{}'. Valid effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather", effect);
+			IConsolePrint(CC_ERROR, "Unknown effect '{}'. Valid effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather, supersample", effect);
 			return false;
 		}
 

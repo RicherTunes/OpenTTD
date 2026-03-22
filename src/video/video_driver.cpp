@@ -62,6 +62,9 @@ uint8_t _video_bloom_threshold = 70; ///< Bloom luminance threshold (0-100).
 uint8_t _video_bloom_intensity = 30; ///< Bloom blend strength (0-100).
 uint8_t _video_weather_type = 0; ///< Weather overlay: 0=none, 1=rain, 2=snow.
 uint8_t _video_weather_intensity = 30; ///< Weather effect strength (0-100).
+bool _video_pixel_smoothing = false; ///< Whether pixel art smoothing is enabled.
+uint8_t _video_pixel_smooth_amount = 70; ///< Pixel art smoothing intensity (0-100).
+bool _video_auto_supersample = false; ///< Enable automatic supersampling at close zoom.
 
 void VideoDriver::GameLoop()
 {

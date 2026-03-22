@@ -1307,6 +1307,20 @@ void OpenGLBackend::Paint()
 			new_config.weather_intensity = _video_weather_intensity;
 		}
 
+		new_config.auto_supersample = _video_auto_supersample;
+		/* Auto-supersample at close zoom levels for smoother pixel art. */
+		if (_video_auto_supersample && _video_post_processing) {
+			const Window *mw = GetMainWindow();
+			if (mw != nullptr && mw->viewport != nullptr) {
+				ZoomLevel zoom = mw->viewport->zoom;
+				if (zoom == ZoomLevel::In4x && new_config.render_scale < 200) {
+					new_config.render_scale = 200; /* 2x SSAA at max zoom */
+				} else if (zoom == ZoomLevel::In2x && new_config.render_scale < 150) {
+					new_config.render_scale = 150; /* 1.5x SSAA at close zoom */
+				}
+			}
+		}
+
 		/* Detect topology changes (effects on/off) and render scale changes.
 		 * Render scale triggers a full Resize() to reallocate PBO at new dimensions.
 		 * We defer this by one frame to avoid resizing while the slider is being
