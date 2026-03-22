@@ -43,6 +43,8 @@ void CreateLakes()
 	std::vector<bool> visited(Map::Size(), false);
 	std::queue<TileIndex> bfs_queue;
 	std::vector<TileIndex> component;
+	static const int _lake_dx[] = {-1,  0,  1,  0}; /* NE, SE, SW, NW */
+	static const int _lake_dy[] = { 0,  1,  0, -1};
 
 	for (const auto start_tile : Map::Iterate()) {
 		uint start_idx = (uint)start_tile;
@@ -77,8 +79,6 @@ void CreateLakes()
 			/* Check all 4 neighbors.
 		 * Use TileAddWrap to prevent wrapping to the opposite map edge
 		 * when tile is on the boundary of the map. */
-			static const int _lake_dx[] = {-1,  0,  1,  0}; /* NE, SE, SW, NW */
-			static const int _lake_dy[] = { 0,  1,  0, -1};
 			for (DiagDirection dir = DIAGDIR_BEGIN; dir < DIAGDIR_END; dir++) {
 				TileIndex neighbor = TileAddWrap(tile, _lake_dx[dir], _lake_dy[dir]);
 				if (neighbor == INVALID_TILE) {
@@ -114,6 +114,24 @@ void CreateLakes()
 		 * Guard: only at height > 0 to prevent flat coast tiles at sea level
 		 * (which violate the shore sprite assumption tileh != SLOPE_FLAT). */
 		if (component_height == 0) continue;
+
+		/* Skip basins that border flat water tiles at a lower height.
+		 * Creating a river adjacent to flat sea triggers coast flooding
+		 * which produces SLOPE_FLAT shore tiles — crashing DrawShoreTile. */
+		bool borders_flat_water = false;
+		for (TileIndex tile : component) {
+			for (DiagDirection dir = DIAGDIR_BEGIN; dir < DIAGDIR_END; dir++) {
+				TileIndex nb = TileAddWrap(tile, _lake_dx[dir], _lake_dy[dir]);
+				if (nb == INVALID_TILE) continue;
+				if (IsTileType(nb, TileType::Water) && IsTileFlat(nb) && TileHeight(nb) < component_height) {
+					borders_flat_water = true;
+					break;
+				}
+			}
+			if (borders_flat_water) break;
+		}
+		if (borders_flat_water) continue;
+
 		for (TileIndex tile : component) {
 			if (IsTileType(tile, TileType::Clear) || IsTileType(tile, TileType::Trees)) {
 				MakeRiver(tile, Random());
