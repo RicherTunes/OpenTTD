@@ -15,6 +15,7 @@
 #include "3rdparty/nlohmann/json.hpp"
 #include "strings_func.h"
 #include "genworld.h"
+#include "genworld_cache.h"
 #include "gfxinit.h"
 #include "window_func.h"
 #include "network/network.h"
@@ -147,10 +148,12 @@ static void _GenerateWorld()
 		} else {
 			GenerateClearTile();
 			Map::CountLandTiles();
+			BuildGenerationTileCache();
 
 			/* Only generate towns, tree and industries in newgame mode. */
 			if (_game_mode != GM_EDITOR) {
 				if (!GenerateTowns(_settings_game.economy.town_layout)) {
+					FreeGenerationTileCache();
 					HandleGeneratingWorldAbortion();
 					return;
 				}
@@ -159,6 +162,7 @@ static void _GenerateWorld()
 				GenerateObjects();
 				GenerateTrees();
 			}
+			FreeGenerationTileCache();
 		}
 
 		/* These are probably pointless when inside the scenario editor. */
