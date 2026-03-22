@@ -1,0 +1,61 @@
+
+pause
+zoomto 2
+echo "FSR Comparison Test: Render at 50% scale, compare upscale methods"
+
+pp reset
+pp on
+pp_screenshot fsr_warmup1
+pp_screenshot fsr_warmup2
+pp_screenshot fsr_warmup3
+pp_screenshot fsr_warmup4
+pp_screenshot fsr_warmup5
+
+echo "1. Native 100% (reference)"
+pp set render_scale 100
+pp set upscale_mode 0
+pp_screenshot fsr_01_native_100
+
+echo "2. 50% scale, nearest neighbor (no upscaling - should look terrible)"
+pp set render_scale 50
+pp set upscale_mode 0
+pp_screenshot fsr_02_50pct_nearest
+
+echo "3. 50% scale, bilinear upscale (smoother but blurry)"
+pp set render_scale 50
+pp set upscale_mode 1
+pp_screenshot fsr_03_50pct_bilinear
+
+echo "4. 50% scale, FSR1 upscale (edge-adaptive - should be sharpest)"
+pp set render_scale 50
+pp set upscale_mode 2
+pp_screenshot fsr_04_50pct_fsr1
+
+echo "5. 50% scale, FSR1 + CAS sharpening (best quality)"
+pp set render_scale 50
+pp set upscale_mode 2
+pp set sharpening 80
+pp_screenshot fsr_05_50pct_fsr1_sharp
+
+echo "6. 75% scale comparison: nearest"
+pp set render_scale 75
+pp set upscale_mode 0
+pp set sharpening 0
+pp_screenshot fsr_06_75pct_nearest
+
+echo "7. 75% scale: bilinear"
+pp set render_scale 75
+pp set upscale_mode 1
+pp_screenshot fsr_07_75pct_bilinear
+
+echo "8. 75% scale: FSR1"
+pp set render_scale 75
+pp set upscale_mode 2
+pp_screenshot fsr_08_75pct_fsr1
+
+echo "9. Restore native"
+pp set render_scale 100
+pp set upscale_mode 0
+pp_screenshot fsr_09_restored
+
+echo "FSR comparison complete - check screenshot folder"
