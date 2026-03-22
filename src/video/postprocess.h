@@ -195,4 +195,16 @@ std::span<const PPEffectDescriptor> GetPPEffectDescriptors();
 bool IsLabEffect(std::string_view key);
 bool IsPresetEligible(std::string_view key);
 
+/** Quality tier for post-processing pass budgets. */
+enum class QualityTier : uint8_t {
+	Low    = 0, ///< No PP, GL_NEAREST.
+	Medium = 1, ///< Basic upscale + FXAA or CAS + optional grading.
+	High   = 2, ///< SSAA at close zoom + best filters + bloom + vignette + tiltshift.
+	Photo  = 3, ///< Unlimited. Presentation extras.
+};
+
+QualityTier EstimateQualityTier(const PostProcessConfig &config);
+int GetTierPassBudget(QualityTier tier);
+std::string_view GetTierName(QualityTier tier);
+
 #endif /* VIDEO_POSTPROCESS_H */

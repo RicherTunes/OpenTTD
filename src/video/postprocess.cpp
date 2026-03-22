@@ -387,3 +387,82 @@ ViewportScratchDimensions CalculateViewportScratchDimensions(int vp_width, int v
 	dims.pitch = dims.width;
 	return dims;
 }
+
+/**
+ * Estimate the quality tier required by the current PP configuration.
+ * Returns the highest quality_tier_min of any active effect in the registry.
+ * @param config Current post-processing configuration.
+ * @return Estimated quality tier.
+ */
+QualityTier EstimateQualityTier(const PostProcessConfig &config)
+{
+	/* Map config bools to registry keys. */
+	struct EffectMapping {
+		std::string_view key;
+		bool active;
+	};
+	const EffectMapping mappings[] = {
+		{"fxaa",           config.fxaa},
+		{"sharpening",     config.sharpening > 0},
+		{"color_grading",  config.color_grading},
+		{"vignette",       config.vignette},
+		{"pixel_smooth",   config.pixel_smoothing},
+		{"supersample",    config.render_scale > 100},
+		{"bloom",          config.bloom},
+		{"lighting",       config.dynamic_lighting},
+		{"weather",        config.weather_type > 0},
+		{"night",          config.night_mode},
+		{"tiltshift",      config.tiltshift},
+		{"crt",            config.crt_filter},
+		{"grain",          config.film_grain},
+		{"shadows",        config.fake_shadows},
+		{"water",          config.water_reflections},
+		{"ssao",           config.ssao},
+		{"terrain_smooth", config.terrain_smooth},
+		{"tree_sway",      config.tree_sway},
+		{"sky",            config.sky_clouds},
+		{"dof",            config.depth_of_field},
+	};
+
+	uint8_t max_tier = 0;
+	for (const auto &m : mappings) {
+		if (!m.active) continue;
+		const PPEffectDescriptor *desc = GetPPEffectDescriptor(m.key);
+		if (desc != nullptr && desc->quality_tier_min > max_tier) {
+			max_tier = desc->quality_tier_min;
+		}
+	}
+	return static_cast<QualityTier>(max_tier);
+}
+
+/**
+ * Get the maximum number of shader passes allowed for a quality tier.
+ * @param tier Quality tier to query.
+ * @return Pass budget (999 means unlimited).
+ */
+int GetTierPassBudget(QualityTier tier)
+{
+	switch (tier) {
+		case QualityTier::Low:    return 0;
+		case QualityTier::Medium: return 4;
+		case QualityTier::High:   return 10;
+		case QualityTier::Photo:  return 999;
+		default: return 0;
+	}
+}
+
+/**
+ * Get a human-readable name for a quality tier.
+ * @param tier Quality tier to name.
+ * @return Short string name.
+ */
+std::string_view GetTierName(QualityTier tier)
+{
+	switch (tier) {
+		case QualityTier::Low:    return "Low";
+		case QualityTier::Medium: return "Medium";
+		case QualityTier::High:   return "High";
+		case QualityTier::Photo:  return "Photo";
+		default: return "Unknown";
+	}
+}

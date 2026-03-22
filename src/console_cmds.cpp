@@ -3162,6 +3162,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		IConsolePrint(CC_HELP, "GPU post-processing control.");
 		IConsolePrint(CC_HELP, "Usage: 'pp status' - Show current effect states.");
 		IConsolePrint(CC_HELP, "Usage: 'pp info' - Show GPU pipeline capabilities.");
+		IConsolePrint(CC_HELP, "Usage: 'pp budget' - Show pass count, quality tier, and tier budget.");
 		IConsolePrint(CC_HELP, "Usage: 'pp on/off' - Toggle master post-processing switch.");
 		IConsolePrint(CC_HELP, "Usage: 'pp enable/disable <effect>' - Toggle an effect.");
 		IConsolePrint(CC_HELP, "  Ship: {}", ship_effects);
@@ -3279,6 +3280,47 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		} else {
 			IConsolePrint(CC_INFO, "  Upscale plugin: none loaded");
 		}
+		return true;
+	}
+
+	if (argv[1] == "budget") {
+		PostProcessConfig budget_config;
+		budget_config.render_scale = _video_render_scale;
+		budget_config.upscale_mode = static_cast<UpscaleMode>(Clamp<uint8_t>(_video_upscale_mode, 0, 4));
+		budget_config.sharpening = _video_sharpening;
+		budget_config.fxaa = _video_fxaa;
+		budget_config.color_grading = (_video_brightness != 0 || _video_contrast != 100 || _video_saturation != 100 || _video_color_temperature != 0);
+		budget_config.night_mode = _video_night_mode;
+		budget_config.vignette = _video_vignette;
+		budget_config.tiltshift = _video_tiltshift;
+		budget_config.film_grain = _video_film_grain;
+		budget_config.crt_filter = _video_crt_filter;
+		budget_config.dynamic_lighting = _video_dynamic_lighting;
+		budget_config.bloom = _video_bloom;
+		budget_config.weather_type = _video_weather_type;
+		budget_config.pixel_smoothing = _video_pixel_smoothing;
+		budget_config.fake_shadows = _video_fake_shadows;
+		budget_config.water_reflections = _video_water_reflections;
+		budget_config.ssao = _video_ssao;
+		budget_config.terrain_smooth = _video_terrain_smooth;
+		budget_config.tree_sway = _video_tree_sway;
+		budget_config.sky_clouds = _video_sky_clouds;
+		budget_config.depth_of_field = _video_depth_of_field;
+
+		int passes = PostProcessPassCount(budget_config);
+		QualityTier tier = EstimateQualityTier(budget_config);
+		int budget = GetTierPassBudget(tier);
+
+		IConsolePrint(CC_INFO, "PP Budget:");
+		IConsolePrint(CC_INFO, "  Active passes: {}", passes);
+		IConsolePrint(CC_INFO, "  Estimated tier: {}", GetTierName(tier));
+		if (budget == 999) {
+			IConsolePrint(CC_INFO, "  Tier pass budget: unlimited");
+		} else {
+			IConsolePrint(CC_INFO, "  Tier pass budget: {}", budget);
+		}
+		IConsolePrint(CC_INFO, "  Status: {}", passes <= budget ? "within budget" : "OVER BUDGET");
+		IConsolePrint(CC_INFO, "  (GPU ms measurement available via 'benchmark start')");
 		return true;
 	}
 
@@ -3602,7 +3644,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		return true;
 	}
 
-	IConsolePrint(CC_ERROR, "Unknown sub-command '{}'. Use: status, on, off, enable, disable, set, reset, preset, cycle.", argv[1]);
+	IConsolePrint(CC_ERROR, "Unknown sub-command '{}'. Use: status, info, budget, on, off, enable, disable, set, reset, preset, cycle.", argv[1]);
 	return false;
 }
 
