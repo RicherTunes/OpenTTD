@@ -47,6 +47,20 @@
 #include "misc_cmd.h"
 #include "benchmark.h"
 #include "video/video_driver.hpp"
+/* opengl.h requires GL headers -- only include when OpenGL is available.
+ * The GL headers are pulled in via the precompiled stdafx.h when WITH_OPENGL. */
+#ifdef WITH_OPENGL
+#if defined(_WIN32)
+#	include <windows.h>
+#endif
+#define GL_GLEXT_PROTOTYPES
+#if defined(__APPLE__)
+#	include <OpenGL/gl3.h>
+#else
+#	include <GL/gl.h>
+#endif
+#include "video/opengl.h"
+#endif /* WITH_OPENGL */
 #include "video/upscale_plugin.h"
 #include "video/pp_screenshot.h"
 
@@ -2942,10 +2956,12 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		IConsolePrint(CC_INFO, "GPU Pipeline Info:");
 		IConsolePrint(CC_INFO, "  Video driver: {}", vd != nullptr ? vd->GetInfoString() : "none");
 		IConsolePrint(CC_INFO, "  Hardware accel: {}", _video_hw_accel ? "YES" : "NO");
+#ifdef WITH_OPENGL
 		if (OpenGLBackend::Get() != nullptr) {
 			IConsolePrint(CC_INFO, "  OpenGL FBO: {}", OpenGLBackend::Get()->IsPostProcessSupported() ? "YES" : "NO");
 			IConsolePrint(CC_INFO, "  Display: {}x{}", _screen.width, _screen.height);
 		}
+#endif
 		auto *plugin = GetLoadedUpscalePlugin();
 		if (plugin != nullptr) {
 			const char *pname = plugin->get_name != nullptr ? plugin->get_name() : "unknown";
