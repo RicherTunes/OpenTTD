@@ -38,7 +38,7 @@ void CreateLakes()
 	const uint min_lake_height = 2;
 	const uint max_lake_height = 4 + amount * 2; /* 6, 8, 10 for Few/Normal/Many */
 	const uint min_lake_size = 4;
-	const uint max_lake_size = Map::ScaleBySize(64 << amount); /* Larger lakes for higher settings */
+	const uint max_lake_size = std::min<uint>(Map::ScaleBySize(64 << amount), Map::Size() / 16); /* Cap at 6.25% of map */
 
 	std::vector<bool> visited(Map::Size(), false);
 	std::queue<TileIndex> bfs_queue;
