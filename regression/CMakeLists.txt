@@ -63,6 +63,7 @@
         lifecycle_shore_stress_1337 lifecycle_shore_stress_2024
         lifecycle_shore_stress_31415 lifecycle_shore_stress_54321
         lifecycle_shore_stress_98765
+        lifecycle_pp_enabled
     )
     foreach(CFG ${LIFECYCLE_CFGS})
         add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${CFG}.cfg
@@ -245,6 +246,9 @@
     add_lifecycle_test(shore_stress_31415 -g -G 31415 -c regression/lifecycle_shore_stress_31415.cfg)
     add_lifecycle_test(shore_stress_54321 -g -G 54321 -c regression/lifecycle_shore_stress_54321.cfg)
     add_lifecycle_test(shore_stress_98765 -g -G 98765 -c regression/lifecycle_shore_stress_98765.cfg)
+
+    # PP enabled during generation (exercises FBO setup + shader init during game init)
+    add_lifecycle_test(pp_enabled -g -G 1 -c regression/lifecycle_pp_enabled.cfg)
 
     # Load the existing regression test savegame (verifies save/load path)
     add_lifecycle_test(load_save -g ai/regression/test.sav -c regression/lifecycle.cfg)
