@@ -68,6 +68,8 @@ enum GenerateLandscapeWidgets : WidgetID {
 
 	WID_GL_CLIMATE_SEL_LABEL,           ///< NWID_SELECTION for snow or desert coverage label
 	WID_GL_CLIMATE_SEL_SELECTOR,        ///< NWID_SELECTION for snow or desert coverage selector
+	WID_GL_PREVIEW_PANEL,               ///< Panel containing the map preview.
+	WID_GL_PREVIEW_CANVAS,              ///< Empty widget where the map preview is drawn.
 };
 
 /** Widgets of the #CreateScenarioWindow class. */

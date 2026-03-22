@@ -200,6 +200,8 @@ add_files(
     genworld.cpp
     genworld.h
     genworld_gui.cpp
+    genworld_preview.cpp
+    genworld_preview.h
     gfx.cpp
     gfx_func.h
     gfx_layout.cpp

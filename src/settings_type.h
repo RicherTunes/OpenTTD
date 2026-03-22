@@ -100,6 +100,8 @@ enum class ContinentShape : uint8_t {
 	Fjords,       ///< Deep water inlets cutting into a landmass.
 	Scattered,    ///< Many small scattered islands.
 	Peninsula,    ///< Landmass with protruding peninsulas.
+	Mesa,         ///< Flat-topped plateaus with steep canyon walls.
+	Volcanic,     ///< Central volcanic peak with radial ridges.
 };
 
 /** Terrain generation algorithm variant. */

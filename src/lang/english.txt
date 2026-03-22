@@ -1313,6 +1313,8 @@ STR_CONTINENT_SHAPE_ARCHIPELAGO                                 :Archipelago
 STR_CONTINENT_SHAPE_FJORDS                                      :Fjords
 STR_CONTINENT_SHAPE_SCATTERED                                   :Scattered
 STR_CONTINENT_SHAPE_PENINSULA                                   :Peninsula
+STR_CONTINENT_SHAPE_MESA                                        :Mesa/Canyon
+STR_CONTINENT_SHAPE_VOLCANIC                                    :Volcanic
 
 STR_TERRAIN_ALGORITHM_CLASSIC                                   :Classic
 STR_TERRAIN_ALGORITHM_IMPROVED_PERLIN                           :Improved Perlin

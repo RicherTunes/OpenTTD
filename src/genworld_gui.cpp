@@ -33,6 +33,7 @@
 #include "ai/ai_gui.hpp"
 #include "game/game_gui.hpp"
 #include "terrain_advanced_gui.h"
+#include "genworld_preview.h"
 #include "industry.h"
 #include "core/string_consumer.hpp"
 
@@ -185,6 +186,15 @@ static constexpr std::initializer_list<NWidgetPart> _nested_generate_landscape_w
 					NWidget(WWT_TEXTBTN, COLOUR_ORANGE, WID_GL_WATER_SW), SetToolTip(STR_MAPGEN_SOUTHWEST_TOOLTIP), SetFill(1, 1),
 					NWidget(WWT_TEXTBTN, COLOUR_ORANGE, WID_GL_WATER_SE), SetToolTip(STR_MAPGEN_SOUTHEAST_TOOLTIP), SetFill(1, 1),
 					NWidget(WWT_TEXT, INVALID_COLOUR), SetStringTip(STR_MAPGEN_SOUTHEAST), SetPadding(0, 0, 0, WidgetDimensions::unscaled.hsep_normal), SetFill(1, 1),
+				EndContainer(),
+			EndContainer(),
+
+			/* Terrain preview */
+			NWidget(NWID_HORIZONTAL), SetPIPRatio(1, 0, 1),
+				NWidget(WWT_PANEL, COLOUR_BROWN, WID_GL_PREVIEW_PANEL),
+					NWidget(NWID_VERTICAL), SetPadding(4, 4, 4, 4),
+						NWidget(WWT_EMPTY, INVALID_COLOUR, WID_GL_PREVIEW_CANVAS), SetMinimalSize(256, 128), SetFill(1, 1), SetResize(1, 0),
+					EndContainer(),
 				EndContainer(),
 			EndContainer(),
 
@@ -399,6 +409,8 @@ struct GenerateLandscapeWindow : public Window {
 	uint y = 0;
 	EncodedString name{};
 	GenerateLandscapeWindowMode mode{};
+	MapPreviewData preview{};         ///< Cached map preview data.
+	bool preview_dirty = true;        ///< Preview needs regeneration.
 
 	GenerateLandscapeWindow(WindowDesc &desc, WindowNumber number = 0) : Window(desc)
 	{
@@ -502,6 +514,8 @@ struct GenerateLandscapeWindow : public Window {
 	void OnInvalidateData([[maybe_unused]] int data = 0, [[maybe_unused]] bool gui_scope = true) override
 	{
 		if (!gui_scope) return;
+		/* Mark preview as dirty so it regenerates on next paint */
+		this->preview_dirty = true;
 		/* Update the climate buttons */
 		this->SetWidgetLoweredState(WID_GL_TEMPERATE, _settings_newgame.game_creation.landscape == LandscapeType::Temperate);
 		this->SetWidgetLoweredState(WID_GL_ARCTIC,    _settings_newgame.game_creation.landscape == LandscapeType::Arctic);
@@ -635,6 +649,11 @@ struct GenerateLandscapeWindow : public Window {
 				size.width = 0;
 				break;
 
+			case WID_GL_PREVIEW_CANVAS:
+				size.width = std::max(size.width, 256u);
+				size.height = std::max(size.height, 128u);
+				return;
+
 			default:
 				return;
 		}
@@ -642,6 +661,40 @@ struct GenerateLandscapeWindow : public Window {
 		d.width += padding.width;
 		d.height += padding.height;
 		size = maxdim(size, d);
+	}
+
+	void DrawWidget(const Rect &r, WidgetID widget) const override
+	{
+		if (widget != WID_GL_PREVIEW_CANVAS) return;
+
+		/* Lazy-generate preview on first paint or when settings change */
+		if (this->preview_dirty || this->preview.pixels.empty()) {
+			/* const_cast is safe here: preview is a cache, not visible state */
+			auto *mutable_this = const_cast<GenerateLandscapeWindow *>(this);
+			uint32_t seed = _settings_newgame.game_creation.generation_seed;
+			if (seed == 0) seed = InteractiveRandom();
+			GenerateMapPreview(mutable_this->preview, seed,
+				_settings_newgame.game_creation.map_x,
+				_settings_newgame.game_creation.map_y,
+				256, 128);
+			mutable_this->preview_dirty = false;
+		}
+
+		if (this->preview.pixels.empty()) return;
+
+		/* Draw the preview bitmap using palette colours.
+		 * Each pixel is drawn as a GfxFillRect 1x1 to use the palette system. */
+		int draw_w = std::min((int)this->preview.width, r.Width());
+		int draw_h = std::min((int)this->preview.height, r.Height());
+		int offset_x = r.left + (r.Width() - draw_w) / 2;
+		int offset_y = r.top + (r.Height() - draw_h) / 2;
+
+		for (int py = 0; py < draw_h; py++) {
+			for (int px = 0; px < draw_w; px++) {
+				uint8_t colour = this->preview.pixels[py * this->preview.width + px];
+				GfxFillRect(offset_x + px, offset_y + py, offset_x + px, offset_y + py, colour);
+			}
+		}
 	}
 
 	void OnClick([[maybe_unused]] Point pt, WidgetID widget, [[maybe_unused]] int click_count) override
