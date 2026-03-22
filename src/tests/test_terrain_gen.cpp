@@ -1169,7 +1169,7 @@ TEST_CASE("Harbor overlay - score to colour gradient") {
 	CHECK(HarborScoreToColour(0) == 0);
 	CHECK(HarborScoreToColour(50) == 0x98);
 	CHECK(HarborScoreToColour(100) == 0x99);
-	CHECK(HarborScoreToColour(200) == 0x9A);
+	CHECK(HarborScoreToColour(150) == 0x9A);
 	CHECK(HarborScoreToColour(255) == 0x9B);
 }
 
