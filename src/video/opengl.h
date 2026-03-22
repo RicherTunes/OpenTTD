@@ -210,6 +210,7 @@ private:
 	GLint pp_water_reflect_time_loc = -1;        ///< Animation time uniform.
 	GLint pp_water_reflect_texel_loc = -1;       ///< Texel size uniform.
 	GLint pp_water_reflect_viewport_loc = -1;    ///< Water reflection viewport_uv uniform.
+	GLint pp_water_reflect_class_loc = -1;       ///< Water reflect class_tex sampler location.
 	GLint pp_ssao_radius_loc = -1;       ///< SSAO radius uniform location.
 	GLint pp_ssao_intensity_loc = -1;    ///< SSAO intensity uniform location.
 	GLint pp_ssao_samples_loc = -1;      ///< SSAO samples uniform location.

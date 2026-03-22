@@ -1054,6 +1054,7 @@ static const char *_frag_shader_pp_shadow[] = {
 static const char *_frag_shader_pp_water_reflect[] = {
 	"#version 150\n",
 	"uniform sampler2D source_tex;",
+	"uniform sampler2D class_tex;",
 	"uniform vec2 texel_size;",
 	"uniform float reflection_intensity;",
 	"uniform float distortion_amount;",
@@ -1062,31 +1063,34 @@ static const char *_frag_shader_pp_water_reflect[] = {
 	"in vec2 tex_coord;",
 	"out vec4 frag_colour;",
 	"void main() {",
+	/* Skip pixels outside viewport (UI area). */
 	"  if (viewport_uv.z > 0.0 && (tex_coord.x < viewport_uv.x || tex_coord.x > viewport_uv.z || tex_coord.y < viewport_uv.y || tex_coord.y > viewport_uv.w)) {",
 	"    frag_colour = texture(source_tex, tex_coord);",
 	"    return;",
 	"  }",
+	/* Read classification: SPRITE_CLASS_WATER = 2 (value 2/255 in R8 texture). */
+	"  float cls = texture(class_tex, tex_coord).r * 255.0;",
+	"  float is_water = step(1.5, cls) * step(cls, 2.5);",
 	"  vec4 base = texture(source_tex, tex_coord);",
-	"  float r = base.r, g = base.g, b = base.b;",
-	"  float lum = r * 0.299 + g * 0.587 + b * 0.114;",
-	/* Detect water: blue-dominant, moderate brightness, low saturation spread */
-	"  float blue_excess = b - max(r, g);",
-	"  float is_water = smoothstep(0.02, 0.15, blue_excess) * smoothstep(0.05, 0.25, lum);",
 	"  if (is_water < 0.01) {",
 	"    frag_colour = base;",
 	"    return;",
 	"  }",
-	/* Compute reflected UV (flip vertically from pixel position) */
-	"  float wave = sin(tex_coord.x * 80.0 + time * 2.0) * distortion_amount * texel_size.y;",
-	"  float wave2 = sin(tex_coord.x * 40.0 - time * 1.3) * distortion_amount * 0.5 * texel_size.x;",
-	"  vec2 reflect_uv = vec2(tex_coord.x + wave2, 1.0 - tex_coord.y + wave);",
-	"  reflect_uv = clamp(reflect_uv, vec2(0.0), vec2(1.0));",
-	"  vec4 reflected = texture(source_tex, reflect_uv);",
-	/* Tint reflection slightly blue for water color */
-	"  reflected.rgb = mix(reflected.rgb, vec3(0.3, 0.4, 0.6), 0.2);",
-	/* Blend reflection with base water color */
-	"  float blend = is_water * reflection_intensity;",
-	"  frag_colour = vec4(mix(base.rgb, reflected.rgb, blend), base.a);",
+	/* Water response: subtle shimmer + directional highlight instead of literal reflection.
+	 * This looks better for isometric sprites than a global Y-flip. */
+	"  float wave1 = sin(tex_coord.x * 80.0 + time * 2.0) * 0.5 + 0.5;",
+	"  float wave2 = sin(tex_coord.y * 60.0 - time * 1.5) * 0.5 + 0.5;",
+	"  float shimmer = wave1 * wave2;",
+	/* Sample nearby pixels for local colour variation. */
+	"  vec2 offset1 = vec2(sin(time * 1.3 + tex_coord.x * 40.0) * distortion_amount, cos(time * 0.9 + tex_coord.y * 30.0) * distortion_amount) * texel_size;",
+	"  vec3 nearby = texture(source_tex, tex_coord + offset1).rgb;",
+	/* Blend: slight brightening from shimmer + subtle colour shift from nearby sample. */
+	"  vec3 highlight = mix(base.rgb, nearby, 0.15);",
+	"  highlight += vec3(0.03, 0.04, 0.06) * shimmer;",
+	/* Tint slightly toward water colour for coherence. */
+	"  highlight = mix(highlight, vec3(0.25, 0.35, 0.55), 0.08 * is_water);",
+	"  vec3 result = mix(base.rgb, highlight, is_water * reflection_intensity);",
+	"  frag_colour = vec4(clamp(result, 0.0, 1.0), base.a);",
 	"}",
 };
 

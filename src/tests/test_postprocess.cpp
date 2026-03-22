@@ -3222,3 +3222,20 @@ TEST_CASE("PostProcess - toon and heat_haze combined")
 	CHECK(PostProcessPassCount(config) == 2);
 	CHECK(PostProcessNeedsFBO(config));
 }
+
+/* --- Water effect metadata conversion tests (M5C) --- */
+
+TEST_CASE("PostProcess - water reflections still adds one pass after class_tex conversion")
+{
+	PostProcessConfig config;
+	config.water_reflections = true;
+	CHECK(PostProcessPassCount(config) == 1);
+	CHECK(PostProcessNeedsFBO(config));
+}
+
+TEST_CASE("PostProcess - water reflections requires sprite classification for class_tex")
+{
+	PostProcessConfig config;
+	config.water_reflections = true;
+	CHECK(PostProcessNeedsSpriteClassification(config));
+}

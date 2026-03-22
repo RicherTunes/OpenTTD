@@ -1911,6 +1911,13 @@ bool OpenGLBackend::InitPostProcessShaders()
 	this->pp_water_reflect_time_loc = CacheLoc(this->pp_water_reflect_program, "time");
 	this->pp_water_reflect_texel_loc = CacheLoc(this->pp_water_reflect_program, "texel_size");
 	this->pp_water_reflect_viewport_loc = CacheLoc(this->pp_water_reflect_program, "viewport_uv");
+	/* Bind class_tex sampler to texture unit 1 for metadata-backed water detection. */
+	this->pp_water_reflect_class_loc = -1;
+	if (this->pp_water_reflect_program != 0) {
+		_glUseProgram(this->pp_water_reflect_program);
+		this->pp_water_reflect_class_loc = _glGetUniformLocation(this->pp_water_reflect_program, "class_tex");
+		if (this->pp_water_reflect_class_loc >= 0) _glUniform1i(this->pp_water_reflect_class_loc, 1);
+	}
 
 	/* SSAO uniforms. */
 	this->pp_ssao_radius_loc = CacheLoc(this->pp_ssao_program, "ssao_radius");
@@ -2524,6 +2531,12 @@ void OpenGLBackend::RenderPostProcess()
 			_glUniform4f(this->pp_water_reflect_viewport_loc, uv_left, uv_top, uv_right, uv_bottom);
 		} else if (this->pp_water_reflect_viewport_loc >= 0) {
 			_glUniform4f(this->pp_water_reflect_viewport_loc, 0.0f, 0.0f, 0.0f, 0.0f);
+		}
+		/* Bind class_tex to texture unit 1 for metadata-backed water detection. */
+		if (this->class_texture != 0) {
+			_glActiveTexture(GL_TEXTURE1);
+			_glBindTexture(GL_TEXTURE_2D, this->class_texture);
+			_glActiveTexture(GL_TEXTURE0);
 		}
 		RunPass();
 	}

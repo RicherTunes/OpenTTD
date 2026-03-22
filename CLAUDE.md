@@ -290,7 +290,7 @@ Global variables (`_video_*` in `video_driver.cpp`, 66+ vars) -> synced per-fram
 - Bicubic upscale uses render-resolution texel pitch (not display-resolution)
 - Render scale slider supports 25-200% range for CPU viewport scaling
 - SSAO uses luminance-based pseudo-depth (no separate depth buffer needed)
-- Water reflection detects water by blue_excess = b - max(r,g) with smoothstep
+- Water reflection uses class_tex classification buffer (SPRITE_CLASS_WATER=2) instead of color heuristic
 - Tree sway uses green_excess detection with position-keyed sine phase
 - Sky clouds use FBM noise with brightness/saturation-based sky detection
 - Fake shadows cast directional edge-detection blur with configurable angle
