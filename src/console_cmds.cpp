@@ -2872,6 +2872,8 @@ static void ResetPPDefaults()
 	_video_sharpening = 50;
 	_video_texture_filter = 0;
 	_video_fxaa = false;
+	_video_fxaa_quality = 75;
+	_video_fxaa_threshold = 13;
 	_video_night_mode = false;
 	_video_crt_filter = false;
 	_video_vignette = false;
@@ -2936,7 +2938,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		IConsolePrint(CC_INFO, "  Texture filter: {} ({})", _video_texture_filter,
 			_video_texture_filter <= 2 ? texfilter_names[_video_texture_filter] : "Unknown");
 		IConsolePrint(CC_INFO, "  Sharpening: {}", _video_sharpening);
-		IConsolePrint(CC_INFO, "  FXAA: {}", _video_fxaa ? "ON" : "OFF");
+		IConsolePrint(CC_INFO, "  FXAA: {} (quality={}, threshold={})", _video_fxaa ? "ON" : "OFF", _video_fxaa_quality, _video_fxaa_threshold);
 		IConsolePrint(CC_INFO, "  Night mode: {} (intensity={}, blue_shift={})", _video_night_mode ? "ON" : "OFF", _video_night_intensity, _video_night_blue_shift);
 		IConsolePrint(CC_INFO, "  CRT filter: {} (scanlines={}, curvature={}, aberration={})", _video_crt_filter ? "ON" : "OFF", _video_crt_scanlines, _video_crt_curvature, _video_crt_aberration);
 		IConsolePrint(CC_INFO, "  Vignette: {} (intensity={}, radius={})", _video_vignette ? "ON" : "OFF", _video_vignette_intensity, _video_vignette_radius);
@@ -3064,6 +3066,12 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		} else if (param == "temperature") {
 			_video_color_temperature = static_cast<int8_t>(Clamp(value, -100, 100));
 			IConsolePrint(CC_INFO, "Color temperature set to {}.", _video_color_temperature);
+		} else if (param == "fxaa_quality") {
+			_video_fxaa_quality = static_cast<uint8_t>(Clamp(value, 0, 100));
+			IConsolePrint(CC_INFO, "FXAA quality set to {}.", _video_fxaa_quality);
+		} else if (param == "fxaa_threshold") {
+			_video_fxaa_threshold = static_cast<uint8_t>(Clamp(value, 1, 50));
+			IConsolePrint(CC_INFO, "FXAA threshold set to {}.", _video_fxaa_threshold);
 		} else if (param == "night_intensity") {
 			_video_night_intensity = static_cast<uint8_t>(Clamp(value, 20, 100));
 			IConsolePrint(CC_INFO, "Night intensity set to {}.", _video_night_intensity);
