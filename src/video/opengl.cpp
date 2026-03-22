@@ -1362,8 +1362,17 @@ void OpenGLBackend::Paint()
 			this->SetupPostProcessFBOs(this->pp_display_size.width > 0 ? this->pp_display_size.width : _screen.width,
 			                           this->pp_display_size.height > 0 ? this->pp_display_size.height : _screen.height);
 		}
-		if (scale_changed) {
+		if (scale_changed && !fbo_need_changed) {
+			/* Defer resize when just adjusting the slider (avoids resize spam during drag). */
 			this->pp_render_scale_pending = true;
+		} else if (scale_changed && fbo_need_changed) {
+			/* PP topology changed (toggled on/off) — resize immediately to avoid
+			 * a one-frame glitch where the scene renders at the wrong resolution. */
+			this->pp_render_scale_pending = false;
+			int disp_w = this->pp_display_size.width > 0 ? (int)this->pp_display_size.width : _screen.width;
+			int disp_h = this->pp_display_size.height > 0 ? (int)this->pp_display_size.height : _screen.height;
+			this->Resize(disp_w, disp_h, true);
+			this->SetupPostProcessFBOs(disp_w, disp_h);
 		} else if (this->pp_render_scale_pending) {
 			/* Scale stabilized (same value for 2 consecutive frames) — apply now.
 			 * Resize() updates _screen and PBO dimensions, SetupPostProcessFBOs
@@ -1391,6 +1400,18 @@ void OpenGLBackend::Paint()
 	/* Post-processing requires 32bpp blitter -- 8bpp palette indices are not valid RGBA input. */
 	bool pp_this_frame = this->pp_active && bpp != 8;
 
+	/* Debug: log PP state for first 20 frames to diagnose effect issues. */
+	{
+		static int dbg_frames = 0;
+		if (this->pp_active && dbg_frames < 20) {
+			dbg_frames++;
+			Debug(driver, 0, "Paint[{}]: pp_active={} night={} vignette={} crt={} passes={}",
+				dbg_frames, this->pp_active, this->pp_config.night_mode,
+				this->pp_config.vignette, this->pp_config.crt_filter,
+				PostProcessPassCount(this->pp_config));
+		}
+	}
+
 	if (pp_this_frame) {
 		/* Render scene into post-processing FBO at render resolution. */
 		_glBindFramebuffer(GL_FRAMEBUFFER, this->pp_fbo[0]);
@@ -1406,14 +1427,17 @@ void OpenGLBackend::Paint()
 	_glBindTexture(GL_TEXTURE_2D, this->vid_texture);
 
 	/* Apply bilinear filtering setting (only when not in 8bpp palette mode).
-	 * Skip redundant GL state changes when PP is off and filter is nearest (default). */
-	if ((this->pp_config.bilinear_filtering || this->pp_config.upscale_mode == UpscaleMode::Bilinear) && bpp != 8) {
+	 * Track filter state to avoid redundant GL calls and ensure NEAREST is
+	 * restored when transitioning from LINEAR (e.g., PP disabled after use). */
+	bool want_linear = (this->pp_config.bilinear_filtering || this->pp_config.upscale_mode == UpscaleMode::Bilinear) && bpp != 8;
+	if (want_linear && !this->pp_vid_filter_was_linear) {
 		_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	} else if (this->pp_config.bilinear_filtering || pp_this_frame) {
-		/* Only reset to NEAREST if we previously set LINEAR, to avoid per-frame state spam. */
+		this->pp_vid_filter_was_linear = true;
+	} else if (!want_linear && this->pp_vid_filter_was_linear) {
 		_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		this->pp_vid_filter_was_linear = false;
 	}
 
 	_glActiveTexture(GL_TEXTURE1);
