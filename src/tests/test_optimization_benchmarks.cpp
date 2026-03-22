@@ -15,6 +15,7 @@
 #include <cmath>
 #include <vector>
 #include <forward_list>
+#include <unordered_map>
 #include <unordered_set>
 #include <algorithm>
 #include <numeric>
@@ -658,4 +659,78 @@ TEST_CASE("Benchmark - HeightMap slope smoothing: pointer arithmetic vs accessor
 	/* The optimized version eliminates per-tile multiplication and branch
 	 * misprediction overhead. Allow 2x margin for CI load variance. */
 	CHECK(optimized_us <= baseline_us * 2);
+}
+
+/*
+ * Benchmark 10: Persistent slope cache vs per-frame clear
+ *
+ * Simulates slope lookups across multiple frames where most tiles don't change.
+ * Persistent cache with selective invalidation should be faster because it
+ * avoids re-computing unchanged tiles. Only ~0.5% of tiles change per frame.
+ */
+
+TEST_CASE("Benchmark - Persistent slope cache vs per-frame clear") {
+	/* Simulates slope lookups across multiple frames where most tiles don't change.
+	 * Persistent cache should be faster because it avoids re-computing unchanged tiles. */
+	const int MAP_SIZE = 4096;
+	const int VISIBLE_TILES = 800;
+	const int FRAMES = 100;
+	const int CHANGED_PER_FRAME = 5; /* Only 5 tiles change per frame */
+
+	/* Precompute "slope values" (simulating GetTilePixelSlope results) */
+	std::vector<int> slopes(MAP_SIZE);
+	std::srand(44);
+	for (auto &s : slopes) s = std::rand() % 16;
+
+	/* Generate visible tile indices (same across frames -- viewport not moving) */
+	std::vector<int> visible(VISIBLE_TILES);
+	for (int i = 0; i < VISIBLE_TILES; i++) visible[i] = (i * 5) % MAP_SIZE;
+
+	/* Baseline: Clear cache every frame (current approach) */
+	int baseline_lookups = 0;
+	auto t0 = std::chrono::steady_clock::now();
+	for (int frame = 0; frame < FRAMES; frame++) {
+		std::unordered_map<int, int> cache;
+		for (int tile : visible) {
+			auto it = cache.find(tile);
+			if (it == cache.end()) {
+				cache[tile] = slopes[tile]; /* "Compute" slope */
+				baseline_lookups++;
+			}
+		}
+	}
+	auto t1 = std::chrono::steady_clock::now();
+	auto baseline_us = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
+
+	/* Optimized: Persistent cache, invalidate only changed tiles */
+	int optimized_lookups = 0;
+	std::unordered_map<int, int> persistent_cache;
+	persistent_cache.reserve(VISIBLE_TILES * 2);
+	auto t2 = std::chrono::steady_clock::now();
+	for (int frame = 0; frame < FRAMES; frame++) {
+		/* Invalidate a few changed tiles */
+		for (int c = 0; c < CHANGED_PER_FRAME; c++) {
+			int changed_tile = (frame * 7 + c * 13) % MAP_SIZE;
+			persistent_cache.erase(changed_tile);
+		}
+		/* Look up visible tiles */
+		for (int tile : visible) {
+			auto it = persistent_cache.find(tile);
+			if (it == persistent_cache.end()) {
+				persistent_cache[tile] = slopes[tile];
+				optimized_lookups++;
+			}
+		}
+	}
+	auto t3 = std::chrono::steady_clock::now();
+	auto optimized_us = std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count();
+
+	INFO("Per-frame clear:     " << baseline_us << " us (" << baseline_lookups << " lookups)");
+	INFO("Persistent cache:    " << optimized_us << " us (" << optimized_lookups << " lookups)");
+	INFO("Lookup reduction:    " << (1.0 - (double)optimized_lookups / baseline_lookups) * 100.0 << "%");
+	INFO("Speedup:             " << (double)baseline_us / std::max((int64_t)1, optimized_us) << "x");
+
+	/* Persistent cache should have far fewer lookups (only first frame + changes) */
+	CHECK(optimized_lookups < baseline_lookups);
+	CHECK(optimized_us <= baseline_us);
 }
