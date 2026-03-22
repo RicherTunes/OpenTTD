@@ -3002,8 +3002,9 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			_video_sharpening = static_cast<uint8_t>(Clamp(value, 0, 100));
 			IConsolePrint(CC_INFO, "Sharpening set to {}.", _video_sharpening);
 		} else if (param == "upscale") {
-			_video_upscale_mode = static_cast<uint8_t>(Clamp(value, 0, 3));
-			IConsolePrint(CC_INFO, "Upscale mode set to {}.", _video_upscale_mode);
+			_video_upscale_mode = static_cast<uint8_t>(Clamp(value, 0, 4));
+			static const char *unames[] = {"None", "Bilinear", "FSR1", "Temporal", "Plugin"};
+			IConsolePrint(CC_INFO, "Upscale mode set to {} ({}).", _video_upscale_mode, unames[_video_upscale_mode]);
 		} else if (param == "brightness") {
 			_video_brightness = static_cast<int8_t>(Clamp(value, -50, 50));
 			IConsolePrint(CC_INFO, "Brightness set to {}.", _video_brightness);
