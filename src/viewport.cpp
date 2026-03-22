@@ -91,6 +91,7 @@
 #include "framerate_type.h"
 #include "viewport_cmd.h"
 #include "video/motion_vector.h"
+#include "video/opengl.h"
 
 #include <forward_list>
 #include <stack>
