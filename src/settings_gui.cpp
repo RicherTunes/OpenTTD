@@ -995,7 +995,7 @@ struct GameOptionsWindow : Window {
 
 		this->GetWidget<NWidgetStacked>(WID_GO_TAB_SELECTION)->SetDisplayedPlane(plane);
 		if (widget == WID_GO_TAB_ADVANCED) this->SetFocusedWidget(WID_GO_FILTER);
-		this->SetDirty();
+		this->ReInit(); /* Resize window to fit the new tab's content height. */
 	}
 
 	void OnResize() override

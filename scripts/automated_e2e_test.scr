@@ -1,82 +1,81 @@
-; Fully automated E2E test - runs via autoexec on game startup
-; Takes pp_screenshots of each effect, then exits
+; Automated E2E Visual Test
+; This script is run via 'schedule' so it executes AFTER the game is loaded.
+; The game is paused first for consistent screenshots.
 
-; Pause game for consistent screenshots (no animation changes between frames)
 pause
 
-; Baseline: PP must be ON to capture via FBO -> glReadPixels works correctly
-; (When PP is off, glReadPixels reads a black buffer because the scene
-; renders directly to the back buffer which isn't readable after swap)
+; Step 1: Passthrough baseline (PP on, no effects)
+pp reset
 pp on
-pp_screenshot e2e_01_baseline
+pp_screenshot e2e_01_passthrough
 
-; Enable PP passthrough (should look identical to baseline)
-pp on
-pp_screenshot e2e_02_pp_on
-
-; Night mode
+; Step 2: Night mode
 pp enable night
-pp_screenshot e2e_03_night
+pp_screenshot e2e_02_night
 
-; Vignette
+; Step 3: Vignette
 pp disable night
 pp enable vignette
-pp_screenshot e2e_04_vignette
+pp_screenshot e2e_03_vignette
 
-; CRT
+; Step 4: CRT
 pp disable vignette
 pp enable crt
-pp_screenshot e2e_05_crt
+pp_screenshot e2e_04_crt
 
-; Tilt-shift
+; Step 5: Tilt-shift
 pp disable crt
 pp enable tiltshift
-pp_screenshot e2e_06_tiltshift
+pp_screenshot e2e_05_tiltshift
 
-; FXAA
+; Step 6: FXAA
 pp disable tiltshift
 pp enable fxaa
-pp_screenshot e2e_07_fxaa
+pp_screenshot e2e_06_fxaa
 
-; Film grain
+; Step 7: Film grain
 pp disable fxaa
 pp enable grain
-pp_screenshot e2e_08_grain
+pp_screenshot e2e_07_grain
 
-; Color grading warm
+; Step 8: Warm color grading
 pp disable grain
-pp set brightness 20
+pp set brightness 25
 pp set contrast 130
 pp set saturation 140
 pp set color_temperature 50
-pp_screenshot e2e_09_warm
+pp_screenshot e2e_08_warm
 
-; Color grading cool
+; Step 9: Cool color grading
 pp set brightness -15
 pp set contrast 80
 pp set saturation 70
 pp set color_temperature -60
-pp_screenshot e2e_10_cool
+pp_screenshot e2e_09_cool
 
-; Reset + render scale 75%
+; Step 10: FSR1 at 75%
 pp reset
 pp on
 pp set render_scale 75
 pp set upscale_mode 2
-pp_screenshot e2e_11_fsr1_75
+pp_screenshot e2e_10_fsr1_75
 
-; Combined effects
+; Step 11: Sharpening
 pp set render_scale 100
 pp set upscale_mode 0
+pp set sharpening 90
+pp_screenshot e2e_11_sharp90
+
+; Step 12: Combined effects
+pp set sharpening 0
 pp enable vignette
 pp enable fxaa
-pp set sharpening 70
+pp enable night
 pp_screenshot e2e_12_combined
 
-; Restore to passthrough (PP on but no effects = baseline)
+; Step 13: Back to clean passthrough (should match step 1)
 pp reset
 pp on
 pp_screenshot e2e_13_restored
 
-; Done - game continues running, screenshots dequeue one per frame
-echo "E2E test: 13 screenshots queued, capturing over next 13 frames..."
+echo "E2E test complete - 13 screenshots queued"

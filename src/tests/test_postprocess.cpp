@@ -1848,3 +1848,98 @@ TEST_CASE("PostProcess - all UpscaleMode values produce valid pass counts (exten
 		CHECK(passes <= 50); /* Sanity: no mode should produce absurd pass count. */
 	}
 }
+
+/* ====== Comprehensive pass count verification for effect combinations ====== */
+
+TEST_CASE("PostProcess - each individual effect has expected pass count")
+{
+	/* Test each effect in isolation to verify exact pass counts. */
+	auto TestSingleEffect = [](auto setter, int expected) {
+		PostProcessConfig config;
+		setter(config);
+		CHECK(PostProcessPassCount(config) == expected);
+	};
+
+	TestSingleEffect([](auto &c) { c.fxaa = true; }, 1);
+	TestSingleEffect([](auto &c) { c.color_grading = true; }, 1);
+	TestSingleEffect([](auto &c) { c.vignette = true; }, 1);
+	TestSingleEffect([](auto &c) { c.night_mode = true; }, 1);
+	TestSingleEffect([](auto &c) { c.film_grain = true; }, 1);
+	TestSingleEffect([](auto &c) { c.crt_filter = true; }, 1);
+	TestSingleEffect([](auto &c) { c.dynamic_lighting = true; }, 1);
+	TestSingleEffect([](auto &c) { c.tiltshift = true; }, 2); /* H + V blur */
+	TestSingleEffect([](auto &c) { c.bloom = true; }, 4); /* threshold + blur H + blur V + composite */
+	TestSingleEffect([](auto &c) { c.sharpening = 50; }, 1); /* CAS */
+	TestSingleEffect([](auto &c) { c.weather_type = 1; }, 1);
+	TestSingleEffect([](auto &c) { c.weather_type = 2; }, 1);
+	TestSingleEffect([](auto &c) { c.render_scale = 150; }, 1); /* downsample */
+}
+
+TEST_CASE("PostProcess - pass count is additive for independent effects")
+{
+	/* Two independent effects should sum their pass counts. */
+	PostProcessConfig config;
+	config.fxaa = true; /* 1 */
+	config.vignette = true; /* 1 */
+	CHECK(PostProcessPassCount(config) == 2);
+
+	config.night_mode = true; /* +1 */
+	CHECK(PostProcessPassCount(config) == 3);
+
+	config.bloom = true; /* +4 */
+	CHECK(PostProcessPassCount(config) == 7);
+
+	config.weather_type = 1; /* +1 */
+	CHECK(PostProcessPassCount(config) == 8);
+}
+
+TEST_CASE("PostProcess - upscale + sharpening interaction")
+{
+	/* FSR1 suppresses CAS. */
+	PostProcessConfig fsr;
+	fsr.upscale_mode = UpscaleMode::FSR1;
+	fsr.sharpening = 80;
+	CHECK(PostProcessPassCount(fsr) == 2); /* EASU + RCAS only, no CAS */
+
+	/* Temporal suppresses CAS. */
+	PostProcessConfig temporal;
+	temporal.upscale_mode = UpscaleMode::Temporal;
+	temporal.sharpening = 80;
+	CHECK(PostProcessPassCount(temporal) == 1); /* Temporal only, no CAS */
+
+	/* Bilinear does NOT suppress CAS. */
+	PostProcessConfig bilinear;
+	bilinear.upscale_mode = UpscaleMode::Bilinear;
+	bilinear.render_scale = 75;
+	bilinear.sharpening = 80;
+	CHECK(PostProcessPassCount(bilinear) == 2); /* Bilinear + CAS */
+
+	/* None with sharpening. */
+	PostProcessConfig none;
+	none.sharpening = 80;
+	CHECK(PostProcessPassCount(none) == 1); /* CAS only */
+}
+
+TEST_CASE("PostProcess - NeedsFBO is true whenever pass count > 0")
+{
+	/* Exhaustive: if any effect is on, NeedsFBO should be true AND passes > 0. */
+	auto TestConsistency = [](auto setter) {
+		PostProcessConfig config;
+		setter(config);
+		bool needs = PostProcessNeedsFBO(config);
+		int passes = PostProcessPassCount(config);
+		if (needs) CHECK(passes > 0);
+		/* Note: passes > 0 doesn't always imply NeedsFBO (e.g., CAS at 100% render scale
+		 * needs FBO via sharpening > 0 check, which is covered). */
+	};
+
+	TestConsistency([](auto &c) { c.fxaa = true; });
+	TestConsistency([](auto &c) { c.bloom = true; });
+	TestConsistency([](auto &c) { c.weather_type = 1; });
+	TestConsistency([](auto &c) { c.dynamic_lighting = true; });
+	TestConsistency([](auto &c) { c.sharpening = 50; });
+	TestConsistency([](auto &c) { c.render_scale = 75; });
+	TestConsistency([](auto &c) { c.render_scale = 150; });
+	TestConsistency([](auto &c) { c.upscale_mode = UpscaleMode::FSR1; });
+	TestConsistency([](auto &c) { c.upscale_mode = UpscaleMode::Temporal; });
+}

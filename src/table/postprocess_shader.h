@@ -504,7 +504,7 @@ static const char *_frag_shader_pp_bicubic[] = {
 	"  vec2 w3 = f * f * (-0.5 + 0.5 * f);",
 	"",
 	"  /* Combine w1+w2 for bilinear filtering trick (9 taps instead of 16). */",
-	"  vec2 s12 = w1 + w2;",
+	"  vec2 s12 = max(w1 + w2, vec2(1e-10));",
 	"  vec2 f12 = w2 / s12;",
 	"",
 	"  vec2 tc0 = pixel_center + (f12 - 1.0) * texel_size;",
