@@ -2916,7 +2916,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		IConsolePrint(CC_HELP, "Usage: 'pp info' - Show GPU pipeline capabilities.");
 		IConsolePrint(CC_HELP, "Usage: 'pp on/off' - Toggle master post-processing switch.");
 		IConsolePrint(CC_HELP, "Usage: 'pp enable/disable <effect>' - Toggle an effect.");
-		IConsolePrint(CC_HELP, "  Effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather, supersample");
+		IConsolePrint(CC_HELP, "  Effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather, smooth, supersample");
 		IConsolePrint(CC_HELP, "Usage: 'pp set <param> <value>' - Set a parameter.");
 		IConsolePrint(CC_HELP, "  Core: render_scale (50-200), sharpening (0-100), upscale (0-4), texture_filter (0-2)");
 		IConsolePrint(CC_HELP, "  Color: brightness (-50..50), contrast (50-200), saturation (0-200), temperature (-100..100)");
@@ -2924,6 +2924,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		IConsolePrint(CC_HELP, "  CRT: crt_scanlines (0-50), crt_curvature (0-50), crt_aberration (0-30)");
 		IConsolePrint(CC_HELP, "  Vignette: vignette_intensity (0-100), vignette_radius (50-150), vignette_softness (10-80)");
 		IConsolePrint(CC_HELP, "  Tilt-shift: tiltshift_focus (0-100), tiltshift_width (5-80), tiltshift_blur (10-60)");
+		IConsolePrint(CC_HELP, "  Smooth: smooth_amount (0-100)");
 		IConsolePrint(CC_HELP, "  Other: grain_intensity (1-20), bloom_threshold (0-100), bloom_intensity (0-100)");
 		IConsolePrint(CC_HELP, "  Weather: weather_type (0-2), weather_intensity (0-100)");
 		IConsolePrint(CC_HELP, "Usage: 'pp reset' - Restore all post-processing settings to defaults.");
@@ -2951,6 +2952,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		IConsolePrint(CC_INFO, "  Dynamic lighting: {}", _video_dynamic_lighting ? "ON" : "OFF");
 		IConsolePrint(CC_INFO, "  Bloom: {} (threshold={}, intensity={})", _video_bloom ? "ON" : "OFF", _video_bloom_threshold, _video_bloom_intensity);
 		IConsolePrint(CC_INFO, "  Weather: {} (type={}, intensity={})", _video_weather_type > 0 ? "ON" : "OFF", _video_weather_type, _video_weather_intensity);
+		IConsolePrint(CC_INFO, "  Pixel smooth: {} (amount={})", _video_pixel_smoothing ? "ON" : "OFF", _video_pixel_smooth_amount);
 		IConsolePrint(CC_INFO, "  Auto-supersample: {}", _video_auto_supersample ? "ON" : "OFF");
 		IConsolePrint(CC_INFO, "  Brightness: {}", _video_brightness);
 		IConsolePrint(CC_INFO, "  Contrast: {}", _video_contrast);
@@ -2972,6 +2974,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 		est_config.dynamic_lighting = _video_dynamic_lighting;
 		est_config.bloom = _video_bloom;
 		est_config.weather_type = _video_weather_type;
+		est_config.pixel_smoothing = _video_pixel_smoothing;
 		int est_passes = PostProcessPassCount(est_config);
 		IConsolePrint(CC_INFO, "  Estimated shader passes: {} ({})", est_passes,
 			est_passes == 0 ? "no overhead" : est_passes <= 3 ? "light" : est_passes <= 7 ? "moderate" : "heavy");
@@ -3014,7 +3017,7 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 
 	if (argv[1] == "enable" || argv[1] == "disable") {
 		if (argv.size() < 3) {
-			IConsolePrint(CC_ERROR, "Usage: 'pp {} <effect>' - Effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather, supersample", argv[1]);
+			IConsolePrint(CC_ERROR, "Usage: 'pp {} <effect>' - Effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather, smooth, supersample", argv[1]);
 			return false;
 		}
 		bool enable = (argv[1] == "enable");
@@ -3038,10 +3041,12 @@ static bool ConPostProcess(std::span<std::string_view> argv)
 			_video_bloom = enable;
 		} else if (effect == "weather") {
 			_video_weather_type = enable ? 1 : 0;
+		} else if (effect == "smooth" || effect == "pixel_smooth") {
+			_video_pixel_smoothing = enable;
 		} else if (effect == "supersample") {
 			_video_auto_supersample = enable;
 		} else {
-			IConsolePrint(CC_ERROR, "Unknown effect '{}'. Valid effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather, supersample", effect);
+			IConsolePrint(CC_ERROR, "Unknown effect '{}'. Valid effects: fxaa, night, crt, vignette, tiltshift, grain, lighting, bloom, weather, smooth, supersample", effect);
 			return false;
 		}
 

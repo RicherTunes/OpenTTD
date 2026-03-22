@@ -1236,6 +1236,10 @@ void OpenGLBackend::UpdatePalette(const Colour *pal, uint first, uint length)
  */
 void OpenGLBackend::Paint()
 {
+	/* If a queued screenshot has settings to apply, do it BEFORE config sync
+	 * so this frame renders with the correct PP state for the screenshot. */
+	ApplyNextPPScreenshotSettings();
+
 	/* Sync post-processing config from global settings. */
 	if (this->pp_fbo_supported) {
 		PostProcessConfig new_config;
