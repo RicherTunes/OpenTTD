@@ -2008,7 +2008,7 @@ void OpenGLBackend::RenderPostProcess()
 		RunPass();
 	}
 
-	/* Dynamic lighting (time-of-day). Runs before night mode for proper layering. */
+	/* Dynamic lighting (time-of-day). Runs after film grain, before bloom. */
 	if (this->pp_config.dynamic_lighting && this->pp_lighting_program != 0) {
 		_glUseProgram(this->pp_lighting_program);
 		_glUniform1f(this->pp_lighting_tod_loc, this->pp_config.time_of_day);
@@ -2054,8 +2054,8 @@ void OpenGLBackend::RenderPostProcess()
 	/* Weather overlay (rain/snow particles). Applied last — composites on top of everything. */
 	if (this->pp_config.weather_type > 0 && this->pp_weather_program != 0) {
 		auto now = std::chrono::steady_clock::now();
-		if (this->pp_grain_start_time == std::chrono::steady_clock::time_point{}) this->pp_grain_start_time = now;
-		float weather_time = std::fmod(std::chrono::duration<float>(now - this->pp_grain_start_time).count(), 1000.0f);
+		if (this->pp_weather_start_time == std::chrono::steady_clock::time_point{}) this->pp_weather_start_time = now;
+		float weather_time = std::fmod(std::chrono::duration<float>(now - this->pp_weather_start_time).count(), 1000.0f);
 		_glUseProgram(this->pp_weather_program);
 		_glUniform1f(this->pp_weather_time_loc, weather_time);
 		_glUniform1f(this->pp_weather_int_loc, this->pp_config.weather_intensity / 100.0f);
@@ -2087,9 +2087,8 @@ void OpenGLBackend::RenderPostProcess()
 		}
 	}
 
-	/* Check for GL errors in post-processing pipeline (debug only). */
-	GLenum err = _glGetError();
-	if (err != GL_NO_ERROR) {
+	/* Drain all queued GL errors from the post-processing pipeline. */
+	for (GLenum err = _glGetError(); err != GL_NO_ERROR; err = _glGetError()) {
 		Debug(driver, 0, "OpenGL: Post-processing pipeline GL error: 0x{:04X}", err);
 	}
 }

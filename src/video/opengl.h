@@ -167,6 +167,7 @@ private:
 	PostProcessConfig pp_config;     ///< Current post-processing configuration.
 
 	std::chrono::steady_clock::time_point pp_grain_start_time{}; ///< Film grain time base for pseudo-random seed.
+	std::chrono::steady_clock::time_point pp_weather_start_time{}; ///< Weather animation time base (independent of grain).
 
 	/* Benchmark GPU timer query state. */
 	GLuint benchmark_query[2] = {};      ///< Double-buffered GL_TIME_ELAPSED query objects.
